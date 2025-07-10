@@ -1,6 +1,4 @@
 
-__all__ = ["main", "mcp"]
-
 #!/usr/bin/env python3
 """
 Context-Switcher MCP Server
@@ -8,20 +6,21 @@ Multi-perspective analysis using thread orchestration
 """
 
 import asyncio
-import os
-import json
 import logging
-import sys
-from typing import Dict, List, Optional, Any, Union
-from .templates import PERSPECTIVE_TEMPLATES
-from .compression import prepare_synthesis_input, estimate_token_count
+import os
 from dataclasses import dataclass, field
 from datetime import datetime
-from uuid import uuid4
 from enum import Enum
+from typing import Dict, List, Optional, Any
+from uuid import uuid4
 
-from fastmcp import FastMCP, Context
+from fastmcp import FastMCP
 from pydantic import BaseModel, Field
+
+from .compression import prepare_synthesis_input
+from .templates import PERSPECTIVE_TEMPLATES
+
+__all__ = ["main", "mcp"]
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -91,6 +90,23 @@ class ContextSwitcherSession:
 # Global session storage
 sessions: Dict[str, ContextSwitcherSession] = {}
 
+# Helper functions
+def validate_session_id(session_id: str) -> bool:
+    """Validate session ID format and existence"""
+    if not session_id or not isinstance(session_id, str):
+        return False
+    if len(session_id) > 100:  # Reasonable limit
+        return False
+    return session_id in sessions
+
+def validate_topic(topic: str) -> bool:
+    """Validate topic string"""
+    if not topic or not isinstance(topic, str):
+        return False
+    if len(topic.strip()) == 0 or len(topic) > 1000:  # Reasonable limits
+        return False
+    return True
+
 # Thread orchestrator for parallel execution
 class ThreadOrchestrator:
     """Orchestrates parallel thread execution with different LLM backends"""
@@ -148,7 +164,6 @@ class ThreadOrchestrator:
         """Call AWS Bedrock model"""
         try:
             import boto3
-            from botocore.exceptions import ClientError
             
             # Create Bedrock client
             client = boto3.client(
@@ -187,9 +202,9 @@ class ThreadOrchestrator:
         except Exception as e:
             logger.error(f"Bedrock error: {e}")
             if "inference profile" in str(e).lower():
-                return f"Error: Model needs inference profile ID. Try: us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+                return "Error: Model needs inference profile ID. Try: us.anthropic.claude-3-7-sonnet-20250219-v1:0"
             elif "credentials" in str(e).lower():
-                return f"Error: AWS credentials not configured. Run: aws configure"
+                return "Error: AWS credentials not configured. Run: aws configure"
             else:
                 return f"Error calling Bedrock: {str(e)}"
     
@@ -225,9 +240,9 @@ class ThreadOrchestrator:
         except Exception as e:
             logger.error(f"LiteLLM error: {e}")
             if "api_key" in str(e).lower():
-                return f"Error: Missing API key. Set OPENAI_API_KEY or ANTHROPIC_API_KEY environment variable"
+                return "Error: Missing API key. Set OPENAI_API_KEY or ANTHROPIC_API_KEY environment variable"
             elif "connection" in str(e).lower():
-                return f"Error: Cannot connect to LiteLLM. Check LITELLM_API_BASE is set correctly"
+                return "Error: Cannot connect to LiteLLM. Check LITELLM_API_BASE is set correctly"
             else:
                 return f"Error calling LiteLLM: {str(e)}"
     
@@ -273,7 +288,7 @@ class ThreadOrchestrator:
         except Exception as e:
             logger.error(f"Ollama error: {e}")
             if "connection" in str(e).lower():
-                return f"Error: Cannot connect to Ollama. Is it running? Set OLLAMA_HOST=http://your-host:11434"
+                return "Error: Cannot connect to Ollama. Is it running? Set OLLAMA_HOST=http://your-host:11434"
             elif "model" in str(e).lower():
                 return f"Error: Model not found. Pull it first: ollama pull {model}"
             else:
@@ -308,6 +323,10 @@ class StartContextAnalysisRequest(BaseModel):
 )
 async def start_context_analysis(request: StartContextAnalysisRequest) -> Dict[str, Any]:
     """Initialize a new context-switching analysis session"""
+    # Validate input
+    if not validate_topic(request.topic):
+        return {"error": "Invalid topic: must be a non-empty string under 1000 characters"}
+    
     # Create new session
     session_id = str(uuid4())
     session = ContextSwitcherSession(
@@ -389,10 +408,12 @@ class AddPerspectiveRequest(BaseModel):
 )
 async def add_perspective(request: AddPerspectiveRequest) -> Dict[str, Any]:
     """Add a new perspective to an existing analysis session"""
+    # Validate session ID
+    if not validate_session_id(request.session_id):
+        return {"error": "Invalid or non-existent session ID"}
+    
     # Get session
     session = sessions.get(request.session_id)
-    if not session:
-        return {"error": f"Session {request.session_id} not found"}
     
     # Create prompt for new perspective
     if request.custom_prompt:
@@ -431,10 +452,12 @@ class AnalyzeFromPerspectivesRequest(BaseModel):
 )
 async def analyze_from_perspectives(request: AnalyzeFromPerspectivesRequest) -> Dict[str, Any]:
     """Broadcast a prompt to all perspectives and collect their responses"""
+    # Validate session ID
+    if not validate_session_id(request.session_id):
+        return {"error": "Invalid or non-existent session ID"}
+        
     # Get session
     session = sessions.get(request.session_id)
-    if not session:
-        return {"error": f"Session {request.session_id} not found"}
     
     # Broadcast to all threads
     responses = await orchestrator.broadcast_message(
@@ -577,6 +600,25 @@ async def list_sessions() -> Dict[str, Any]:
 async def list_templates() -> Dict[str, Any]:
     """List all available perspective templates"""
     template_info = {}
+    
+    for name, template in PERSPECTIVE_TEMPLATES.items():
+        perspectives = template["perspectives"].copy()
+        
+        # Add custom perspective names
+        for custom_name, _ in template.get("custom", []):
+            perspectives.append(f"{custom_name} (custom)")
+        
+        template_info[name] = {
+            "description": name.replace("_", " ").title(),
+            "perspectives": perspectives,
+            "total_perspectives": len(template["perspectives"]) + len(template.get("custom", []))
+        }
+    
+    return {
+        "templates": template_info,
+        "usage": "Use template parameter in start_context_analysis",
+        "example": 'start_context_analysis(topic="...", template="architecture_decision")'
+    }
 
 @mcp.tool(description="Quick check of your most recent analysis session - see perspectives and results without remembering session ID")
 async def current_session() -> Dict[str, Any]:
@@ -616,25 +658,6 @@ async def current_session() -> Dict[str, Any]:
             "synthesize_perspectives - Find patterns"
         ] if last_analysis is None else ["synthesize_perspectives - Find patterns across viewpoints"]
     }
-    
-    for name, template in PERSPECTIVE_TEMPLATES.items():
-        perspectives = template["perspectives"].copy()
-        
-        # Add custom perspective names
-        for custom_name, _ in template.get("custom", []):
-            perspectives.append(f"{custom_name} (custom)")
-        
-        template_info[name] = {
-            "description": name.replace("_", " ").title(),
-            "perspectives": perspectives,
-            "total_perspectives": len(template["perspectives"]) + len(template.get("custom", []))
-        }
-    
-    return {
-        "templates": template_info,
-        "usage": "Use template parameter in start_context_analysis",
-        "example": 'start_context_analysis(topic="...", template="architecture_decision")'
-    }
 
 class GetSessionRequest(BaseModel):
     session_id: str = Field(description="Session ID to retrieve")
@@ -672,7 +695,6 @@ async def get_session(request: GetSessionRequest) -> Dict[str, Any]:
 # Main entry point
 def main():
     """Run the MCP server"""
-    import sys
     mcp.run(transport="stdio")
 
 if __name__ == "__main__":

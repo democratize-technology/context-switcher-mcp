@@ -1,9 +1,7 @@
 """Tests for Context-Switcher MCP"""
 
 import pytest
-import asyncio
 from datetime import datetime
-from unittest.mock import Mock, patch
 
 from src.context_switcher_mcp import (
     Thread,
@@ -12,10 +10,8 @@ from src.context_switcher_mcp import (
     ModelBackend,
     start_context_analysis,
     add_perspective,
-    analyze_from_perspectives,
     StartContextAnalysisRequest,
     AddPerspectiveRequest,
-    AnalyzeFromPerspectivesRequest,
     NO_RESPONSE,
     sessions
 )

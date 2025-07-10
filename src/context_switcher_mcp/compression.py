@@ -1,7 +1,7 @@
 """Simple text compression for managing token limits in synthesis."""
 
 import re
-from typing import Dict, Any
+from typing import Dict
 
 
 def compress_perspectives(perspectives: Dict[str, str], max_chars_per_perspective: int = 2000) -> Dict[str, str]:
