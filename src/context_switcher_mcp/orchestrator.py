@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import os
-from typing import Dict
+from typing import Dict, Optional
 
 from .models import Thread, ModelBackend
 
@@ -16,12 +16,20 @@ NO_RESPONSE = "[NO_RESPONSE]"
 class ThreadOrchestrator:
     """Orchestrates parallel thread execution with different LLM backends"""
     
-    def __init__(self):
+    def __init__(self, max_retries: int = 3, retry_delay: float = 1.0):
+        """Initialize orchestrator
+        
+        Args:
+            max_retries: Maximum number of retries for failed calls
+            retry_delay: Initial delay between retries (exponential backoff)
+        """
         self.backends = {
             ModelBackend.BEDROCK: self._call_bedrock,
             ModelBackend.LITELLM: self._call_litellm,
             ModelBackend.OLLAMA: self._call_ollama
         }
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay
     
     async def broadcast_message(
         self, 
@@ -58,12 +66,43 @@ class ThreadOrchestrator:
         return result
     
     async def _get_thread_response(self, thread: Thread) -> str:
-        """Get response from a single thread"""
+        """Get response from a single thread with retry logic"""
         backend_fn = self.backends.get(thread.model_backend)
         if not backend_fn:
             raise ValueError(f"Unknown model backend: {thread.model_backend}")
         
-        return await backend_fn(thread)
+        # Try with exponential backoff
+        last_error = None
+        for attempt in range(self.max_retries):
+            try:
+                return await backend_fn(thread)
+            except Exception as e:
+                last_error = e
+                error_str = str(e).lower()
+                
+                # Don't retry on non-transient errors
+                if any(term in error_str for term in [
+                    "api_key", "credentials", "not found", "invalid", 
+                    "unauthorized", "forbidden", "model not found"
+                ]):
+                    logger.error(f"Non-retryable error for {thread.name}: {e}")
+                    return f"Error: {str(e)}"
+                
+                # Retry on transient errors
+                if attempt < self.max_retries - 1:
+                    delay = self.retry_delay * (2 ** attempt)
+                    logger.warning(
+                        f"Attempt {attempt + 1} failed for {thread.name}: {e}. "
+                        f"Retrying in {delay}s..."
+                    )
+                    await asyncio.sleep(delay)
+                else:
+                    logger.error(
+                        f"All {self.max_retries} attempts failed for {thread.name}: {e}"
+                    )
+        
+        # If all retries failed, return error message
+        return f"Error after {self.max_retries} attempts: {str(last_error)}"
     
     async def _call_bedrock(self, thread: Thread) -> str:
         """Call AWS Bedrock model"""
