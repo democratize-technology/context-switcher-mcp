@@ -1,7 +1,7 @@
 """Text compression and token estimation for managing LLM limits"""
 
 import re
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Any
 
 
 def compress_perspectives(perspectives: Dict[str, str], max_chars_per_perspective: int = 2000) -> Dict[str, str]:
@@ -105,7 +105,7 @@ def estimate_token_count(text: str) -> int:
     return int(estimate)
 
 
-def prepare_synthesis_input(perspectives: Dict[str, str], max_total_chars: int = 12000) -> Tuple[str, Dict[str, any]]:
+def prepare_synthesis_input(perspectives: Dict[str, str], max_total_chars: int = 12000) -> Tuple[str, Dict[str, Any]]:
     """Prepare perspectives for synthesis within token limits.
     
     Args:
