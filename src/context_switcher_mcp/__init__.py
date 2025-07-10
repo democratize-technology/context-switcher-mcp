@@ -309,14 +309,28 @@ async def synthesize_perspectives(request: SynthesizePerspectivesRequest) -> Dic
         if not response.startswith("ERROR:") and NO_RESPONSE not in response:
             active[name] = response
     
-    # Prepare synthesis prompt with compression
-    # Log token estimates
-    total_chars = sum(len(response) for response in active.values())
-    estimated_tokens = total_chars // 4  # Rough estimate
-    logger.info(f"Synthesis input: {len(active)} perspectives, ~{total_chars:,} chars, ~{estimated_tokens:,} tokens")
+    # Determine token limit based on backend
+    first_thread = list(session.threads.values())[0]
+    if first_thread.model_backend == ModelBackend.BEDROCK:
+        # Claude models have larger context windows
+        max_chars = 20000 if "opus" in (first_thread.model_name or "").lower() else 12000
+    elif first_thread.model_backend == ModelBackend.LITELLM:
+        # Conservative for various models
+        max_chars = 10000
+    else:
+        # Ollama models vary widely
+        max_chars = 8000
     
-        # Compress perspectives to fit token limits
-    compressed_text = prepare_synthesis_input(active, max_total_chars=12000)
+    # Prepare synthesis prompt with compression
+    compressed_text, compression_stats = prepare_synthesis_input(active, max_total_chars=max_chars)
+    
+    # Log compression stats
+    logger.info(
+        f"Synthesis compression: {compression_stats['perspectives']} perspectives, "
+        f"{compression_stats['original_chars']:,} -> {compression_stats['final_chars']:,} chars "
+        f"({compression_stats['compression_ratio']} reduction), "
+        f"~{compression_stats['final_tokens']:,} tokens"
+    )
     
     synthesis_prompt = f"""
 Based on the following perspectives on "{latest['prompt']}":
