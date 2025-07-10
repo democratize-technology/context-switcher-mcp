@@ -496,19 +496,8 @@ async def get_session(request: GetSessionRequest) -> Dict[str, Any]:
         ]
     }
 
-# Startup hook to start cleanup task
-@mcp.startup
-async def startup():
-    """Start background tasks on server startup"""
-    await session_manager.start_cleanup_task()
-    logger.info("Context-Switcher MCP started with session cleanup enabled")
-
-# Shutdown hook to stop cleanup task
-@mcp.shutdown
-async def shutdown():
-    """Clean up on server shutdown"""
-    await session_manager.stop_cleanup_task()
-    logger.info("Context-Switcher MCP shutdown complete")
+# Note: Session cleanup task should be started manually when needed
+# FastMCP doesn't have startup/shutdown hooks in this version
 
 # Main entry point
 def main():
