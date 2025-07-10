@@ -3,17 +3,22 @@
 import pytest
 from datetime import datetime
 
-from src.context_switcher_mcp import (
+from src.context_switcher_mcp.models import (
     Thread,
     ContextSwitcherSession,
+    ModelBackend
+)
+from src.context_switcher_mcp.orchestrator import (
     ThreadOrchestrator,
-    ModelBackend,
+    NO_RESPONSE
+)
+from src.context_switcher_mcp.session_manager import SessionManager
+from src.context_switcher_mcp import (
     start_context_analysis,
     add_perspective,
     StartContextAnalysisRequest,
     AddPerspectiveRequest,
-    NO_RESPONSE,
-    sessions
+    session_manager
 )
 
 
@@ -139,7 +144,7 @@ class TestMCPTools:
     async def test_start_context_analysis(self):
         """Test starting a new analysis session"""
         # Clear any existing sessions
-        sessions.clear()
+        session_manager.sessions.clear()
         
         request = StartContextAnalysisRequest(
             topic="Test topic",
@@ -160,7 +165,7 @@ class TestMCPTools:
     async def test_add_perspective(self):
         """Test adding a custom perspective"""
         # First create a session
-        sessions.clear()
+        session_manager.sessions.clear()
         start_request = StartContextAnalysisRequest(
             topic="Test topic",
             model_backend=ModelBackend.BEDROCK
@@ -180,6 +185,62 @@ class TestMCPTools:
         assert result["perspective_added"] == "security"
         assert result["total_perspectives"] == 5
         assert "security" in result["all_perspectives"]
+
+
+class TestSessionManager:
+    """Test SessionManager class"""
+    
+    def test_session_manager_creation(self):
+        """Test session manager is created correctly"""
+        sm = SessionManager(max_sessions=10, session_ttl_hours=1)
+        assert sm.max_sessions == 10
+        assert sm.session_ttl.total_seconds() == 3600
+        assert len(sm.sessions) == 0
+    
+    def test_add_session(self):
+        """Test adding sessions to manager"""
+        sm = SessionManager(max_sessions=2)
+        
+        # Add first session
+        session1 = ContextSwitcherSession(
+            session_id="test-1",
+            created_at=datetime.utcnow()
+        )
+        assert sm.add_session(session1) is True
+        assert len(sm.sessions) == 1
+        
+        # Add second session
+        session2 = ContextSwitcherSession(
+            session_id="test-2",
+            created_at=datetime.utcnow()
+        )
+        assert sm.add_session(session2) is True
+        assert len(sm.sessions) == 2
+        
+        # Try to add third session (should fail)
+        session3 = ContextSwitcherSession(
+            session_id="test-3",
+            created_at=datetime.utcnow()
+        )
+        assert sm.add_session(session3) is False
+        assert len(sm.sessions) == 2
+    
+    def test_get_session(self):
+        """Test retrieving sessions"""
+        sm = SessionManager()
+        session = ContextSwitcherSession(
+            session_id="test-1",
+            created_at=datetime.utcnow()
+        )
+        sm.add_session(session)
+        
+        # Get existing session
+        retrieved = sm.get_session("test-1")
+        assert retrieved is not None
+        assert retrieved.session_id == "test-1"
+        
+        # Get non-existent session
+        assert sm.get_session("test-999") is None
 
 
 if __name__ == "__main__":
