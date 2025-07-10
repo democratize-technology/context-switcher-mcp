@@ -8,9 +8,6 @@ Multi-perspective analysis using thread orchestration
 import asyncio
 import logging
 import os
-from dataclasses import dataclass, field
-from datetime import datetime
-from enum import Enum
 from typing import Dict, List, Optional, Any
 from uuid import uuid4
 
@@ -18,6 +15,8 @@ from fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
 from .compression import prepare_synthesis_input
+from .models import ModelBackend, Thread, ContextSwitcherSession
+from .session_manager import SessionManager
 from .templates import PERSPECTIVE_TEMPLATES
 
 __all__ = ["main", "mcp"]
@@ -52,43 +51,12 @@ Focus on: security vulnerabilities, compliance requirements, operational risks, 
 Abstain if the topic has no risk implications."""
 }
 
-class ModelBackend(str, Enum):
-    BEDROCK = "bedrock"
-    LITELLM = "litellm"
-    OLLAMA = "ollama"
-
-@dataclass
-class Thread:
-    """Represents a single perspective thread"""
-    id: str
-    name: str
-    system_prompt: str
-    model_backend: ModelBackend
-    model_name: Optional[str]
-    conversation_history: List[Dict[str, str]] = field(default_factory=list)
-    
-    def add_message(self, role: str, content: str):
-        """Add a message to the conversation history"""
-        self.conversation_history.append({
-            "role": role,
-            "content": content,
-            "timestamp": datetime.utcnow().isoformat()
-        })
-
-@dataclass
-class ContextSwitcherSession:
-    """Manages a context-switching analysis session"""
-    session_id: str
-    created_at: datetime
-    threads: Dict[str, Thread] = field(default_factory=dict)
-    analyses: List[Dict[str, Any]] = field(default_factory=list)
-    
-    def add_thread(self, thread: Thread):
-        """Add a perspective thread to the session"""
-        self.threads[thread.name] = thread
-
-# Global session storage
-sessions: Dict[str, ContextSwitcherSession] = {}
+# Initialize session manager
+session_manager = SessionManager(
+    max_sessions=100,
+    session_ttl_hours=24,
+    cleanup_interval_minutes=30
+)
 
 # Helper functions
 def validate_session_id(session_id: str) -> bool:
@@ -97,7 +65,7 @@ def validate_session_id(session_id: str) -> bool:
         return False
     if len(session_id) > 100:  # Reasonable limit
         return False
-    return session_id in sessions
+    return session_manager.get_session(session_id) is not None
 
 def validate_topic(topic: str) -> bool:
     """Validate topic string"""
@@ -368,8 +336,9 @@ Abstain with {NO_RESPONSE} if this perspective doesn't apply."""
         
         session.add_thread(thread)
     
-    # Store session
-    sessions[session_id] = session
+    # Store session in manager
+    if not session_manager.add_session(session):
+        return {"error": "Session limit reached. Please try again later."}
     
     # Add custom perspectives from template
     for persp_name, persp_desc in custom_perspectives:
@@ -413,7 +382,7 @@ async def add_perspective(request: AddPerspectiveRequest) -> Dict[str, Any]:
         return {"error": "Invalid or non-existent session ID"}
     
     # Get session
-    session = sessions.get(request.session_id)
+    session = session_manager.get_session(request.session_id)
     
     # Create prompt for new perspective
     if request.custom_prompt:
@@ -457,7 +426,7 @@ async def analyze_from_perspectives(request: AnalyzeFromPerspectivesRequest) -> 
         return {"error": "Invalid or non-existent session ID"}
         
     # Get session
-    session = sessions.get(request.session_id)
+    session = session_manager.get_session(request.session_id)
     
     # Broadcast to all threads
     responses = await orchestrator.broadcast_message(
@@ -511,7 +480,7 @@ class SynthesizePerspectivesRequest(BaseModel):
 async def synthesize_perspectives(request: SynthesizePerspectivesRequest) -> Dict[str, Any]:
     """Analyze patterns across all perspectives from the last analysis"""
     # Get session
-    session = sessions.get(request.session_id)
+    session = session_manager.get_session(request.session_id)
     if not session:
         return {"error": f"Session {request.session_id} not found"}
     
@@ -582,18 +551,24 @@ Focus on actionable synthesis, not just summary.
 async def list_sessions() -> Dict[str, Any]:
     """List all active analysis sessions"""
     session_list = []
-    for sid, session in sessions.items():
+    active_sessions = session_manager.list_active_sessions()
+    
+    for sid, session in active_sessions.items():
         session_list.append({
             "session_id": sid,
             "created_at": session.created_at.isoformat(),
             "perspectives": list(session.threads.keys()),
-            "analyses_count": len(session.analyses)
+            "analyses_count": len(session.analyses),
+            "topic": getattr(session, 'topic', 'Unknown')
         })
-
+    
+    # Get session manager stats
+    stats = session_manager.get_stats()
     
     return {
         "sessions": session_list,
-        "total_sessions": len(sessions)
+        "total_sessions": len(active_sessions),
+        "stats": stats
     }
 
 @mcp.tool(description="See available perspective templates for common analysis patterns - architecture decisions, debugging, API design, and more")
@@ -623,16 +598,18 @@ async def list_templates() -> Dict[str, Any]:
 @mcp.tool(description="Quick check of your most recent analysis session - see perspectives and results without remembering session ID")
 async def current_session() -> Dict[str, Any]:
     """Get information about the most recent session"""
-    if not sessions:
+    active_sessions = session_manager.list_active_sessions()
+    
+    if not active_sessions:
         return {
             "status": "No active sessions",
             "hint": "Start with: start_context_analysis"
         }
     
     # Get most recent session
-    recent_session_id = max(sessions.keys(), 
-                           key=lambda sid: sessions[sid].created_at)
-    session = sessions[recent_session_id]
+    recent_session_id = max(active_sessions.keys(), 
+                           key=lambda sid: active_sessions[sid].created_at)
+    session = active_sessions[recent_session_id]
     
     # Get summary of last analysis if any
     last_analysis = None
@@ -665,9 +642,9 @@ class GetSessionRequest(BaseModel):
 @mcp.tool(description="Get details of a specific context-switching session")
 async def get_session(request: GetSessionRequest) -> Dict[str, Any]:
     """Get detailed information about a session"""
-    session = sessions.get(request.session_id)
+    session = session_manager.get_session(request.session_id)
     if not session:
-        return {"error": f"Session {request.session_id} not found"}
+        return {"error": f"Session {request.session_id} not found or expired"}
     
     return {
         "session_id": request.session_id,
@@ -691,6 +668,20 @@ async def get_session(request: GetSessionRequest) -> Dict[str, Any]:
             for a in session.analyses
         ]
     }
+
+# Startup hook to start cleanup task
+@mcp.startup
+async def startup():
+    """Start background tasks on server startup"""
+    await session_manager.start_cleanup_task()
+    logger.info("Context-Switcher MCP started with session cleanup enabled")
+
+# Shutdown hook to stop cleanup task
+@mcp.shutdown
+async def shutdown():
+    """Clean up on server shutdown"""
+    await session_manager.stop_cleanup_task()
+    logger.info("Context-Switcher MCP shutdown complete")
 
 # Main entry point
 def main():
