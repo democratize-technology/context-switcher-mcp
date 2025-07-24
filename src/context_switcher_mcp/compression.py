@@ -148,7 +148,8 @@ def prepare_synthesis_input(perspectives: Dict[str, str], max_total_chars: int =
         "original_tokens": original_tokens,
         "final_chars": final_chars,
         "final_tokens": final_tokens,
-        "compression_ratio": f"{(1 - final_chars/original_chars)*100:.1f}%" if original_chars > 0 else "0%",
+        "compression_ratio": (f"{(1 - final_chars/original_chars)*100:.1f}%" 
+                              if original_chars > 0 else "0%"),
         "chars_per_perspective": chars_per_perspective
     }
     

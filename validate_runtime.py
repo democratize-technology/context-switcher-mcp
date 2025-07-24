@@ -54,9 +54,9 @@ def test_basic_functionality() -> Tuple[bool, List[str]]:
         from datetime import datetime
         
         # Test validation functions
-        assert validate_topic("test") == True
-        assert validate_topic("") == False
-        assert validate_topic("x" * 2000) == False
+        assert validate_topic("test")
+        assert not validate_topic("")
+        assert not validate_topic("x" * 2000)
         print("\n✓ Topic validation works")
         
         # Test session creation
@@ -67,8 +67,8 @@ def test_basic_functionality() -> Tuple[bool, List[str]]:
         session_manager.add_session(session)
         
         # Test session retrieval
-        assert validate_session_id("test-validation") == True
-        assert validate_session_id("nonexistent") == False
+        assert validate_session_id("test-validation")
+        assert not validate_session_id("nonexistent")
         print("✓ Session management works")
         
         # Cleanup

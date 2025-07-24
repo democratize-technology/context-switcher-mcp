@@ -38,21 +38,22 @@ MAX_SESSION_ID_LENGTH = 100
 MAX_TOPIC_LENGTH = 1000
 
 DEFAULT_PERSPECTIVES = {
-    'technical': """Evaluate from a technical architecture and implementation perspective.
-Focus on: system design, scalability, maintainability, technical debt, complexity, performance.
-Abstain if the topic has no technical aspects.""",
+    'technical': """Evaluate from a technical architecture and implementation
+perspective. Focus on: system design, scalability, maintainability, technical
+debt, complexity, performance. Abstain if the topic has no technical aspects.""",
     
     'business': """Evaluate from a business value, ROI, and strategic perspective.
-Focus on: revenue impact, cost implications, market position, competitive advantage, strategic alignment.
-Abstain if the topic has no business implications.""",
+Focus on: revenue impact, cost implications, market position, competitive
+advantage, strategic alignment. Abstain if the topic has no business
+implications.""",
     
     'user': """Evaluate from an end-user experience and usability perspective.
-Focus on: ease of use, accessibility, user satisfaction, learning curve, daily workflow impact.
-Abstain if the topic doesn't affect end users.""",
+Focus on: ease of use, accessibility, user satisfaction, learning curve, daily
+workflow impact. Abstain if the topic doesn't affect end users.""",
     
     'risk': """Evaluate from a risk, security, and compliance perspective.
-Focus on: security vulnerabilities, compliance requirements, operational risks, data privacy.
-Abstain if the topic has no risk implications."""
+Focus on: security vulnerabilities, compliance requirements, operational risks,
+data privacy. Abstain if the topic has no risk implications."""
 }
 
 # Initialize session manager
@@ -85,10 +86,13 @@ orchestrator = ThreadOrchestrator()
 # MCP Tool Definitions
 
 class StartContextAnalysisRequest(BaseModel):
-    topic: str = Field(description="The topic or problem to analyze from multiple perspectives")
+    topic: str = Field(
+        description="The topic or problem to analyze from multiple perspectives"
+    )
     initial_perspectives: Optional[List[str]] = Field(
         default=None,
-        description="List of perspective names to use (defaults to: technical, business, user, risk)"
+        description="List of perspective names to use (defaults to: technical, "
+                    "business, user, risk)"
     )
     model_backend: ModelBackend = Field(
         default=ModelBackend.BEDROCK,
@@ -100,17 +104,27 @@ class StartContextAnalysisRequest(BaseModel):
     )
     template: Optional[str] = Field(
         default=None,
-        description="Pre-configured perspective template: architecture_decision, feature_evaluation, debugging_analysis, api_design, security_review"
+        description="Pre-configured perspective template: architecture_decision, "
+                    "feature_evaluation, debugging_analysis, api_design, "
+                    "security_review"
     )
 
 @mcp.tool(
-    description="When you're at a crossroads and need multiple viewpoints - analyze architecture decisions, debug blind spots, or evaluate features from technical, business, user, and risk angles simultaneously. Templates available: architecture_decision, feature_evaluation, debugging_analysis, api_design, security_review"
+    description="When you're at a crossroads and need multiple viewpoints - "
+                "analyze architecture decisions, debug blind spots, or evaluate "
+                "features from technical, business, user, and risk angles "
+                "simultaneously. Templates available: architecture_decision, "
+                "feature_evaluation, debugging_analysis, api_design, security_review"
 )
-async def start_context_analysis(request: StartContextAnalysisRequest) -> Dict[str, Any]:
+async def start_context_analysis(
+    request: StartContextAnalysisRequest
+) -> Dict[str, Any]:
     """Initialize a new context-switching analysis session"""
     # Validate input
     if not validate_topic(request.topic):
-        return {"error": "Invalid topic: must be a non-empty string under 1000 characters"}
+        return {
+            "error": "Invalid topic: must be a non-empty string under 1000 characters"
+        }
     
     # Create new session
     session_id = str(uuid4())
@@ -129,7 +143,8 @@ async def start_context_analysis(request: StartContextAnalysisRequest) -> Dict[s
         # We'll add custom perspectives after creating base ones
         custom_perspectives = template.get("custom", [])
     else:
-        perspectives_to_use = request.initial_perspectives or list(DEFAULT_PERSPECTIVES.keys())
+        perspectives_to_use = (request.initial_perspectives or 
+                               list(DEFAULT_PERSPECTIVES.keys()))
         custom_perspectives = []
     
     for perspective_name in perspectives_to_use:
