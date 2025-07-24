@@ -23,7 +23,7 @@ class Thread:
     model_name: Optional[str]
     conversation_history: List[Dict[str, str]] = field(default_factory=list)
     
-    def add_message(self, role: str, content: str):
+    def add_message(self, role: str, content: str) -> None:
         """Add a message to the conversation history"""
         self.conversation_history.append({
             "role": role,
@@ -41,7 +41,7 @@ class ContextSwitcherSession:
     analyses: List[Dict[str, Any]] = field(default_factory=list)
     topic: Optional[str] = None
     
-    def add_thread(self, thread: Thread):
+    def add_thread(self, thread: Thread) -> None:
         """Add a perspective thread to the session"""
         self.threads[thread.name] = thread
     
@@ -50,7 +50,7 @@ class ContextSwitcherSession:
         return self.threads.get(name)
     
     def record_analysis(self, prompt: str, responses: Dict[str, str], 
-                       active_count: int, abstained_count: int):
+                       active_count: int, abstained_count: int) -> None:
         """Record an analysis for history"""
         self.analyses.append({
             "prompt": prompt,

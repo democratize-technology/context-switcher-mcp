@@ -11,6 +11,8 @@ logger = logging.getLogger(__name__)
 
 # Constants
 NO_RESPONSE = "[NO_RESPONSE]"
+DEFAULT_MAX_TOKENS = 2048
+DEFAULT_TEMPERATURE = 0.7
 
 
 class ThreadOrchestrator:
@@ -134,8 +136,8 @@ class ThreadOrchestrator:
                 messages=messages,
                 system=[{"text": thread.system_prompt}],
                 inferenceConfig={
-                    "maxTokens": 2048,
-                    "temperature": 0.7,
+                    "maxTokens": DEFAULT_MAX_TOKENS,
+                    "temperature": DEFAULT_TEMPERATURE,
                 }
             )
             
@@ -175,8 +177,8 @@ class ThreadOrchestrator:
             response = await litellm.acompletion(
                 model=model,
                 messages=messages,
-                temperature=0.7,
-                max_tokens=2048
+                temperature=DEFAULT_TEMPERATURE,
+                max_tokens=DEFAULT_MAX_TOKENS
             )
             
             return response.choices[0].message.content
@@ -218,8 +220,8 @@ class ThreadOrchestrator:
                         "messages": messages,
                         "stream": False,
                         "options": {
-                            "temperature": 0.7,
-                            "num_predict": 2048
+                            "temperature": DEFAULT_TEMPERATURE,
+                            "num_predict": DEFAULT_MAX_TOKENS
                         }
                     },
                     timeout=60.0

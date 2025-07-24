@@ -31,7 +31,6 @@ class SessionManager:
         self.cleanup_interval = timedelta(minutes=cleanup_interval_minutes)
         self._lock = Lock()
         self._cleanup_task: Optional[asyncio.Task] = None
-        self._last_cleanup = datetime.utcnow()
         
     def add_session(self, session: ContextSwitcherSession) -> bool:
         """Add a new session
@@ -110,6 +109,7 @@ class SessionManager:
             try:
                 await self._cleanup_task
             except asyncio.CancelledError:
+                # Expected when task is cancelled - safe to ignore
                 pass
             logger.info("Stopped session cleanup task")
     

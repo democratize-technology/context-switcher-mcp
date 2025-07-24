@@ -32,6 +32,9 @@ mcp = FastMCP(
 )
 
 # Constants
+MAX_CHARS_OPUS = 20000
+MAX_CHARS_DEFAULT = 12000
+
 DEFAULT_PERSPECTIVES = {
     'technical': """Evaluate from a technical architecture and implementation perspective.
 Focus on: system design, scalability, maintainability, technical debt, complexity, performance.
@@ -312,7 +315,7 @@ async def synthesize_perspectives(request: SynthesizePerspectivesRequest) -> Dic
     first_thread = list(session.threads.values())[0]
     if first_thread.model_backend == ModelBackend.BEDROCK:
         # Claude models have larger context windows
-        max_chars = 20000 if "opus" in (first_thread.model_name or "").lower() else 12000
+        max_chars = MAX_CHARS_OPUS if "opus" in (first_thread.model_name or "").lower() else MAX_CHARS_DEFAULT
     elif first_thread.model_backend == ModelBackend.LITELLM:
         # Conservative for various models
         max_chars = 10000
