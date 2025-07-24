@@ -5,9 +5,7 @@ Context-Switcher MCP Server
 Multi-perspective analysis using thread orchestration
 """
 
-import asyncio
 import logging
-import os
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 from uuid import uuid4

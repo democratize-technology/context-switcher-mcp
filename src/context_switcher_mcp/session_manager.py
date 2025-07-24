@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 from threading import Lock
 
 from .models import ContextSwitcherSession
@@ -132,7 +132,7 @@ class SessionManager:
             except Exception as e:
                 logger.error(f"Error in periodic cleanup: {e}")
     
-    def get_stats(self) -> Dict[str, any]:
+    def get_stats(self) -> Dict[str, Any]:
         """Get session manager statistics"""
         with self._lock:
             active_sessions = len(self.sessions)

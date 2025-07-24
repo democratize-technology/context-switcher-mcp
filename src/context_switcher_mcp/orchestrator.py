@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import os
-from typing import Dict, Optional
+from typing import Dict
 
 from .models import Thread, ModelBackend
 
