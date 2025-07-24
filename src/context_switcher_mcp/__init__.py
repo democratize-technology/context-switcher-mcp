@@ -34,6 +34,8 @@ mcp = FastMCP(
 # Constants
 MAX_CHARS_OPUS = 20000
 MAX_CHARS_DEFAULT = 12000
+MAX_SESSION_ID_LENGTH = 100
+MAX_TOPIC_LENGTH = 1000
 
 DEFAULT_PERSPECTIVES = {
     'technical': """Evaluate from a technical architecture and implementation perspective.
@@ -65,7 +67,7 @@ def validate_session_id(session_id: str) -> bool:
     """Validate session ID format and existence"""
     if not session_id or not isinstance(session_id, str):
         return False
-    if len(session_id) > 100:  # Reasonable limit
+    if len(session_id) > MAX_SESSION_ID_LENGTH:
         return False
     return session_manager.get_session(session_id) is not None
 
@@ -73,7 +75,7 @@ def validate_topic(topic: str) -> bool:
     """Validate topic string"""
     if not topic or not isinstance(topic, str):
         return False
-    if len(topic.strip()) == 0 or len(topic) > 1000:  # Reasonable limits
+    if len(topic.strip()) == 0 or len(topic) > MAX_TOPIC_LENGTH:
         return False
     return True
 
