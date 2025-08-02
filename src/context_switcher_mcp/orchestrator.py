@@ -7,6 +7,7 @@ import time
 from typing import Dict, Optional, List
 from dataclasses import dataclass, field
 from datetime import datetime
+from threading import Lock
 
 from .models import Thread, ModelBackend
 
@@ -137,6 +138,7 @@ class ThreadOrchestrator:
         # Metrics storage (in production, this would be persisted)
         self.metrics_history: List[OrchestrationMetrics] = []
         self.max_metrics_history = 1000  # Keep last 1000 operations
+        self.metrics_lock = Lock()  # Protect metrics operations
 
     async def broadcast_message(
         self, threads: Dict[str, Thread], message: str, session_id: str = "unknown"
@@ -185,9 +187,10 @@ class ThreadOrchestrator:
                 else:
                     metrics.successful_threads += 1
 
-        # Finalize metrics
+        # Finalize metrics atomically
         metrics.end_time = time.time()
-        self._store_metrics(metrics)
+        with self.metrics_lock:
+            self._store_metrics(metrics)
 
         # Log performance summary
         logger.info(
@@ -267,9 +270,10 @@ class ThreadOrchestrator:
             async for event in stream_handler(task):
                 yield event
 
-        # Finalize metrics
+        # Finalize metrics atomically
         metrics.end_time = time.time()
-        self._store_metrics(metrics)
+        with self.metrics_lock:
+            self._store_metrics(metrics)
 
     async def _stream_from_thread(self, thread: Thread, thread_name: str):
         """Stream response from a single thread"""
@@ -629,12 +633,13 @@ class ThreadOrchestrator:
 
     def get_performance_metrics(self, last_n: int = 10) -> Dict[str, any]:
         """Get performance metrics for recent operations"""
-        if not self.metrics_history:
-            return {"message": "No metrics available"}
+        with self.metrics_lock:
+            if not self.metrics_history:
+                return {"message": "No metrics available"}
 
-        recent_metrics = self.metrics_history[-last_n:]
+            recent_metrics = self.metrics_history[-last_n:]
 
-        # Calculate aggregate statistics
+        # Calculate aggregate statistics (outside lock)
         total_operations = len(recent_metrics)
         avg_execution_time = (
             sum(m.execution_time for m in recent_metrics if m.execution_time)

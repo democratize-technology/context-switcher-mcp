@@ -28,6 +28,7 @@ from .compression import prepare_synthesis_input
 from .models import ModelBackend, Thread, ContextSwitcherSession
 from .orchestrator import ThreadOrchestrator, NO_RESPONSE
 from .perspective_selector import SmartPerspectiveSelector
+from .rate_limiter import SessionRateLimiter
 from .security import sanitize_user_input, log_security_event, sanitize_error_message
 from .session_manager import SessionManager
 from .templates import PERSPECTIVE_TEMPLATES
@@ -114,9 +115,12 @@ DEFAULT_PERSPECTIVES = {
 **Abstention criteria:** Return [NO_RESPONSE] if the topic involves no security, compliance, operational, or business continuity risks.""",
 }
 
-# Initialize session manager
+# Initialize session manager and rate limiter
 session_manager = SessionManager(
     max_sessions=100, session_ttl_hours=24, cleanup_interval_minutes=30
+)
+rate_limiter = SessionRateLimiter(
+    requests_per_minute=60, analyses_per_minute=10, session_creation_per_minute=5
 )
 
 
@@ -212,6 +216,16 @@ async def start_context_analysis(
     request: StartContextAnalysisRequest,
 ) -> Dict[str, Any]:
     """Initialize a new context-switching analysis session"""
+    # Check rate limits for session creation
+    allowed, rate_error = rate_limiter.check_session_creation()
+    if not allowed:
+        return create_error_response(
+            rate_error,
+            "rate_limited",
+            {"retry_after_seconds": 12},  # 60/5 = 12 seconds between session creations
+            recoverable=True,
+        )
+
     # Validate input
     topic_valid, topic_error = validate_topic(request.topic)
     if not topic_valid:
@@ -505,6 +519,19 @@ async def analyze_from_perspectives(
     request: AnalyzeFromPerspectivesRequest,
 ) -> Dict[str, Any]:
     """Broadcast a prompt to all perspectives and collect their responses"""
+    # Check rate limits for analysis operations
+    allowed, rate_error = rate_limiter.check_request(request.session_id, "analysis")
+    if not allowed:
+        return create_error_response(
+            rate_error,
+            "rate_limited",
+            {
+                "session_id": request.session_id,
+                "retry_after_seconds": 6,
+            },  # 60/10 = 6 seconds
+            recoverable=True,
+        )
+
     # Validate session ID
     session_valid, session_error = validate_session_id(request.session_id)
     if not session_valid:

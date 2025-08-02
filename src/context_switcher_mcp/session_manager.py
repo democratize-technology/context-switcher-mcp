@@ -72,6 +72,16 @@ class SessionManager:
             if session_id in self.sessions:
                 del self.sessions[session_id]
                 logger.info(f"Removed session {session_id}")
+
+                # Clean up rate limiter state if available
+                try:
+                    from . import rate_limiter
+
+                    rate_limiter.cleanup_session(session_id)
+                except ImportError:
+                    # Rate limiter not available
+                    pass
+
                 return True
             return False
 
@@ -96,6 +106,15 @@ class SessionManager:
 
         for session_id in expired:
             del self.sessions[session_id]
+
+            # Clean up rate limiter state if available
+            try:
+                from . import rate_limiter
+
+                rate_limiter.cleanup_session(session_id)
+            except ImportError:
+                # Rate limiter not available
+                pass
 
         if expired:
             logger.info(f"Cleaned up {len(expired)} expired sessions")
