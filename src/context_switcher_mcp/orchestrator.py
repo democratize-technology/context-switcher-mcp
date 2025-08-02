@@ -196,6 +196,121 @@ class ThreadOrchestrator:
 
         return result
 
+    async def broadcast_message_stream(
+        self, threads: Dict[str, Thread], message: str, session_id: str = "unknown"
+    ):
+        """
+        Broadcast message to all threads with streaming responses
+
+        Yields events in format:
+        {
+            "type": "chunk" | "complete" | "error" | "start",
+            "thread_name": str,
+            "content": str,
+            "timestamp": float
+        }
+        """
+        # Initialize metrics
+        metrics = OrchestrationMetrics(
+            session_id=session_id,
+            operation_type="broadcast_stream",
+            start_time=time.time(),
+            total_threads=len(threads),
+        )
+
+        # Create streaming tasks for each thread
+        tasks = []
+        for name, thread in threads.items():
+            # Add user message to thread history
+            thread.add_message("user", message)
+
+            # Yield start event for this thread
+            yield {
+                "type": "start",
+                "thread_name": name,
+                "content": "",
+                "timestamp": time.time(),
+            }
+
+            # Create streaming task based on backend
+            if thread.model_backend == ModelBackend.BEDROCK:
+                task = asyncio.create_task(self._stream_from_thread(thread, name))
+                tasks.append(task)
+            else:
+                # For non-streaming backends, fall back to regular call
+                task = asyncio.create_task(
+                    self._get_thread_response_async(thread, name)
+                )
+                tasks.append(task)
+
+        # Stream responses as they arrive
+        async def stream_handler(task):
+            try:
+                if hasattr(task, "__aiter__"):  # Streaming response
+                    async for event in task:
+                        yield event
+                else:  # Non-streaming response
+                    result = await task
+                    yield result
+            except Exception as e:
+                yield {
+                    "type": "error",
+                    "thread_name": "unknown",
+                    "content": str(e),
+                    "timestamp": time.time(),
+                }
+
+        # Use asyncio.as_completed to yield results as they come
+        for task in asyncio.as_completed(tasks):
+            async for event in stream_handler(task):
+                yield event
+
+        # Finalize metrics
+        metrics.end_time = time.time()
+        self._store_metrics(metrics)
+
+    async def _stream_from_thread(self, thread: Thread, thread_name: str):
+        """Stream response from a single thread"""
+        try:
+            if thread.model_backend == ModelBackend.BEDROCK:
+                async for event in self._call_bedrock_stream(thread):
+                    event["timestamp"] = time.time()
+                    yield event
+            else:
+                # Fallback for non-streaming backends
+                response = await self._get_thread_response(thread)
+                yield {
+                    "type": "complete",
+                    "thread_name": thread_name,
+                    "content": response,
+                    "timestamp": time.time(),
+                }
+        except Exception as e:
+            yield {
+                "type": "error",
+                "thread_name": thread_name,
+                "content": str(e),
+                "timestamp": time.time(),
+            }
+
+    async def _get_thread_response_async(self, thread: Thread, thread_name: str):
+        """Get non-streaming response formatted as streaming event"""
+        try:
+            response = await self._get_thread_response(thread)
+            return {
+                "type": "complete",
+                "thread_name": thread_name,
+                "content": response,
+                "timestamp": time.time(),
+            }
+        except Exception as e:
+            return {
+                "type": "error",
+                "thread_name": thread_name,
+                "content": str(e),
+                "timestamp": time.time(),
+            }
+
     async def _get_thread_response_with_metrics(
         self, thread: Thread, orchestration_metrics: OrchestrationMetrics
     ) -> str:
@@ -343,6 +458,63 @@ class ThreadOrchestrator:
                 return "Error: AWS credentials not configured. Run: aws configure"
             else:
                 return f"Error calling Bedrock: {str(e)}"
+
+    async def _call_bedrock_stream(self, thread: Thread):
+        """Call AWS Bedrock model with streaming support"""
+        try:
+            import boto3
+
+            # Create Bedrock client
+            client = boto3.client("bedrock-runtime")
+
+            # Prepare messages for Converse API
+            messages = []
+            for msg in thread.conversation_history:
+                messages.append(
+                    {
+                        "role": msg["role"],
+                        "content": [{"text": msg["content"]}],  # Converse API format
+                    }
+                )
+
+            # Get model ID
+            model_id = thread.model_name or os.environ.get(
+                "BEDROCK_MODEL_ID", "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+            )
+
+            # Use converse_stream for streaming responses
+            response = client.converse_stream(
+                modelId=model_id,
+                messages=messages,
+                system=[{"text": thread.system_prompt}],
+                inferenceConfig={
+                    "maxTokens": DEFAULT_MAX_TOKENS,
+                    "temperature": DEFAULT_TEMPERATURE,
+                },
+            )
+
+            # Stream response chunks
+            full_content = ""
+            for event in response["stream"]:
+                if "contentBlockDelta" in event:
+                    chunk = event["contentBlockDelta"]["delta"]["text"]
+                    full_content += chunk
+                    yield {
+                        "type": "chunk",
+                        "content": chunk,
+                        "thread_name": thread.name,
+                    }
+                elif "messageStop" in event:
+                    yield {
+                        "type": "complete",
+                        "content": full_content,
+                        "thread_name": thread.name,
+                    }
+
+        except Exception as e:
+            logger.error(f"Bedrock streaming error: {e}")
+            error_msg = f"Error calling Bedrock: {str(e)}"
+            yield {"type": "error", "content": error_msg, "thread_name": thread.name}
 
     async def _call_litellm(self, thread: Thread) -> str:
         """Call model via LiteLLM"""
