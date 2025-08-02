@@ -5,16 +5,29 @@ Multi-perspective analysis using thread orchestration
 """
 
 import logging
+import time
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 from uuid import uuid4
 
-from fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
+from .aorp import (
+    AORPBuilder,
+    calculate_analysis_confidence,
+    generate_analysis_next_steps,
+    generate_synthesis_next_steps,
+    create_error_response,
+)
+from .confidence_metrics import (
+    ConfidenceCalibrator,
+    analyze_synthesis_quality,
+)
 from .compression import prepare_synthesis_input
 from .models import ModelBackend, Thread, ContextSwitcherSession
 from .orchestrator import ThreadOrchestrator, NO_RESPONSE
+from .perspective_selector import SmartPerspectiveSelector
 from .session_manager import SessionManager
 from .templates import PERSPECTIVE_TEMPLATES
 
@@ -25,7 +38,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize MCP server
-mcp = FastMCP(name="context-switcher", version="0.1.0")
+mcp = FastMCP("context-switcher")
 
 # Constants
 MAX_CHARS_OPUS = 20000
@@ -191,7 +204,12 @@ async def start_context_analysis(
     # Validate input
     topic_valid, topic_error = validate_topic(request.topic)
     if not topic_valid:
-        return {"error": f"Invalid topic: {topic_error}"}
+        return create_error_response(
+            f"Invalid topic: {topic_error}",
+            "validation_error",
+            {"topic": request.topic, "error_details": topic_error},
+            recoverable=True,
+        )
 
     # Create new session
     session_id = str(uuid4())
@@ -237,7 +255,12 @@ Abstain with {NO_RESPONSE} if this perspective doesn't apply."""
 
     # Store session in manager
     if not session_manager.add_session(session):
-        return {"error": "Session limit reached. Please try again later."}
+        return create_error_response(
+            "Session limit reached. Please try again later.",
+            "capacity_limit",
+            {"max_sessions": session_manager.max_sessions},
+            recoverable=True,
+        )
 
     # Add custom perspectives from template
     for persp_name, persp_desc in custom_perspectives:
@@ -253,7 +276,8 @@ Abstain with {NO_RESPONSE} if this perspective doesn't apply.""",
         )
         session.add_thread(custom_thread)
 
-    return {
+    # Build legacy response
+    legacy_response = {
         "session_id": session_id,
         "topic": request.topic,
         "perspectives": list(session.threads.keys()),
@@ -261,6 +285,78 @@ Abstain with {NO_RESPONSE} if this perspective doesn't apply.""",
         "model_name": request.model_name,
         "message": f"Context analysis session initialized with {len(session.threads)} perspectives",
     }
+
+    # Get smart perspective recommendations
+    selector = SmartPerspectiveSelector()
+    smart_recommendations = selector.recommend_perspectives(
+        topic=request.topic,
+        existing_perspectives=list(session.threads.keys()),
+        max_recommendations=3,
+    )
+
+    # Generate key insight
+    perspective_count = len(session.threads)
+    template_used = request.template if request.template else "default"
+
+    if smart_recommendations:
+        key_insight = f"Multi-perspective session ready: {perspective_count} expert viewpoints configured. Consider adding {smart_recommendations[0].name} perspective ({smart_recommendations[0].reasoning})"
+    else:
+        key_insight = f"Multi-perspective session ready: {perspective_count} expert viewpoints configured for {template_used} analysis"
+
+    # Next steps
+    next_steps = [
+        "analyze_from_perspectives('<your question>') - Start parallel analysis",
+    ]
+
+    # Add smart recommendations to next steps
+    if smart_recommendations:
+        for rec in smart_recommendations[:2]:
+            next_steps.append(f"add_perspective('{rec.name}') - {rec.description}")
+
+    # Primary recommendation
+    primary_rec = "Begin with a focused, specific question to get targeted insights from all perspectives"
+
+    # Workflow guidance
+    workflow_guidance = "Guide user to formulate their first analysis question, emphasizing specificity for better perspective responses"
+
+    # Build AORP response
+    builder = AORPBuilder()
+    aorp_response = (
+        builder.status("success")
+        .key_insight(key_insight)
+        .confidence(1.0)  # Session creation is deterministic
+        .session_id(session_id)
+        .next_steps(next_steps)
+        .primary_recommendation(primary_rec)
+        .workflow_guidance(workflow_guidance)
+        .completeness(1.0)
+        .reliability(1.0)
+        .urgency("low")
+        .indicators(
+            perspectives_configured=perspective_count,
+            template_used=template_used,
+            model_backend=request.model_backend.value,
+            custom_perspectives=len(custom_perspectives)
+            if "custom_perspectives" in locals()
+            else 0,
+            smart_recommendations_available=len(smart_recommendations),
+            top_recommendation=smart_recommendations[0].name
+            if smart_recommendations
+            else None,
+        )
+        .summary(
+            f"Context analysis session initialized with {perspective_count} perspectives using {template_used} template"
+        )
+        .data(legacy_response)
+        .metadata(
+            operation_type="session_creation",
+            template=request.template,
+            topic_length=len(request.topic),
+        )
+        .build()
+    )
+
+    return aorp_response
 
 
 class AddPerspectiveRequest(BaseModel):
@@ -282,7 +378,12 @@ async def add_perspective(request: AddPerspectiveRequest) -> Dict[str, Any]:
     # Validate session ID
     session_valid, session_error = validate_session_id(request.session_id)
     if not session_valid:
-        return {"error": session_error}
+        return create_error_response(
+            session_error,
+            "session_not_found",
+            {"session_id": request.session_id},
+            recoverable=True,
+        )
 
     # Get session
     session = session_manager.get_session(request.session_id)
@@ -308,12 +409,61 @@ Abstain with {NO_RESPONSE} if this perspective doesn't apply to the topic."""
     # Add to session
     session.add_thread(thread)
 
-    return {
+    # Build legacy response
+    legacy_response = {
         "session_id": request.session_id,
         "perspective_added": request.name,
         "total_perspectives": len(session.threads),
         "all_perspectives": list(session.threads.keys()),
     }
+
+    # Generate key insight
+    key_insight = f"Added '{request.name}' perspective - now {len(session.threads)} total viewpoints available"
+
+    # Next steps
+    next_steps = [
+        "analyze_from_perspectives('<question>') - Test new perspective with analysis",
+        "add_perspective('<domain>') - Add more specialized viewpoints if needed",
+    ]
+
+    # Primary recommendation
+    primary_rec = (
+        "Run analysis to see how the new perspective contributes unique insights"
+    )
+
+    # Workflow guidance
+    workflow_guidance = "Present expanded capability to user, encourage testing with a specific question"
+
+    # Build AORP response
+    builder = AORPBuilder()
+    aorp_response = (
+        builder.status("success")
+        .key_insight(key_insight)
+        .confidence(1.0)  # Adding perspective is deterministic
+        .session_id(request.session_id)
+        .next_steps(next_steps)
+        .primary_recommendation(primary_rec)
+        .workflow_guidance(workflow_guidance)
+        .completeness(1.0)
+        .reliability(1.0)
+        .urgency("low")
+        .indicators(
+            perspective_added=request.name,
+            total_perspectives=len(session.threads),
+            custom_prompt_used=bool(request.custom_prompt),
+        )
+        .summary(
+            f"Successfully added '{request.name}' perspective to expand analysis coverage"
+        )
+        .data(legacy_response)
+        .metadata(
+            operation_type="perspective_addition",
+            perspective_description=request.description,
+        )
+        .build()
+    )
+
+    return aorp_response
 
 
 class AnalyzeFromPerspectivesRequest(BaseModel):
@@ -331,7 +481,12 @@ async def analyze_from_perspectives(
     # Validate session ID
     session_valid, session_error = validate_session_id(request.session_id)
     if not session_valid:
-        return {"error": session_error}
+        return create_error_response(
+            session_error,
+            "session_not_found",
+            {"session_id": request.session_id},
+            recoverable=True,
+        )
 
     # Get session
     session = session_manager.get_session(request.session_id)
@@ -341,18 +496,32 @@ async def analyze_from_perspectives(
         session.threads, request.prompt, session_id=request.session_id
     )
 
-    # Process responses
+    # Process responses with quality analysis
     active_perspectives = {}
     abstained_perspectives = []
     errors = []
+
+    # Initialize confidence calibrator
+    calibrator = ConfidenceCalibrator()
+    perspective_metrics = {}
 
     for name, response in responses.items():
         if response.startswith("ERROR:"):
             errors.append({name: response})
         elif NO_RESPONSE in response:
             abstained_perspectives.append(name)
+            # Analyze abstention quality
+            metrics = calibrator.analyze_response_quality(
+                response, name, request.prompt, is_abstention=True
+            )
+            perspective_metrics[name] = metrics
         else:
             active_perspectives[name] = response
+            # Analyze response quality
+            metrics = calibrator.analyze_response_quality(
+                response, name, request.prompt, is_abstention=False
+            )
+            perspective_metrics[name] = metrics
 
     # Store analysis
     analysis = {
@@ -364,7 +533,8 @@ async def analyze_from_perspectives(
     }
     session.analyses.append(analysis)
 
-    return {
+    # Build legacy response for backward compatibility
+    legacy_response = {
         "session_id": request.session_id,
         "prompt": request.prompt,
         "perspectives": active_perspectives,
@@ -377,6 +547,225 @@ async def analyze_from_perspectives(
             "errors": len(errors),
         },
     }
+
+    # Calculate enhanced confidence with quality metrics
+    (
+        enhanced_confidence,
+        confidence_breakdown,
+    ) = calibrator.calculate_enhanced_confidence(
+        perspective_metrics,
+        len(errors),
+        len(abstained_perspectives),
+        len(session.threads),
+    )
+
+    # Keep legacy confidence for backward compatibility
+    response_lengths = [len(resp) for resp in active_perspectives.values()]
+    legacy_confidence = calculate_analysis_confidence(
+        len(responses),
+        len(session.threads),
+        len(errors),
+        len(abstained_perspectives),
+        response_lengths,
+    )
+
+    # Use enhanced confidence if available, otherwise legacy
+    confidence = enhanced_confidence if enhanced_confidence > 0 else legacy_confidence
+
+    # Check if synthesis has been performed
+    has_synthesis = any(
+        "synthesis" in str(analysis).lower() for analysis in session.analyses
+    )
+
+    # Generate next steps
+    next_steps = generate_analysis_next_steps(
+        "active", len(session.threads), len(errors), has_synthesis, confidence
+    )
+
+    # Generate key insight
+    if len(active_perspectives) == 0:
+        key_insight = "No perspectives provided analysis - check question relevance"
+        status = "partial"
+    elif len(errors) > 0:
+        key_insight = f"Partial analysis: {len(active_perspectives)} perspectives responded, {len(errors)} errors"
+        status = "partial"
+    else:
+        key_insight = f"Comprehensive analysis from {len(active_perspectives)} of {len(session.threads)} perspectives"
+        status = "success"
+
+    # Primary recommendation based on results
+    if len(active_perspectives) >= 2 and confidence >= 0.6:
+        primary_rec = "synthesize_perspectives() - Discover patterns and tensions across viewpoints"
+    elif len(errors) > 0:
+        primary_rec = "Address perspective errors and retry analysis if needed"
+    else:
+        primary_rec = "Review individual perspective insights, then synthesize for strategic patterns"
+
+    # Workflow guidance
+    if confidence >= 0.8:
+        workflow_guidance = "Present key insights to user, then offer synthesis for strategic decision-making"
+    elif confidence >= 0.5:
+        workflow_guidance = (
+            "Highlight strongest insights, note limitations, guide towards synthesis"
+        )
+    else:
+        workflow_guidance = (
+            "Identify issue areas, suggest refinements, encourage perspective additions"
+        )
+
+    # Build AORP response
+    builder = AORPBuilder()
+    aorp_response = (
+        builder.status(status)
+        .key_insight(key_insight)
+        .confidence(confidence)
+        .session_id(request.session_id)
+        .next_steps(next_steps)
+        .primary_recommendation(primary_rec)
+        .workflow_guidance(workflow_guidance)
+        .completeness(len(active_perspectives) / len(session.threads))
+        .reliability(confidence)
+        .urgency("high" if len(errors) > 0 else "medium")
+        .indicators(
+            active_responses=len(active_perspectives),
+            abstentions=len(abstained_perspectives),
+            errors=len(errors),
+            avg_response_length=sum(response_lengths) // len(response_lengths)
+            if response_lengths
+            else 0,
+            perspectives_ready_for_synthesis=len(active_perspectives) >= 2,
+            confidence_breakdown=confidence_breakdown,
+            quality_summary={
+                name: {
+                    "quality_level": metrics.quality_level.value,
+                    "overall_score": round(metrics.overall_score, 2),
+                }
+                for name, metrics in perspective_metrics.items()
+            },
+        )
+        .summary(
+            f"Multi-perspective analysis: {len(active_perspectives)} active responses from {len(session.threads)} perspectives"
+        )
+        .data(legacy_response)
+        .metadata(
+            operation_type="perspective_analysis",
+            prompt_length=len(request.prompt),
+            session_analyses_count=len(session.analyses),
+        )
+        .build()
+    )
+
+    return aorp_response
+
+
+class AnalyzeFromPerspectivesStreamRequest(BaseModel):
+    session_id: str = Field(description="Session ID for analysis")
+    prompt: str = Field(description="The specific question or topic to analyze")
+
+
+@mcp.tool(
+    description="Get real-time streaming responses from all perspectives - see insights as they arrive instead of waiting 10-30 seconds. Each perspective streams independently."
+)
+async def analyze_from_perspectives_stream(
+    request: AnalyzeFromPerspectivesStreamRequest,
+):
+    """Stream responses from all perspectives as they are generated"""
+    # Validate session ID
+    session_valid, session_error = validate_session_id(request.session_id)
+    if not session_valid:
+        yield create_error_response(
+            session_error,
+            "session_not_found",
+            {"session_id": request.session_id},
+            recoverable=True,
+        )
+        return
+
+    # Get session
+    session = session_manager.get_session(request.session_id)
+
+    # Initialize tracking
+    active_perspectives = {}
+    abstained_perspectives = []
+    errors = []
+    start_time = time.time()
+
+    # Stream responses from all threads
+    async for event in orchestrator.broadcast_message_stream(
+        session.threads, request.prompt, session_id=request.session_id
+    ):
+        # Yield streaming events directly to client
+        yield {
+            "type": "stream_event",
+            "event": event,
+            "session_id": request.session_id,
+        }
+
+        # Track completed responses
+        if event["type"] == "complete":
+            thread_name = event["thread_name"]
+            content = event["content"]
+
+            if NO_RESPONSE in content:
+                abstained_perspectives.append(thread_name)
+            elif content.startswith("ERROR:"):
+                errors.append({thread_name: content})
+            else:
+                active_perspectives[thread_name] = content
+                # Also update thread history
+                if thread_name in session.threads:
+                    session.threads[thread_name].add_message("assistant", content)
+
+        elif event["type"] == "error":
+            thread_name = event["thread_name"]
+            errors.append({thread_name: event["content"]})
+
+    # After all streams complete, store analysis and send summary
+    analysis = {
+        "prompt": request.prompt,
+        "timestamp": datetime.utcnow().isoformat(),
+        "responses": {
+            **active_perspectives,
+            **{name: "[ABSTAINED]" for name in abstained_perspectives},
+        },
+        "active_count": len(active_perspectives),
+        "abstained_count": len(abstained_perspectives),
+    }
+    session.analyses.append(analysis)
+
+    # Calculate metrics
+    response_lengths = [len(resp) for resp in active_perspectives.values()]
+    confidence = calculate_analysis_confidence(
+        len(session.threads),
+        len(session.threads),
+        len(errors),
+        len(abstained_perspectives),
+        response_lengths,
+    )
+
+    # Generate summary event
+    execution_time = time.time() - start_time
+    summary_event = {
+        "type": "analysis_complete",
+        "session_id": request.session_id,
+        "summary": {
+            "total_perspectives": len(session.threads),
+            "active_responses": len(active_perspectives),
+            "abstentions": len(abstained_perspectives),
+            "errors": len(errors),
+            "execution_time_seconds": round(execution_time, 2),
+            "confidence": confidence,
+        },
+        "next_steps": generate_analysis_next_steps(
+            "active",
+            len(session.threads),
+            len(errors),
+            any("synthesis" in str(a).lower() for a in session.analyses),
+            confidence,
+        ),
+    }
+
+    yield summary_event
 
 
 class SynthesizePerspectivesRequest(BaseModel):
@@ -393,12 +782,22 @@ async def synthesize_perspectives(
     # Get session
     session = session_manager.get_session(request.session_id)
     if not session:
-        return {"error": f"Session {request.session_id} not found"}
+        return create_error_response(
+            f"Session {request.session_id} not found",
+            "session_not_found",
+            {"session_id": request.session_id},
+            recoverable=True,
+            session_id=request.session_id,
+        )
 
     if not session.analyses:
-        return {
-            "error": "No analyses to synthesize. Run analyze_from_perspectives first."
-        }
+        return create_error_response(
+            "No analyses to synthesize. Run analyze_from_perspectives first.",
+            "no_data",
+            {"session_id": request.session_id, "analyses_count": 0},
+            recoverable=True,
+            session_id=request.session_id,
+        )
 
     # Get most recent analysis
     latest = session.analyses[-1]
@@ -408,6 +807,15 @@ async def synthesize_perspectives(
     for name, response in latest["responses"].items():
         if not response.startswith("ERROR:") and NO_RESPONSE not in response:
             active[name] = response
+
+    if not active:
+        return create_error_response(
+            "No active perspectives to synthesize from last analysis",
+            "no_data",
+            {"session_id": request.session_id, "active_perspectives": 0},
+            recoverable=True,
+            session_id=request.session_id,
+        )
 
     # Determine token limit based on backend
     first_thread = list(session.threads.values())[0]
@@ -499,7 +907,18 @@ SYNTHESIS OUTPUT: Provide actionable intelligence, not summary. Focus on decisio
     synthesis_thread.add_message("user", synthesis_prompt)
     synthesis = await orchestrator._get_thread_response(synthesis_thread)
 
-    return {
+    # Handle synthesis errors
+    if synthesis.startswith("ERROR:"):
+        return create_error_response(
+            f"Synthesis generation failed: {synthesis}",
+            "synthesis_error",
+            {"session_id": request.session_id, "error_details": synthesis},
+            recoverable=True,
+            session_id=request.session_id,
+        )
+
+    # Build legacy response
+    legacy_response = {
         "session_id": request.session_id,
         "analyzed_prompt": latest["prompt"],
         "synthesis": synthesis,
@@ -510,6 +929,95 @@ SYNTHESIS OUTPUT: Provide actionable intelligence, not summary. Focus on decisio
             "analysis_timestamp": latest["timestamp"],
         },
     }
+
+    # Calculate enhanced synthesis metrics
+    synthesis_length = len(synthesis)
+
+    # Use enhanced synthesis quality analysis
+    enhanced_confidence, synthesis_breakdown = analyze_synthesis_quality(
+        synthesis, len(active), latest["prompt"]
+    )
+
+    # Extract pattern counts from breakdown for backward compatibility
+    patterns_count = synthesis_breakdown["patterns_found"]["convergence"]
+    tensions_count = synthesis_breakdown["patterns_found"]["tensions"]
+    insights_count = synthesis_breakdown["patterns_found"]["insights"]
+
+    # Keep legacy confidence for comparison (could be used for debugging)
+    # legacy_confidence = calculate_synthesis_confidence(
+    #     len(active), patterns_count, tensions_count, synthesis_length
+    # )
+
+    # Use enhanced confidence
+    confidence = enhanced_confidence
+
+    # Generate next steps
+    next_steps = generate_synthesis_next_steps(
+        tensions_count, patterns_count, confidence
+    )
+
+    # Generate key insight
+    key_insight = f"Strategic synthesis identified {patterns_count} convergent patterns and {tensions_count} critical tensions across {len(active)} perspectives"
+
+    # Primary recommendation
+    if confidence >= 0.8:
+        primary_rec = (
+            "Proceed with implementation using synthesis framework as decision guide"
+        )
+    elif tensions_count > 2:
+        primary_rec = "Resolve critical tensions through targeted stakeholder analysis"
+    else:
+        primary_rec = "Use synthesis insights to guide strategic decision-making"
+
+    # Workflow guidance
+    if confidence >= 0.8:
+        workflow_guidance = (
+            "Present synthesis as authoritative strategic framework for decision-making"
+        )
+    elif confidence >= 0.6:
+        workflow_guidance = (
+            "Highlight key insights while noting areas requiring further exploration"
+        )
+    else:
+        workflow_guidance = (
+            "Use as preliminary framework, gather additional perspectives to strengthen"
+        )
+
+    # Build AORP response
+    builder = AORPBuilder()
+    aorp_response = (
+        builder.status("success")
+        .key_insight(key_insight)
+        .confidence(confidence)
+        .session_id(request.session_id)
+        .next_steps(next_steps)
+        .primary_recommendation(primary_rec)
+        .workflow_guidance(workflow_guidance)
+        .completeness(1.0)  # Synthesis is always complete if generated
+        .reliability(confidence)
+        .urgency("medium")
+        .indicators(
+            perspectives_synthesized=len(active),
+            patterns_identified=patterns_count,
+            tensions_mapped=tensions_count,
+            insights_discovered=insights_count,
+            synthesis_length=synthesis_length,
+            compression_ratio=compression_stats["compression_ratio"],
+            synthesis_quality_breakdown=synthesis_breakdown,
+        )
+        .summary(
+            f"Strategic synthesis across {len(active)} perspectives with {patterns_count} patterns and {tensions_count} tensions identified"
+        )
+        .data(legacy_response)
+        .metadata(
+            operation_type="perspective_synthesis",
+            original_prompt=latest["prompt"],
+            compression_stats=compression_stats,
+        )
+        .build()
+    )
+
+    return aorp_response
 
 
 # Session management tools
@@ -630,9 +1138,15 @@ async def get_session(request: GetSessionRequest) -> Dict[str, Any]:
     """Get detailed information about a session"""
     session = session_manager.get_session(request.session_id)
     if not session:
-        return {"error": f"Session {request.session_id} not found or expired"}
+        return create_error_response(
+            f"Session {request.session_id} not found or expired",
+            "session_not_found",
+            {"session_id": request.session_id},
+            recoverable=True,
+        )
 
-    return {
+    # Build legacy response
+    legacy_response = {
         "session_id": request.session_id,
         "created_at": session.created_at.isoformat(),
         "perspectives": {
@@ -654,6 +1168,68 @@ async def get_session(request: GetSessionRequest) -> Dict[str, Any]:
             for a in session.analyses
         ],
     }
+
+    # Generate key insight
+    perspective_count = len(session.threads)
+    analysis_count = len(session.analyses)
+    key_insight = f"Session has {perspective_count} perspectives with {analysis_count} completed analyses"
+
+    # Next steps based on session state
+    if analysis_count == 0:
+        next_steps = [
+            "analyze_from_perspectives('<question>') - Start your first analysis"
+        ]
+    elif analysis_count == 1:
+        next_steps = ["synthesize_perspectives() - Find patterns across perspectives"]
+    else:
+        next_steps = [
+            "analyze_from_perspectives('<follow-up>') - Explore specific aspects",
+            "add_perspective('<domain>') - Expand analysis coverage",
+        ]
+
+    # Primary recommendation
+    if analysis_count == 0:
+        primary_rec = (
+            "Begin analysis with a focused question to engage all perspectives"
+        )
+    else:
+        primary_rec = (
+            "Review analysis history and continue with synthesis or follow-up questions"
+        )
+
+    # Build AORP response
+    builder = AORPBuilder()
+    aorp_response = (
+        builder.status("success")
+        .key_insight(key_insight)
+        .confidence(1.0)  # Session info is always accurate
+        .session_id(request.session_id)
+        .next_steps(next_steps)
+        .primary_recommendation(primary_rec)
+        .workflow_guidance(
+            "Present session overview to user with recommended next actions"
+        )
+        .completeness(1.0)
+        .reliability(1.0)
+        .urgency("low")
+        .indicators(
+            perspectives_configured=perspective_count,
+            analyses_completed=analysis_count,
+            session_age_hours=int(
+                (datetime.utcnow() - session.created_at).total_seconds() / 3600
+            ),
+        )
+        .summary(
+            f"Session overview: {perspective_count} perspectives, {analysis_count} analyses"
+        )
+        .data(legacy_response)
+        .metadata(
+            operation_type="session_info", created_at=session.created_at.isoformat()
+        )
+        .build()
+    )
+
+    return aorp_response
 
 
 # Operational monitoring tools
@@ -691,6 +1267,123 @@ async def reset_circuit_breakers() -> Dict[str, Any]:
     }
 
 
+class RecommendPerspectivesRequest(BaseModel):
+    topic: str = Field(description="The problem or topic to analyze")
+    context: Optional[str] = Field(
+        default=None, description="Additional context about the problem"
+    )
+    existing_session_id: Optional[str] = Field(
+        default=None, description="Session ID to add perspectives to"
+    )
+    max_recommendations: int = Field(
+        default=5, description="Maximum number of recommendations"
+    )
+
+
+@mcp.tool(
+    description="Get smart perspective recommendations based on problem analysis - AI suggests the most relevant expert viewpoints for your specific challenge"
+)
+async def recommend_perspectives(
+    request: RecommendPerspectivesRequest,
+) -> Dict[str, Any]:
+    """Analyze problem and recommend relevant perspectives"""
+
+    # Initialize perspective selector
+    selector = SmartPerspectiveSelector()
+
+    # Get existing perspectives if session provided
+    existing_perspectives = []
+    if request.existing_session_id:
+        session = session_manager.get_session(request.existing_session_id)
+        if session:
+            existing_perspectives = list(session.threads.keys())
+
+    # Get recommendations
+    recommendations = selector.recommend_perspectives(
+        topic=request.topic,
+        context=request.context,
+        existing_perspectives=existing_perspectives,
+        max_recommendations=request.max_recommendations,
+    )
+
+    # Build response
+    recommended_perspectives = []
+    for rec in recommendations:
+        recommended_perspectives.append(
+            {
+                "name": rec.name,
+                "description": rec.description,
+                "relevance_score": round(rec.relevance_score, 2),
+                "reasoning": rec.reasoning,
+            }
+        )
+
+    # Generate key insight
+    if recommendations:
+        top_perspective = recommendations[0]
+        key_insight = f"Detected {top_perspective.reasoning.lower()} - recommending {len(recommendations)} specialized perspectives"
+    else:
+        key_insight = "Standard perspectives recommended for general analysis"
+
+    # Next steps
+    next_steps = []
+    if request.existing_session_id:
+        for rec in recommendations[:2]:  # Top 2 recommendations
+            next_steps.append(f"add_perspective('{rec.name}') - {rec.description}")
+    else:
+        next_steps.append("start_context_analysis() with recommended perspectives")
+        next_steps.append(
+            "Use 'initial_perspectives' parameter with recommendation names"
+        )
+
+    # Build AORP response
+    builder = AORPBuilder()
+    aorp_response = (
+        builder.status("success")
+        .key_insight(key_insight)
+        .confidence(
+            max(0.5, recommendations[0].relevance_score if recommendations else 0.5)
+        )
+        .session_id(request.existing_session_id)
+        .next_steps(next_steps)
+        .primary_recommendation(
+            f"Add '{recommendations[0].name}' perspective for targeted insights"
+            if recommendations and request.existing_session_id
+            else "Start analysis with recommended domain-specific perspectives"
+        )
+        .workflow_guidance(
+            "Present perspective recommendations with reasoning to guide user's choice"
+        )
+        .completeness(1.0)
+        .reliability(0.8)  # Recommendations are heuristic-based
+        .urgency("low")
+        .indicators(
+            recommendations_count=len(recommendations),
+            existing_perspectives=len(existing_perspectives),
+            problem_domains_detected=len(
+                [r for r in recommendations if r.relevance_score > 0.5]
+            ),
+        )
+        .summary(
+            f"Recommended {len(recommendations)} perspectives based on problem analysis"
+        )
+        .data(
+            {
+                "recommendations": recommended_perspectives,
+                "topic": request.topic,
+                "existing_perspectives": existing_perspectives,
+            }
+        )
+        .metadata(
+            operation_type="perspective_recommendation",
+            has_context=bool(request.context),
+        )
+        .build()
+    )
+
+    return aorp_response
+
+
 # Note: Session cleanup task should be started manually when needed
 # FastMCP doesn't have startup/shutdown hooks in this version
 
@@ -698,7 +1391,16 @@ async def reset_circuit_breakers() -> Dict[str, Any]:
 # Main entry point
 def main():
     """Run the MCP server"""
-    mcp.run(transport="stdio")
+    try:
+        mcp.run()
+    except KeyboardInterrupt:
+        logger.info("Server stopped by user")
+    except (BrokenPipeError, ConnectionResetError):
+        # Normal disconnection from client
+        logger.debug("Client disconnected normally")
+    except Exception as e:
+        logger.error(f"Server error: {e}")
+        raise
 
 
 if __name__ == "__main__":
