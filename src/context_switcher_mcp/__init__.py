@@ -28,6 +28,7 @@ from .compression import prepare_synthesis_input
 from .models import ModelBackend, Thread, ContextSwitcherSession
 from .orchestrator import ThreadOrchestrator, NO_RESPONSE
 from .perspective_selector import SmartPerspectiveSelector
+from .security import sanitize_user_input, log_security_event
 from .session_manager import SessionManager
 from .templates import PERSPECTIVE_TEMPLATES
 
@@ -146,7 +147,7 @@ def validate_session_id(session_id: str) -> tuple[bool, str]:
 
 
 def validate_topic(topic: str) -> tuple[bool, str]:
-    """Validate topic string
+    """Validate topic string with security checks
 
     Returns:
         Tuple of (is_valid, error_message)
@@ -160,6 +161,16 @@ def validate_topic(topic: str) -> tuple[bool, str]:
             False,
             f"Topic too long (max {MAX_TOPIC_LENGTH} characters, got {len(topic)})",
         )
+
+    # Security validation
+    is_safe, cleaned_topic, issues = sanitize_user_input(topic, MAX_TOPIC_LENGTH)
+    if not is_safe:
+        log_security_event("blocked_input", {"input_type": "topic", "issues": issues})
+        return (
+            False,
+            f"Invalid topic content: {issues[0] if issues else 'Security check failed'}",
+        )
+
     return True, ""
 
 
@@ -1392,6 +1403,14 @@ async def recommend_perspectives(
 def main():
     """Run the MCP server"""
     try:
+        # Start session cleanup task
+        import asyncio
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(session_manager.start_cleanup_task())
+        logger.info("Started session cleanup task")
+
         mcp.run()
     except KeyboardInterrupt:
         logger.info("Server stopped by user")
@@ -1401,6 +1420,14 @@ def main():
     except Exception as e:
         logger.error(f"Server error: {e}")
         raise
+    finally:
+        # Stop cleanup task on shutdown
+        try:
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(session_manager.stop_cleanup_task())
+            logger.info("Stopped session cleanup task")
+        except Exception as e:
+            logger.error(f"Error stopping cleanup task: {e}")
 
 
 if __name__ == "__main__":

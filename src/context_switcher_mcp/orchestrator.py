@@ -431,10 +431,17 @@ class ThreadOrchestrator:
                     }
                 )
 
-            # Call Bedrock
+            # Call Bedrock with model validation
             model_id = thread.model_name or os.environ.get(
                 "BEDROCK_MODEL_ID", "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
             )
+
+            # Validate model ID
+            from .security import validate_model_id
+
+            is_valid, error_msg = validate_model_id(model_id)
+            if not is_valid:
+                raise ValueError(f"Invalid model ID: {error_msg}")
 
             response = client.converse(
                 modelId=model_id,
@@ -477,10 +484,17 @@ class ThreadOrchestrator:
                     }
                 )
 
-            # Get model ID
+            # Get model ID with validation
             model_id = thread.model_name or os.environ.get(
                 "BEDROCK_MODEL_ID", "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
             )
+
+            # Validate model ID
+            from .security import validate_model_id
+
+            is_valid, error_msg = validate_model_id(model_id)
+            if not is_valid:
+                raise ValueError(f"Invalid model ID: {error_msg}")
 
             # Use converse_stream for streaming responses
             response = client.converse_stream(
