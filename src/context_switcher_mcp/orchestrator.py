@@ -462,9 +462,9 @@ class ThreadOrchestrator:
                 if thread_metrics.success:
                     backend_stats[backend]["success"] += 1
                 if thread_metrics.execution_time:
-                    backend_stats[backend]["total_time"] += (
-                        thread_metrics.execution_time
-                    )
+                    backend_stats[backend][
+                        "total_time"
+                    ] += thread_metrics.execution_time
 
         # Calculate backend success rates and avg times
         for backend, stats in backend_stats.items():

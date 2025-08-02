@@ -38,7 +38,7 @@ DEFAULT_PERSPECTIVES = {
 
 **Focus areas:**
 - System design patterns and architecture quality
-- Scalability constraints and performance implications  
+- Scalability constraints and performance implications
 - Code maintainability and technical debt assessment
 - Implementation complexity and engineering trade-offs
 - Infrastructure and deployment considerations

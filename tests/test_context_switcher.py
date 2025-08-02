@@ -4,13 +4,10 @@ import pytest
 from datetime import datetime
 
 from src.context_switcher_mcp.models import Thread, ContextSwitcherSession, ModelBackend
-from src.context_switcher_mcp.orchestrator import ThreadOrchestrator, NO_RESPONSE
+from src.context_switcher_mcp.orchestrator import ThreadOrchestrator
 from src.context_switcher_mcp.session_manager import SessionManager
 from src.context_switcher_mcp import (
-    StartContextAnalysisRequest,
-    AddPerspectiveRequest,
     session_manager,
-    mcp,
 )
 
 
@@ -87,22 +84,22 @@ class TestThreadOrchestrator:
     def test_circuit_breaker_functionality(self):
         """Test circuit breaker functionality"""
         orchestrator = ThreadOrchestrator()
-        
+
         # Check that circuit breakers are initialized
         assert ModelBackend.BEDROCK in orchestrator.circuit_breakers
         assert ModelBackend.LITELLM in orchestrator.circuit_breakers
         assert ModelBackend.OLLAMA in orchestrator.circuit_breakers
-        
+
         # Test circuit breaker state
         cb = orchestrator.circuit_breakers[ModelBackend.BEDROCK]
         assert cb.state == "CLOSED"
         assert cb.failure_count == 0
-        
+
         # Test recording failures
         for _ in range(5):  # Failure threshold is 5
             cb.record_failure()
         assert cb.state == "OPEN"
-        
+
         # Test success recording
         cb.record_success()
         assert cb.state == "CLOSED"
@@ -116,15 +113,16 @@ class TestMCPTools:
         """Test session creation logic without MCP wrapper"""
         # Clear any existing sessions
         session_manager.sessions.clear()
-        
+
         # Test basic session creation
         session = ContextSwitcherSession(
             session_id="test-session", created_at=datetime.utcnow()
         )
         session.topic = "Test topic"
-        
+
         # Test adding default perspectives
         from src.context_switcher_mcp import DEFAULT_PERSPECTIVES
+
         for name, prompt in DEFAULT_PERSPECTIVES.items():
             thread = Thread(
                 id=f"thread-{name}",
@@ -134,30 +132,30 @@ class TestMCPTools:
                 model_name=None,
             )
             session.add_thread(thread)
-        
+
         assert len(session.threads) == 4
         assert "technical" in session.threads
         assert "business" in session.threads
         assert "user" in session.threads
         assert "risk" in session.threads
-        
+
     def test_validation_functions(self):
         """Test input validation functions"""
         from src.context_switcher_mcp import validate_topic, validate_session_id
-        
+
         # Test topic validation
         valid, error = validate_topic("Valid topic")
         assert valid is True
         assert error == ""
-        
+
         valid, error = validate_topic("")
         assert valid is False
         assert "empty" in error.lower()
-        
+
         valid, error = validate_topic("x" * 1001)  # Too long
         assert valid is False
         assert "too long" in error.lower()
-        
+
         # Test session ID validation (without existing session)
         valid, error = validate_session_id("non-existent-session")
         assert valid is False
