@@ -28,7 +28,7 @@ from .compression import prepare_synthesis_input
 from .models import ModelBackend, Thread, ContextSwitcherSession
 from .orchestrator import ThreadOrchestrator, NO_RESPONSE
 from .perspective_selector import SmartPerspectiveSelector
-from .security import sanitize_user_input, log_security_event
+from .security import sanitize_user_input, log_security_event, sanitize_error_message
 from .session_manager import SessionManager
 from .templates import PERSPECTIVE_TEMPLATES
 
@@ -216,9 +216,12 @@ async def start_context_analysis(
     topic_valid, topic_error = validate_topic(request.topic)
     if not topic_valid:
         return create_error_response(
-            f"Invalid topic: {topic_error}",
+            f"Invalid topic: {sanitize_error_message(topic_error)}",
             "validation_error",
-            {"topic": request.topic, "error_details": topic_error},
+            {
+                "topic": request.topic,
+                "error_details": sanitize_error_message(topic_error),
+            },
             recoverable=True,
         )
 
@@ -272,6 +275,19 @@ Abstain with {NO_RESPONSE} if this perspective doesn't apply."""
             {"max_sessions": session_manager.max_sessions},
             recoverable=True,
         )
+
+    # Log session creation for security monitoring
+    log_security_event(
+        "session_created",
+        {
+            "session_id": session_id,
+            "topic_length": len(request.topic),
+            "perspectives_count": len(session.threads),
+            "template": request.template,
+            "model_backend": request.model_backend.value,
+        },
+        session_id,
+    )
 
     # Add custom perspectives from template
     for persp_name, persp_desc in custom_perspectives:
@@ -492,6 +508,12 @@ async def analyze_from_perspectives(
     # Validate session ID
     session_valid, session_error = validate_session_id(request.session_id)
     if not session_valid:
+        # Log failed session access for security monitoring
+        log_security_event(
+            "session_access_failed",
+            {"attempted_session_id": request.session_id, "error": session_error},
+            request.session_id,
+        )
         return create_error_response(
             session_error,
             "session_not_found",

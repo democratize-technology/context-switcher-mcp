@@ -98,7 +98,9 @@ class CircuitBreakerState:
     def record_success(self):
         """Record successful request"""
         self.failure_count = 0
-        self.state = "CLOSED"
+        if self.state == "HALF_OPEN":
+            # Only transition to CLOSED from HALF_OPEN after successful request
+            self.state = "CLOSED"
         self.last_failure_time = None
 
     def record_failure(self):
@@ -405,8 +407,10 @@ class ThreadOrchestrator:
                         f"All {self.max_retries} attempts failed for {thread.name}: {e}"
                     )
 
-        # If all retries failed, return error message
-        return f"Error after {self.max_retries} attempts: {str(last_error)}"
+        # If all retries failed, return sanitized error message
+        from .security import sanitize_error_message
+
+        return f"Error after {self.max_retries} attempts: {sanitize_error_message(str(last_error))}"
 
     async def _call_bedrock(self, thread: Thread) -> str:
         """Call AWS Bedrock model"""
@@ -464,7 +468,9 @@ class ThreadOrchestrator:
             elif "credentials" in str(e).lower():
                 return "Error: AWS credentials not configured. Run: aws configure"
             else:
-                return f"Error calling Bedrock: {str(e)}"
+                from .security import sanitize_error_message
+
+                return f"Error calling Bedrock: {sanitize_error_message(str(e))}"
 
     async def _call_bedrock_stream(self, thread: Thread):
         """Call AWS Bedrock model with streaming support"""
@@ -527,7 +533,9 @@ class ThreadOrchestrator:
 
         except Exception as e:
             logger.error(f"Bedrock streaming error: {e}")
-            error_msg = f"Error calling Bedrock: {str(e)}"
+            from .security import sanitize_error_message
+
+            error_msg = f"Error calling Bedrock: {sanitize_error_message(str(e))}"
             yield {"type": "error", "content": error_msg, "thread_name": thread.name}
 
     async def _call_litellm(self, thread: Thread) -> str:
@@ -561,7 +569,9 @@ class ThreadOrchestrator:
             elif "connection" in str(e).lower():
                 return "Error: Cannot connect to LiteLLM. Check LITELLM_API_BASE is set correctly"
             else:
-                return f"Error calling LiteLLM: {str(e)}"
+                from .security import sanitize_error_message
+
+                return f"Error calling LiteLLM: {sanitize_error_message(str(e))}"
 
     async def _call_ollama(self, thread: Thread) -> str:
         """Call local Ollama model"""
@@ -605,7 +615,9 @@ class ThreadOrchestrator:
             elif "model" in str(e).lower():
                 return f"Error: Model not found. Pull it first: ollama pull {model}"
             else:
-                return f"Error calling Ollama: {str(e)}"
+                from .security import sanitize_error_message
+
+                return f"Error calling Ollama: {sanitize_error_message(str(e))}"
 
     def _store_metrics(self, metrics: OrchestrationMetrics) -> None:
         """Store metrics and maintain history limit"""
