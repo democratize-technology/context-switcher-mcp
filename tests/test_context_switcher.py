@@ -81,7 +81,8 @@ class TestThreadOrchestrator:
         assert ModelBackend.LITELLM in orchestrator.backends
         assert ModelBackend.OLLAMA in orchestrator.backends
 
-    def test_circuit_breaker_functionality(self):
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_functionality(self):
         """Test circuit breaker functionality"""
         orchestrator = ThreadOrchestrator()
 
@@ -151,7 +152,8 @@ class TestMCPTools:
         assert "user" in session.threads
         assert "risk" in session.threads
 
-    def test_validation_functions(self):
+    @pytest.mark.asyncio
+    async def test_validation_functions(self):
         """Test input validation functions"""
         from src.context_switcher_mcp import validate_topic, validate_session_id
 
@@ -180,7 +182,7 @@ class TestMCPTools:
         assert "invalid topic content" in error.lower()
 
         # Test session ID validation (without existing session)
-        valid, error = validate_session_id("non-existent-session")
+        valid, error = await validate_session_id("non-existent-session")
         assert valid is False
         assert "not found" in error.lower()
 
@@ -195,7 +197,8 @@ class TestSessionManager:
         assert sm.session_ttl.total_seconds() == 3600
         assert len(sm.sessions) == 0
 
-    def test_add_session(self):
+    @pytest.mark.asyncio
+    async def test_add_session(self):
         """Test adding sessions to manager"""
         sm = SessionManager(max_sessions=2)
 
@@ -203,38 +206,39 @@ class TestSessionManager:
         session1 = ContextSwitcherSession(
             session_id="test-1", created_at=datetime.utcnow()
         )
-        assert sm.add_session(session1) is True
+        assert await sm.add_session(session1) is True
         assert len(sm.sessions) == 1
 
         # Add second session
         session2 = ContextSwitcherSession(
             session_id="test-2", created_at=datetime.utcnow()
         )
-        assert sm.add_session(session2) is True
+        assert await sm.add_session(session2) is True
         assert len(sm.sessions) == 2
 
         # Try to add third session (should fail)
         session3 = ContextSwitcherSession(
             session_id="test-3", created_at=datetime.utcnow()
         )
-        assert sm.add_session(session3) is False
+        assert await sm.add_session(session3) is False
         assert len(sm.sessions) == 2
 
-    def test_get_session(self):
+    @pytest.mark.asyncio
+    async def test_get_session(self):
         """Test retrieving sessions"""
         sm = SessionManager()
         session = ContextSwitcherSession(
             session_id="test-1", created_at=datetime.utcnow()
         )
-        sm.add_session(session)
+        await sm.add_session(session)
 
         # Get existing session
-        retrieved = sm.get_session("test-1")
+        retrieved = await sm.get_session("test-1")
         assert retrieved is not None
         assert retrieved.session_id == "test-1"
 
         # Get non-existent session
-        assert sm.get_session("test-999") is None
+        assert await sm.get_session("test-999") is None
 
 
 class TestSecurity:
@@ -418,7 +422,8 @@ class TestRateLimiting:
 class TestSessionEnhancements:
     """Test session management enhancements"""
 
-    def test_session_cleanup_integration(self):
+    @pytest.mark.asyncio
+    async def test_session_cleanup_integration(self):
         """Test that session cleanup properly integrates with rate limiter"""
         from src.context_switcher_mcp.session_manager import SessionManager
         from src.context_switcher_mcp.models import ContextSwitcherSession
@@ -438,7 +443,7 @@ class TestSessionEnhancements:
         assert len(sm.sessions) == 1
 
         # Cleanup should remove expired session
-        sm._cleanup_expired_sessions()
+        await sm._cleanup_expired_sessions()
         assert len(sm.sessions) == 0
 
 
