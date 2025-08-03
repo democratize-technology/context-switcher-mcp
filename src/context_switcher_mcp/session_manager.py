@@ -4,9 +4,9 @@ import asyncio
 import logging
 from datetime import datetime, timedelta
 from typing import Dict, Optional, Any
-from threading import Lock
 
 from .models import ContextSwitcherSession
+from .config import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -16,34 +16,45 @@ class SessionManager:
 
     def __init__(
         self,
-        max_sessions: int = 100,
-        session_ttl_hours: int = 24,
-        cleanup_interval_minutes: int = 30,
+        max_sessions: int = None,
+        session_ttl_hours: int = None,
+        cleanup_interval_minutes: int = None,
     ):
         """Initialize session manager
 
         Args:
-            max_sessions: Maximum number of sessions to keep
-            session_ttl_hours: Hours before a session expires
-            cleanup_interval_minutes: Minutes between cleanup runs
+            max_sessions: Maximum number of sessions to keep (uses config default if None)
+            session_ttl_hours: Hours before a session expires (uses config default if None)
+            cleanup_interval_minutes: Minutes between cleanup runs (uses config default if None)
         """
+        config = get_config()
         self.sessions: Dict[str, ContextSwitcherSession] = {}
-        self.max_sessions = max_sessions
-        self.session_ttl = timedelta(hours=session_ttl_hours)
-        self.cleanup_interval = timedelta(minutes=cleanup_interval_minutes)
-        self._lock = Lock()
+        self.max_sessions = (
+            max_sessions
+            if max_sessions is not None
+            else config.session.max_active_sessions
+        )
+        self.session_ttl = timedelta(
+            hours=session_ttl_hours
+            if session_ttl_hours is not None
+            else config.session.default_ttl_hours
+        )
+        self.cleanup_interval = timedelta(
+            seconds=config.session.cleanup_interval_seconds
+        )
+        self._lock = asyncio.Lock()
         self._cleanup_task: Optional[asyncio.Task] = None
 
-    def add_session(self, session: ContextSwitcherSession) -> bool:
+    async def add_session(self, session: ContextSwitcherSession) -> bool:
         """Add a new session
 
         Returns:
             True if added successfully, False if at capacity
         """
-        with self._lock:
+        async with self._lock:
             if len(self.sessions) >= self.max_sessions:
                 # Try to clean up expired sessions first
-                self._cleanup_expired_sessions()
+                await self._cleanup_expired_sessions()
 
                 if len(self.sessions) >= self.max_sessions:
                     logger.warning(f"Session limit reached ({self.max_sessions})")
@@ -55,9 +66,9 @@ class SessionManager:
             )
             return True
 
-    def get_session(self, session_id: str) -> Optional[ContextSwitcherSession]:
+    async def get_session(self, session_id: str) -> Optional[ContextSwitcherSession]:
         """Get a session by ID"""
-        with self._lock:
+        async with self._lock:
             session = self.sessions.get(session_id)
             if session and self._is_expired(session):
                 # Remove expired session
@@ -66,9 +77,9 @@ class SessionManager:
                 return None
             return session
 
-    def remove_session(self, session_id: str) -> bool:
+    async def remove_session(self, session_id: str) -> bool:
         """Remove a session"""
-        with self._lock:
+        async with self._lock:
             if session_id in self.sessions:
                 del self.sessions[session_id]
                 logger.info(f"Removed session {session_id}")
@@ -85,11 +96,11 @@ class SessionManager:
                 return True
             return False
 
-    def list_active_sessions(self) -> Dict[str, ContextSwitcherSession]:
+    async def list_active_sessions(self) -> Dict[str, ContextSwitcherSession]:
         """List all active (non-expired) sessions"""
-        with self._lock:
+        async with self._lock:
             # Clean up first
-            self._cleanup_expired_sessions()
+            await self._cleanup_expired_sessions()
             return self.sessions.copy()
 
     def _is_expired(self, session: ContextSwitcherSession) -> bool:
@@ -97,7 +108,7 @@ class SessionManager:
         age = datetime.utcnow() - session.created_at
         return age > self.session_ttl
 
-    def _cleanup_expired_sessions(self):
+    async def _cleanup_expired_sessions(self):
         """Remove expired sessions (internal, assumes lock is held)"""
         expired = []
         for session_id, session in self.sessions.items():
@@ -142,9 +153,9 @@ class SessionManager:
             try:
                 await asyncio.sleep(self.cleanup_interval.total_seconds())
 
-                with self._lock:
+                async with self._lock:
                     before_count = len(self.sessions)
-                    self._cleanup_expired_sessions()
+                    await self._cleanup_expired_sessions()
                     after_count = len(self.sessions)
 
                 if before_count != after_count:
@@ -157,9 +168,9 @@ class SessionManager:
             except Exception as e:
                 logger.error(f"Error in periodic cleanup: {e}")
 
-    def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> Dict[str, Any]:
         """Get session manager statistics"""
-        with self._lock:
+        async with self._lock:
             active_sessions = len(self.sessions)
             oldest_session = None
             newest_session = None

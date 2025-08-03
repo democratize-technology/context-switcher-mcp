@@ -125,7 +125,7 @@ rate_limiter = SessionRateLimiter(
 
 
 # Helper functions
-def validate_session_id(session_id: str) -> tuple[bool, str]:
+async def validate_session_id(session_id: str) -> tuple[bool, str]:
     """Validate session ID format and existence
 
     Returns:
@@ -136,9 +136,9 @@ def validate_session_id(session_id: str) -> tuple[bool, str]:
     if len(session_id) > MAX_SESSION_ID_LENGTH:
         return False, f"Session ID too long (max {MAX_SESSION_ID_LENGTH} characters)"
 
-    session = session_manager.get_session(session_id)
+    session = await session_manager.get_session(session_id)
     if session is None:
-        active_sessions = session_manager.list_active_sessions()
+        active_sessions = await session_manager.list_active_sessions()
         active_list = list(active_sessions.keys())[:3]  # Show up to 3 active sessions
         hint = (
             f"Active sessions: {active_list}"
@@ -282,7 +282,7 @@ Abstain with {NO_RESPONSE} if this perspective doesn't apply."""
         session.add_thread(thread)
 
     # Store session in manager
-    if not session_manager.add_session(session):
+    if not await session_manager.add_session(session):
         return create_error_response(
             "Session limit reached. Please try again later.",
             "capacity_limit",
@@ -417,7 +417,7 @@ class AddPerspectiveRequest(BaseModel):
 async def add_perspective(request: AddPerspectiveRequest) -> Dict[str, Any]:
     """Add a new perspective to an existing analysis session"""
     # Validate session ID
-    session_valid, session_error = validate_session_id(request.session_id)
+    session_valid, session_error = await validate_session_id(request.session_id)
     if not session_valid:
         return create_error_response(
             session_error,
@@ -427,7 +427,7 @@ async def add_perspective(request: AddPerspectiveRequest) -> Dict[str, Any]:
         )
 
     # Get session
-    session = session_manager.get_session(request.session_id)
+    session = await session_manager.get_session(request.session_id)
 
     # Create prompt for new perspective
     if request.custom_prompt:
@@ -533,7 +533,7 @@ async def analyze_from_perspectives(
         )
 
     # Validate session ID
-    session_valid, session_error = validate_session_id(request.session_id)
+    session_valid, session_error = await validate_session_id(request.session_id)
     if not session_valid:
         # Log failed session access for security monitoring
         log_security_event(
@@ -549,7 +549,7 @@ async def analyze_from_perspectives(
         )
 
     # Get session
-    session = session_manager.get_session(request.session_id)
+    session = await session_manager.get_session(request.session_id)
 
     # Broadcast to all threads
     responses = await orchestrator.broadcast_message(
@@ -731,7 +731,7 @@ async def analyze_from_perspectives_stream(
 ):
     """Stream responses from all perspectives as they are generated"""
     # Validate session ID
-    session_valid, session_error = validate_session_id(request.session_id)
+    session_valid, session_error = await validate_session_id(request.session_id)
     if not session_valid:
         yield create_error_response(
             session_error,
@@ -742,7 +742,7 @@ async def analyze_from_perspectives_stream(
         return
 
     # Get session
-    session = session_manager.get_session(request.session_id)
+    session = await session_manager.get_session(request.session_id)
 
     # Initialize tracking
     active_perspectives = {}
@@ -840,7 +840,7 @@ async def synthesize_perspectives(
 ) -> Dict[str, Any]:
     """Analyze patterns across all perspectives from the last analysis"""
     # Get session
-    session = session_manager.get_session(request.session_id)
+    session = await session_manager.get_session(request.session_id)
     if not session:
         return create_error_response(
             f"Session {request.session_id} not found",
@@ -1087,7 +1087,7 @@ SYNTHESIS OUTPUT: Provide actionable intelligence, not summary. Focus on decisio
 async def list_sessions() -> Dict[str, Any]:
     """List all active analysis sessions"""
     session_list = []
-    active_sessions = session_manager.list_active_sessions()
+    active_sessions = await session_manager.list_active_sessions()
 
     for sid, session in active_sessions.items():
         session_list.append(
@@ -1101,7 +1101,7 @@ async def list_sessions() -> Dict[str, Any]:
         )
 
     # Get session manager stats
-    stats = session_manager.get_stats()
+    stats = await session_manager.get_stats()
 
     return {
         "sessions": session_list,
@@ -1143,7 +1143,7 @@ async def list_templates() -> Dict[str, Any]:
 )
 async def current_session() -> Dict[str, Any]:
     """Get information about the most recent session"""
-    active_sessions = session_manager.list_active_sessions()
+    active_sessions = await session_manager.list_active_sessions()
 
     if not active_sessions:
         return {
@@ -1196,7 +1196,7 @@ class GetSessionRequest(BaseModel):
 @mcp.tool(description="Get details of a specific context-switching session")
 async def get_session(request: GetSessionRequest) -> Dict[str, Any]:
     """Get detailed information about a session"""
-    session = session_manager.get_session(request.session_id)
+    session = await session_manager.get_session(request.session_id)
     if not session:
         return create_error_response(
             f"Session {request.session_id} not found or expired",
@@ -1299,7 +1299,7 @@ async def get_session(request: GetSessionRequest) -> Dict[str, Any]:
 async def get_performance_metrics() -> Dict[str, Any]:
     """Get performance metrics for monitoring operational health"""
     orchestrator_metrics = await orchestrator.get_performance_metrics(last_n=20)
-    session_stats = session_manager.get_stats()
+    session_stats = await session_manager.get_stats()
 
     return {
         "orchestrator": orchestrator_metrics,
@@ -1354,7 +1354,7 @@ async def recommend_perspectives(
     # Get existing perspectives if session provided
     existing_perspectives = []
     if request.existing_session_id:
-        session = session_manager.get_session(request.existing_session_id)
+        session = await session_manager.get_session(request.existing_session_id)
         if session:
             existing_perspectives = list(session.threads.keys())
 

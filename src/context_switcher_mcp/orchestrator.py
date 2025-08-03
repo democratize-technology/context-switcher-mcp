@@ -2,20 +2,18 @@
 
 import asyncio
 import logging
-import os
 import time
 from typing import Dict, Optional, List
 from dataclasses import dataclass, field
 from datetime import datetime
 
 from .models import Thread, ModelBackend
+from .config import get_config
 
 logger = logging.getLogger(__name__)
 
 # Constants
 NO_RESPONSE = "[NO_RESPONSE]"
-DEFAULT_MAX_TOKENS = 2048
-DEFAULT_TEMPERATURE = 0.7
 
 
 @dataclass
@@ -75,8 +73,16 @@ class CircuitBreakerState:
     failure_count: int = 0
     last_failure_time: Optional[datetime] = None
     state: str = "CLOSED"  # CLOSED, OPEN, HALF_OPEN
-    failure_threshold: int = 5
-    timeout_seconds: int = 300  # 5 minutes
+    failure_threshold: int = None
+    timeout_seconds: int = None
+
+    def __post_init__(self):
+        """Initialize with config defaults if not provided"""
+        config = get_config()
+        if self.failure_threshold is None:
+            self.failure_threshold = config.circuit_breaker.failure_threshold
+        if self.timeout_seconds is None:
+            self.timeout_seconds = config.circuit_breaker.timeout_seconds
 
     def should_allow_request(self) -> bool:
         """Check if requests should be allowed through circuit breaker"""
@@ -114,20 +120,25 @@ class CircuitBreakerState:
 class ThreadOrchestrator:
     """Orchestrates parallel thread execution with different LLM backends"""
 
-    def __init__(self, max_retries: int = 3, retry_delay: float = 1.0):
+    def __init__(self, max_retries: int = None, retry_delay: float = None):
         """Initialize orchestrator
 
         Args:
-            max_retries: Maximum number of retries for failed calls
-            retry_delay: Initial delay between retries (exponential backoff)
+            max_retries: Maximum number of retries for failed calls (uses config default if None)
+            retry_delay: Initial delay between retries (uses config default if None)
         """
+        config = get_config()
+        self.max_retries = (
+            max_retries if max_retries is not None else config.retry.max_retries
+        )
+        self.retry_delay = (
+            retry_delay if retry_delay is not None else config.retry.initial_delay
+        )
         self.backends = {
             ModelBackend.BEDROCK: self._call_bedrock,
             ModelBackend.LITELLM: self._call_litellm,
             ModelBackend.OLLAMA: self._call_ollama,
         }
-        self.max_retries = max_retries
-        self.retry_delay = retry_delay
 
         # Circuit breakers for each backend
         self.circuit_breakers: Dict[ModelBackend, CircuitBreakerState] = {
@@ -136,7 +147,7 @@ class ThreadOrchestrator:
 
         # Metrics storage (in production, this would be persisted)
         self.metrics_history: List[OrchestrationMetrics] = []
-        self.max_metrics_history = 1000  # Keep last 1000 operations
+        self.max_metrics_history = config.metrics.max_history_size
         self.metrics_lock = asyncio.Lock()  # Protect metrics operations
 
     async def broadcast_message(
@@ -439,9 +450,8 @@ class ThreadOrchestrator:
                 )
 
             # Call Bedrock with model validation
-            model_id = thread.model_name or os.environ.get(
-                "BEDROCK_MODEL_ID", "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
-            )
+            config = get_config()
+            model_id = thread.model_name or config.model.bedrock_model_id
 
             # Validate model ID
             from .security import validate_model_id
@@ -455,8 +465,8 @@ class ThreadOrchestrator:
                 messages=messages,
                 system=[{"text": thread.system_prompt}],
                 inferenceConfig={
-                    "maxTokens": DEFAULT_MAX_TOKENS,
-                    "temperature": DEFAULT_TEMPERATURE,
+                    "maxTokens": config.model.default_max_tokens,
+                    "temperature": config.model.default_temperature,
                 },
             )
 
@@ -494,9 +504,8 @@ class ThreadOrchestrator:
                 )
 
             # Get model ID with validation
-            model_id = thread.model_name or os.environ.get(
-                "BEDROCK_MODEL_ID", "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
-            )
+            config = get_config()
+            model_id = thread.model_name or config.model.bedrock_model_id
 
             # Validate model ID
             from .security import validate_model_id
@@ -511,8 +520,8 @@ class ThreadOrchestrator:
                 messages=messages,
                 system=[{"text": thread.system_prompt}],
                 inferenceConfig={
-                    "maxTokens": DEFAULT_MAX_TOKENS,
-                    "temperature": DEFAULT_TEMPERATURE,
+                    "maxTokens": config.model.default_max_tokens,
+                    "temperature": config.model.default_temperature,
                 },
             )
 
@@ -554,13 +563,14 @@ class ThreadOrchestrator:
                 messages.append({"role": msg["role"], "content": msg["content"]})
 
             # Call LiteLLM
-            model = thread.model_name or "gpt-4"
+            config = get_config()
+            model = thread.model_name or config.model.litellm_model
 
             response = await litellm.acompletion(
                 model=model,
                 messages=messages,
-                temperature=DEFAULT_TEMPERATURE,
-                max_tokens=DEFAULT_MAX_TOKENS,
+                temperature=config.model.default_temperature,
+                max_tokens=config.model.default_max_tokens,
             )
 
             return response.choices[0].message.content
@@ -589,19 +599,19 @@ class ThreadOrchestrator:
                 messages.append({"role": msg["role"], "content": msg["content"]})
 
             # Call Ollama API
-            model = thread.model_name or "llama3.2"
+            config = get_config()
+            model = thread.model_name or config.model.ollama_model
 
             async with httpx.AsyncClient() as client:
                 response = await client.post(
-                    os.environ.get("OLLAMA_HOST", "http://localhost:11434")
-                    + "/api/chat",
+                    config.model.ollama_host + "/api/chat",
                     json={
                         "model": model,
                         "messages": messages,
                         "stream": False,
                         "options": {
-                            "temperature": DEFAULT_TEMPERATURE,
-                            "num_predict": DEFAULT_MAX_TOKENS,
+                            "temperature": config.model.default_temperature,
+                            "num_predict": config.model.default_max_tokens,
                         },
                     },
                     timeout=60.0,
