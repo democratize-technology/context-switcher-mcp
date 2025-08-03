@@ -3,12 +3,13 @@
 import asyncio
 import logging
 import time
-from typing import Dict, Optional, List
+from typing import Dict, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
 
 from .models import Thread, ModelBackend
 from .config import get_config
+from .circular_buffer import CircularBuffer
 
 logger = logging.getLogger(__name__)
 
@@ -145,9 +146,10 @@ class ThreadOrchestrator:
             backend: CircuitBreakerState(backend=backend) for backend in ModelBackend
         }
 
-        # Metrics storage (in production, this would be persisted)
-        self.metrics_history: List[OrchestrationMetrics] = []
-        self.max_metrics_history = config.metrics.max_history_size
+        # Metrics storage with circular buffer to prevent memory leaks
+        self.metrics_history = CircularBuffer[OrchestrationMetrics](
+            config.metrics.max_history_size
+        )
         self.metrics_lock = asyncio.Lock()  # Protect metrics operations
 
     async def broadcast_message(
@@ -633,20 +635,16 @@ class ThreadOrchestrator:
                 return f"Error calling Ollama: {sanitize_error_message(str(e))}"
 
     def _store_metrics(self, metrics: OrchestrationMetrics) -> None:
-        """Store metrics and maintain history limit"""
+        """Store metrics in circular buffer (automatically maintains size limit)"""
         self.metrics_history.append(metrics)
-
-        # Trim history if it exceeds max size
-        if len(self.metrics_history) > self.max_metrics_history:
-            self.metrics_history = self.metrics_history[-self.max_metrics_history :]
 
     async def get_performance_metrics(self, last_n: int = 10) -> Dict[str, any]:
         """Get performance metrics for recent operations"""
         async with self.metrics_lock:
-            if not self.metrics_history:
+            if self.metrics_history.is_empty():
                 return {"message": "No metrics available"}
 
-            recent_metrics = self.metrics_history[-last_n:]
+            recent_metrics = self.metrics_history.get_recent(last_n)
 
         # Calculate aggregate statistics (outside lock)
         total_operations = len(recent_metrics)
@@ -706,6 +704,14 @@ class ThreadOrchestrator:
             },
             "backend_performance": backend_stats,
             "circuit_breakers": circuit_status,
+            "metrics_storage": {
+                "current_size": len(self.metrics_history),
+                "max_size": self.metrics_history.maxsize,
+                "utilization_percent": round(
+                    (len(self.metrics_history) / self.metrics_history.maxsize) * 100, 1
+                ),
+                "memory_usage_mb": round(self.metrics_history.memory_usage_mb, 2),
+            },
             "last_operation": recent_metrics[-1].operation_type
             if recent_metrics
             else None,
