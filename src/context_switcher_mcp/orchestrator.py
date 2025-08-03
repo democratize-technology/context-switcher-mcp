@@ -11,6 +11,11 @@ from .models import Thread, ModelBackend
 from .config import get_config
 from .circular_buffer import CircularBuffer
 from .aorp import create_error_response
+from .circuit_breaker_store import (
+    save_circuit_breaker_state,
+    load_circuit_breaker_state,
+)
+from .backend_interface import get_backend_interface
 
 logger = logging.getLogger(__name__)
 
@@ -111,12 +116,32 @@ class CircuitBreakerState:
             self.state = "CLOSED"
         self.last_failure_time = None
 
+        # Save state asynchronously (fire and forget)
+        asyncio.create_task(
+            save_circuit_breaker_state(
+                self.backend.value,
+                self.failure_count,
+                self.last_failure_time,
+                self.state,
+            )
+        )
+
     def record_failure(self):
         """Record failed request"""
         self.failure_count += 1
         self.last_failure_time = datetime.utcnow()
         if self.failure_count >= self.failure_threshold:
             self.state = "OPEN"
+
+        # Save state asynchronously (fire and forget)
+        asyncio.create_task(
+            save_circuit_breaker_state(
+                self.backend.value,
+                self.failure_count,
+                self.last_failure_time,
+                self.state,
+            )
+        )
 
 
 class ThreadOrchestrator:
@@ -137,15 +162,18 @@ class ThreadOrchestrator:
             retry_delay if retry_delay is not None else config.retry.initial_delay
         )
         self.backends = {
-            ModelBackend.BEDROCK: self._call_bedrock,
-            ModelBackend.LITELLM: self._call_litellm,
-            ModelBackend.OLLAMA: self._call_ollama,
+            ModelBackend.BEDROCK: self._call_unified_backend,
+            ModelBackend.LITELLM: self._call_unified_backend,
+            ModelBackend.OLLAMA: self._call_unified_backend,
         }
 
         # Circuit breakers for each backend
         self.circuit_breakers: Dict[ModelBackend, CircuitBreakerState] = {
             backend: CircuitBreakerState(backend=backend) for backend in ModelBackend
         }
+
+        # Circuit breaker states will be loaded on first use
+        self._circuit_breaker_states_loaded = False
 
         # Metrics storage with circular buffer to prevent memory leaks
         self.metrics_history = CircularBuffer[OrchestrationMetrics](
@@ -250,16 +278,9 @@ class ThreadOrchestrator:
                 "timestamp": time.time(),
             }
 
-            # Create streaming task based on backend
-            if thread.model_backend == ModelBackend.BEDROCK:
-                task = asyncio.create_task(self._stream_from_thread(thread, name))
-                tasks.append(task)
-            else:
-                # For non-streaming backends, fall back to regular call
-                task = asyncio.create_task(
-                    self._get_thread_response_async(thread, name)
-                )
-                tasks.append(task)
+            # Create streaming task using unified backend
+            task = asyncio.create_task(self._stream_from_thread(thread, name))
+            tasks.append(task)
 
         # Stream responses as they arrive
         async def stream_handler(task):
@@ -289,21 +310,12 @@ class ThreadOrchestrator:
             self._store_metrics(metrics)
 
     async def _stream_from_thread(self, thread: Thread, thread_name: str):
-        """Stream response from a single thread"""
+        """Stream response from a single thread using unified backend"""
         try:
-            if thread.model_backend == ModelBackend.BEDROCK:
-                async for event in self._call_bedrock_stream(thread):
-                    event["timestamp"] = time.time()
-                    yield event
-            else:
-                # Fallback for non-streaming backends
-                response = await self._get_thread_response(thread)
-                yield {
-                    "type": "complete",
-                    "thread_name": thread_name,
-                    "content": response,
-                    "timestamp": time.time(),
-                }
+            backend_interface = get_backend_interface(thread.model_backend.value)
+            async for event in backend_interface.call_model_stream(thread):
+                event["timestamp"] = time.time()
+                yield event
         except Exception as e:
             yield {
                 "type": "error",
@@ -354,6 +366,11 @@ class ThreadOrchestrator:
 
     async def _get_thread_response(self, thread: Thread) -> str:
         """Get response from a single thread with retry logic and circuit breaker"""
+        # Ensure circuit breaker states are loaded
+        if not self._circuit_breaker_states_loaded:
+            await self._load_circuit_breaker_states()
+            self._circuit_breaker_states_loaded = True
+
         backend_fn = self.backends.get(thread.model_backend)
         if not backend_fn:
             raise ValueError(f"Unknown model backend: {thread.model_backend}")
@@ -454,6 +471,15 @@ class ThreadOrchestrator:
             recoverable=True,
         )
         return f"AORP_ERROR: {error_response}"
+
+    async def _call_unified_backend(self, thread: Thread) -> str:
+        """Call backend using unified interface"""
+        try:
+            backend_interface = get_backend_interface(thread.model_backend.value)
+            return await backend_interface.call_model(thread)
+        except Exception:
+            # The backend interface already formats errors appropriately
+            raise
 
     async def _call_bedrock(self, thread: Thread) -> str:
         """Call AWS Bedrock model"""
@@ -816,3 +842,41 @@ class ThreadOrchestrator:
             )
 
         return reset_status
+
+    async def _load_circuit_breaker_states(self) -> None:
+        """Load persisted circuit breaker states on startup"""
+        try:
+            for backend in ModelBackend:
+                stored_state = await load_circuit_breaker_state(backend.value)
+                if stored_state:
+                    breaker = self.circuit_breakers[backend]
+                    breaker.failure_count = stored_state.get("failure_count", 0)
+                    breaker.state = stored_state.get("state", "CLOSED")
+
+                    # Parse last_failure_time if it exists
+                    if stored_state.get("last_failure_time"):
+                        try:
+                            breaker.last_failure_time = datetime.fromisoformat(
+                                stored_state["last_failure_time"]
+                            )
+                        except ValueError:
+                            # Invalid timestamp, reset to None
+                            breaker.last_failure_time = None
+
+                    logger.info(
+                        f"Restored circuit breaker state for {backend.value}: "
+                        f"state={breaker.state}, failures={breaker.failure_count}"
+                    )
+
+        except Exception as e:
+            logger.warning(f"Failed to load circuit breaker states: {e}")
+
+    async def save_all_circuit_breaker_states(self) -> None:
+        """Manually save all circuit breaker states"""
+        for backend, breaker in self.circuit_breakers.items():
+            await save_circuit_breaker_state(
+                backend.value,
+                breaker.failure_count,
+                breaker.last_failure_time,
+                breaker.state,
+            )
