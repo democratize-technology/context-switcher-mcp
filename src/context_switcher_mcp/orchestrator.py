@@ -10,6 +10,7 @@ from datetime import datetime
 from .models import Thread, ModelBackend
 from .config import get_config
 from .circular_buffer import CircularBuffer
+from .aorp import create_error_response
 
 logger = logging.getLogger(__name__)
 
@@ -363,9 +364,16 @@ class ThreadOrchestrator:
             logger.warning(
                 f"Circuit breaker OPEN for {thread.model_backend.value}, failing fast"
             )
-            return (
-                f"Error: Circuit breaker OPEN for {thread.model_backend.value} backend"
+            error_response = create_error_response(
+                error_message=f"Circuit breaker is OPEN for {thread.model_backend.value} backend due to repeated failures",
+                error_type="circuit_breaker_open",
+                context={
+                    "backend": thread.model_backend.value,
+                    "failure_count": circuit_breaker.failure_count,
+                },
+                recoverable=True,
             )
+            return f"AORP_ERROR: {error_response}"
 
         # Try with exponential backoff
         last_error = None
@@ -408,7 +416,16 @@ class ThreadOrchestrator:
                     ]
                 ):
                     logger.error(f"Non-retryable error for {thread.name}: {e}")
-                    return f"Error: {str(e)}"
+                    error_response = create_error_response(
+                        error_message=str(e),
+                        error_type="configuration_error",
+                        context={
+                            "thread": thread.name,
+                            "backend": thread.model_backend.value,
+                        },
+                        recoverable=False,
+                    )
+                    return f"AORP_ERROR: {error_response}"
 
                 # Retry on transient errors
                 if attempt < self.max_retries - 1:
@@ -423,10 +440,20 @@ class ThreadOrchestrator:
                         f"All {self.max_retries} attempts failed for {thread.name}: {e}"
                     )
 
-        # If all retries failed, return sanitized error message
+        # If all retries failed, return AORP error response
         from .security import sanitize_error_message
 
-        return f"Error after {self.max_retries} attempts: {sanitize_error_message(str(last_error))}"
+        error_response = create_error_response(
+            error_message=f"Failed after {self.max_retries} attempts: {sanitize_error_message(str(last_error))}",
+            error_type="retry_exhausted",
+            context={
+                "attempts": self.max_retries,
+                "thread": thread.name,
+                "backend": thread.model_backend.value,
+            },
+            recoverable=True,
+        )
+        return f"AORP_ERROR: {error_response}"
 
     async def _call_bedrock(self, thread: Thread) -> str:
         """Call AWS Bedrock model"""
@@ -478,14 +505,30 @@ class ThreadOrchestrator:
 
         except Exception as e:
             logger.error(f"Bedrock error: {e}")
-            if "inference profile" in str(e).lower():
-                return "Error: Model needs inference profile ID. Try: us.anthropic.claude-3-7-sonnet-20250219-v1:0"
-            elif "credentials" in str(e).lower():
-                return "Error: AWS credentials not configured. Run: aws configure"
-            else:
-                from .security import sanitize_error_message
+            from .security import sanitize_error_message
 
-                return f"Error calling Bedrock: {sanitize_error_message(str(e))}"
+            if "inference profile" in str(e).lower():
+                error_response = create_error_response(
+                    error_message="Model needs inference profile ID. Try: us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+                    error_type="model_configuration_error",
+                    context={"backend": "bedrock", "model_id": thread.model_name},
+                    recoverable=True,
+                )
+            elif "credentials" in str(e).lower():
+                error_response = create_error_response(
+                    error_message="AWS credentials not configured. Run: aws configure",
+                    error_type="credentials_error",
+                    context={"backend": "bedrock"},
+                    recoverable=True,
+                )
+            else:
+                error_response = create_error_response(
+                    error_message=f"Bedrock API error: {sanitize_error_message(str(e))}",
+                    error_type="api_error",
+                    context={"backend": "bedrock"},
+                    recoverable=True,
+                )
+            return f"AORP_ERROR: {error_response}"
 
     async def _call_bedrock_stream(self, thread: Thread):
         """Call AWS Bedrock model with streaming support"""
@@ -549,8 +592,17 @@ class ThreadOrchestrator:
             logger.error(f"Bedrock streaming error: {e}")
             from .security import sanitize_error_message
 
-            error_msg = f"Error calling Bedrock: {sanitize_error_message(str(e))}"
-            yield {"type": "error", "content": error_msg, "thread_name": thread.name}
+            error_response = create_error_response(
+                error_message=f"Bedrock streaming error: {sanitize_error_message(str(e))}",
+                error_type="streaming_error",
+                context={"backend": "bedrock", "thread": thread.name},
+                recoverable=True,
+            )
+            yield {
+                "type": "error",
+                "content": f"AORP_ERROR: {error_response}",
+                "thread_name": thread.name,
+            }
 
     async def _call_litellm(self, thread: Thread) -> str:
         """Call model via LiteLLM"""
@@ -579,14 +631,30 @@ class ThreadOrchestrator:
 
         except Exception as e:
             logger.error(f"LiteLLM error: {e}")
-            if "api_key" in str(e).lower():
-                return "Error: Missing API key. Set OPENAI_API_KEY or ANTHROPIC_API_KEY environment variable"
-            elif "connection" in str(e).lower():
-                return "Error: Cannot connect to LiteLLM. Check LITELLM_API_BASE is set correctly"
-            else:
-                from .security import sanitize_error_message
+            from .security import sanitize_error_message
 
-                return f"Error calling LiteLLM: {sanitize_error_message(str(e))}"
+            if "api_key" in str(e).lower():
+                error_response = create_error_response(
+                    error_message="Missing API key. Set OPENAI_API_KEY or ANTHROPIC_API_KEY environment variable",
+                    error_type="credentials_error",
+                    context={"backend": "litellm"},
+                    recoverable=True,
+                )
+            elif "connection" in str(e).lower():
+                error_response = create_error_response(
+                    error_message="Cannot connect to LiteLLM. Check LITELLM_API_BASE is set correctly",
+                    error_type="connection_error",
+                    context={"backend": "litellm"},
+                    recoverable=True,
+                )
+            else:
+                error_response = create_error_response(
+                    error_message=f"LiteLLM API error: {sanitize_error_message(str(e))}",
+                    error_type="api_error",
+                    context={"backend": "litellm"},
+                    recoverable=True,
+                )
+            return f"AORP_ERROR: {error_response}"
 
     async def _call_ollama(self, thread: Thread) -> str:
         """Call local Ollama model"""
@@ -625,14 +693,31 @@ class ThreadOrchestrator:
 
         except Exception as e:
             logger.error(f"Ollama error: {e}")
-            if "connection" in str(e).lower():
-                return "Error: Cannot connect to Ollama. Is it running? Set OLLAMA_HOST=http://your-host:11434"
-            elif "model" in str(e).lower():
-                return f"Error: Model not found. Pull it first: ollama pull {model}"
-            else:
-                from .security import sanitize_error_message
+            from .security import sanitize_error_message
 
-                return f"Error calling Ollama: {sanitize_error_message(str(e))}"
+            config = get_config()
+            if "connection" in str(e).lower():
+                error_response = create_error_response(
+                    error_message="Cannot connect to Ollama. Is it running? Set OLLAMA_HOST=http://your-host:11434",
+                    error_type="connection_error",
+                    context={"backend": "ollama", "host": config.model.ollama_host},
+                    recoverable=True,
+                )
+            elif "model" in str(e).lower():
+                error_response = create_error_response(
+                    error_message=f"Model not found. Pull it first: ollama pull {model}",
+                    error_type="model_not_found",
+                    context={"backend": "ollama", "model": model},
+                    recoverable=True,
+                )
+            else:
+                error_response = create_error_response(
+                    error_message=f"Ollama API error: {sanitize_error_message(str(e))}",
+                    error_type="api_error",
+                    context={"backend": "ollama"},
+                    recoverable=True,
+                )
+            return f"AORP_ERROR: {error_response}"
 
     def _store_metrics(self, metrics: OrchestrationMetrics) -> None:
         """Store metrics in circular buffer (automatically maintains size limit)"""

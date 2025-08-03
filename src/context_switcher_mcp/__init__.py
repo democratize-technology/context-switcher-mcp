@@ -566,7 +566,7 @@ async def analyze_from_perspectives(
     perspective_metrics = {}
 
     for name, response in responses.items():
-        if response.startswith("ERROR:"):
+        if response.startswith("ERROR:") or response.startswith("AORP_ERROR:"):
             errors.append({name: response})
         elif NO_RESPONSE in response:
             abstained_perspectives.append(name)
@@ -768,7 +768,7 @@ async def analyze_from_perspectives_stream(
 
             if NO_RESPONSE in content:
                 abstained_perspectives.append(thread_name)
-            elif content.startswith("ERROR:"):
+            elif content.startswith("ERROR:") or content.startswith("AORP_ERROR:"):
                 errors.append({thread_name: content})
             else:
                 active_perspectives[thread_name] = content
@@ -865,7 +865,11 @@ async def synthesize_perspectives(
     # Extract active perspectives
     active = {}
     for name, response in latest["responses"].items():
-        if not response.startswith("ERROR:") and NO_RESPONSE not in response:
+        if (
+            not response.startswith("ERROR:")
+            and not response.startswith("AORP_ERROR:")
+            and NO_RESPONSE not in response
+        ):
             active[name] = response
 
     if not active:
@@ -968,7 +972,7 @@ SYNTHESIS OUTPUT: Provide actionable intelligence, not summary. Focus on decisio
     synthesis = await orchestrator._get_thread_response(synthesis_thread)
 
     # Handle synthesis errors
-    if synthesis.startswith("ERROR:"):
+    if synthesis.startswith("ERROR:") or synthesis.startswith("AORP_ERROR:"):
         return create_error_response(
             f"Synthesis generation failed: {synthesis}",
             "synthesis_error",
