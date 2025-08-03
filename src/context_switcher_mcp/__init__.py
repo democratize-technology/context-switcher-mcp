@@ -1298,7 +1298,7 @@ async def get_session(request: GetSessionRequest) -> Dict[str, Any]:
 @mcp.tool(description="Get performance metrics and operational health status")
 async def get_performance_metrics() -> Dict[str, Any]:
     """Get performance metrics for monitoring operational health"""
-    orchestrator_metrics = orchestrator.get_performance_metrics(last_n=20)
+    orchestrator_metrics = await orchestrator.get_performance_metrics(last_n=20)
     session_stats = session_manager.get_stats()
 
     return {
