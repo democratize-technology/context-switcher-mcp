@@ -140,20 +140,6 @@ class ContextSwitcherSession:
             ):
                 self.client_binding.tool_usage_sequence.append(tool_name)
 
-    def record_access_sync(self, tool_name: str) -> None:
-        """Record session access for behavioral analysis (synchronous version)
-
-        Note: This version is not thread-safe for concurrent access, but safe for
-        single-threaded initialization and simple cases. Use record_access() for
-        concurrent scenarios.
-        """
-        self.access_count += 1
-        self.last_accessed = datetime.utcnow()
-        self.version += 1  # Increment version for change tracking
-
-        # Update client binding tool usage pattern
-        if self.client_binding and len(self.client_binding.tool_usage_sequence) < 10:
-            self.client_binding.tool_usage_sequence.append(tool_name)
 
     def record_security_event(self, event_type: str, details: Dict[str, Any]) -> None:
         """Record a security event for this session"""
@@ -195,8 +181,7 @@ class ContextSwitcherSession:
             }
         )
 
-        # Record analysis as access using sync version
-        self.record_access_sync("analyze_from_perspectives")
+        # Note: Analysis access tracking moved to async contexts
 
     def get_last_analysis(self) -> Optional[Dict[str, Any]]:
         """Get the most recent analysis"""

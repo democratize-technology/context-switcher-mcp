@@ -71,7 +71,7 @@ class ClientBindingManager:
         logger.info(f"Created client binding for session {session_id}")
         return binding
 
-    def validate_session_binding(
+    async def validate_session_binding(
         self, session: ContextSwitcherSession, tool_name: str
     ) -> Tuple[bool, str]:
         """Validate client binding for session access
@@ -135,7 +135,7 @@ class ClientBindingManager:
         binding.last_validated = datetime.utcnow()
 
         # Record successful validation
-        session.record_access_sync(tool_name)
+        await session.record_access(tool_name)
 
         return True, ""
 
@@ -243,7 +243,7 @@ def create_secure_session_with_binding(
     return session
 
 
-def validate_session_access(
+async def validate_session_access(
     session: ContextSwitcherSession, tool_name: str
 ) -> Tuple[bool, str]:
     """Validate session access with client binding checks
@@ -255,7 +255,7 @@ def validate_session_access(
     Returns:
         Tuple of (is_valid, error_message)
     """
-    return client_binding_manager.validate_session_binding(session, tool_name)
+    return await client_binding_manager.validate_session_binding(session, tool_name)
 
 
 def log_security_event_with_binding(

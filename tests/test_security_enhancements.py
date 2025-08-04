@@ -4,7 +4,7 @@ import asyncio
 import pytest
 from unittest.mock import MagicMock, patch
 
-from src.context_switcher_mcp import generate_secure_session_id
+from src.context_switcher_mcp.handlers.session_handler import generate_secure_session_id
 from src.context_switcher_mcp.orchestrator import CircuitBreakerState
 from src.context_switcher_mcp.models import ModelBackend
 
@@ -70,7 +70,7 @@ class TestSecureSessionIDGeneration:
                     break
             assert common_prefix < 5, f"Too similar session IDs: {id1}, {id2}"
 
-    @patch("src.context_switcher_mcp.secrets.token_urlsafe")
+    @patch("src.context_switcher_mcp.handlers.session_handler.secrets.token_urlsafe")
     def test_uses_secrets_module(self, mock_token_urlsafe):
         """Test that the function uses the secrets module"""
         mock_token_urlsafe.return_value = "mock_secure_token_123"

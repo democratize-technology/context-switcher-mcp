@@ -113,7 +113,8 @@ class TestClientBindingManager:
         assert binding.tool_usage_sequence == ["start_context_analysis"]
         assert binding.validate_binding(self.manager.secret_key) is True
 
-    def test_session_binding_validation_success(self):
+    @pytest.mark.asyncio
+    async def test_session_binding_validation_success(self):
         """Test successful session binding validation"""
         # Create session with binding
         session_id = "test_session_123"
@@ -125,11 +126,12 @@ class TestClientBindingManager:
         )
 
         # Validation should succeed
-        is_valid, error = self.manager.validate_session_binding(session, "test_tool")
+        is_valid, error = await self.manager.validate_session_binding(session, "test_tool")
         assert is_valid is True
         assert error == ""
 
-    def test_session_binding_validation_failure(self):
+    @pytest.mark.asyncio
+    async def test_session_binding_validation_failure(self):
         """Test failed session binding validation"""
         # Create session with binding
         session_id = "test_session_123"
@@ -139,12 +141,13 @@ class TestClientBindingManager:
         session.client_binding.binding_signature = "invalid_signature"
 
         # Validation should fail
-        is_valid, error = self.manager.validate_session_binding(session, "test_tool")
+        is_valid, error = await self.manager.validate_session_binding(session, "test_tool")
         assert is_valid is False
         assert "validation failed" in error.lower()
         assert session.client_binding.validation_failures > 0
 
-    def test_legacy_session_handling(self):
+    @pytest.mark.asyncio
+    async def test_legacy_session_handling(self):
         """Test handling of legacy sessions without client binding"""
         # Create legacy session without binding
         session = ContextSwitcherSession(
@@ -154,11 +157,12 @@ class TestClientBindingManager:
         )
 
         # Validation should succeed with warning
-        is_valid, error = self.manager.validate_session_binding(session, "test_tool")
+        is_valid, error = await self.manager.validate_session_binding(session, "test_tool")
         assert is_valid is True
         assert error == ""
 
-    def test_suspicious_access_detection(self):
+    @pytest.mark.asyncio
+    async def test_suspicious_access_detection(self):
         """Test suspicious access pattern detection"""
         # Create session with binding
         session_id = "test_session_123"
@@ -172,7 +176,7 @@ class TestClientBindingManager:
         session.created_at = datetime.utcnow() - timedelta(hours=1)
 
         # Should be flagged as suspicious
-        is_valid, error = self.manager.validate_session_binding(session, "test_tool")
+        is_valid, error = await self.manager.validate_session_binding(session, "test_tool")
         assert is_valid is False
         assert "suspicious" in error.lower()
 
@@ -207,18 +211,19 @@ class TestSecureSessionCreation:
         assert session.client_binding.tool_usage_sequence == ["start_context_analysis"]
         assert session.access_count == 1  # Initial access recorded
 
-    def test_session_access_validation(self):
+    @pytest.mark.asyncio
+    async def test_session_access_validation(self):
         """Test session access validation"""
         session = create_secure_session_with_binding("test_session", "Test topic")
 
         # Valid access should succeed
-        is_valid, error = validate_session_access(session, "test_tool")
+        is_valid, error = await validate_session_access(session, "test_tool")
         assert is_valid is True
         assert error == ""
 
         # Access count should increment
         initial_count = session.access_count
-        validate_session_access(session, "another_tool")
+        await validate_session_access(session, "another_tool")
         assert session.access_count > initial_count
 
 
@@ -269,14 +274,15 @@ class TestSecurityLogging:
 class TestSecurityIntegration:
     """Integration tests for security features"""
 
-    def test_end_to_end_security_validation(self):
+    @pytest.mark.asyncio
+    async def test_end_to_end_security_validation(self):
         """Test complete security validation workflow"""
         # Create session with binding
         session = create_secure_session_with_binding("test_session", "Test topic")
 
         # Validate access multiple times
         for i in range(5):
-            is_valid, error = validate_session_access(session, f"tool_{i}")
+            is_valid, error = await validate_session_access(session, f"tool_{i}")
             assert is_valid is True
 
         # Check that binding is still valid
@@ -285,11 +291,12 @@ class TestSecurityIntegration:
 
         # Corrupt binding and try again
         session.client_binding.binding_signature = "corrupted"
-        is_valid, error = validate_session_access(session, "tool_fail")
+        is_valid, error = await validate_session_access(session, "tool_fail")
         assert is_valid is False
         assert session.client_binding.validation_failures > 0
 
-    def test_session_security_lifecycle(self):
+    @pytest.mark.asyncio
+    async def test_session_security_lifecycle(self):
         """Test session security over its lifecycle"""
         session = create_secure_session_with_binding("test_session", "Test topic")
 
@@ -297,8 +304,8 @@ class TestSecurityIntegration:
         assert session.client_binding.validation_failures == 0
         assert len(session.security_events) == 0
 
-        # Record normal access using sync version
-        session.record_access_sync("normal_tool")
+        # Record normal access using async version
+        await session.record_access("normal_tool")
         assert session.access_count > 0
 
         # Record security event
@@ -325,7 +332,7 @@ class TestAsyncSecurityIntegration:
         # Simulate async validation calls
         results = []
         for tool in ["tool1", "tool2", "tool3"]:
-            is_valid, error = validate_session_access(session, tool)
+            is_valid, error = await validate_session_access(session, tool)
             results.append((is_valid, error))
 
         # All validations should succeed
