@@ -126,7 +126,9 @@ class TestClientBindingManager:
         )
 
         # Validation should succeed
-        is_valid, error = await self.manager.validate_session_binding(session, "test_tool")
+        is_valid, error = await self.manager.validate_session_binding(
+            session, "test_tool"
+        )
         assert is_valid is True
         assert error == ""
 
@@ -141,7 +143,9 @@ class TestClientBindingManager:
         session.client_binding.binding_signature = "invalid_signature"
 
         # Validation should fail
-        is_valid, error = await self.manager.validate_session_binding(session, "test_tool")
+        is_valid, error = await self.manager.validate_session_binding(
+            session, "test_tool"
+        )
         assert is_valid is False
         assert "validation failed" in error.lower()
         assert session.client_binding.validation_failures > 0
@@ -157,7 +161,9 @@ class TestClientBindingManager:
         )
 
         # Validation should succeed with warning
-        is_valid, error = await self.manager.validate_session_binding(session, "test_tool")
+        is_valid, error = await self.manager.validate_session_binding(
+            session, "test_tool"
+        )
         assert is_valid is True
         assert error == ""
 
@@ -176,7 +182,9 @@ class TestClientBindingManager:
         session.created_at = datetime.utcnow() - timedelta(hours=1)
 
         # Should be flagged as suspicious
-        is_valid, error = await self.manager.validate_session_binding(session, "test_tool")
+        is_valid, error = await self.manager.validate_session_binding(
+            session, "test_tool"
+        )
         assert is_valid is False
         assert "suspicious" in error.lower()
 

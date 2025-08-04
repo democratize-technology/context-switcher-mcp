@@ -140,7 +140,6 @@ class ContextSwitcherSession:
             ):
                 self.client_binding.tool_usage_sequence.append(tool_name)
 
-
     def record_security_event(self, event_type: str, details: Dict[str, Any]) -> None:
         """Record a security event for this session"""
         event = {
