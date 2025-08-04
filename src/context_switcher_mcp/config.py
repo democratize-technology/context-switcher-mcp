@@ -31,7 +31,7 @@ class CircuitBreakerConfig:
 @dataclass
 class ValidationConfig:
     """Input validation configuration"""
-    
+
     max_session_id_length: int = 100
     max_topic_length: int = 1000
     max_perspective_name_length: int = 100
@@ -101,8 +101,12 @@ class ContextSwitcherConfig:
         self.validation = ValidationConfig(
             max_session_id_length=int(os.getenv("CS_MAX_SESSION_ID_LENGTH", "100")),
             max_topic_length=int(os.getenv("CS_MAX_TOPIC_LENGTH", "1000")),
-            max_perspective_name_length=int(os.getenv("CS_MAX_PERSPECTIVE_NAME_LENGTH", "100")),
-            max_custom_prompt_length=int(os.getenv("CS_MAX_CUSTOM_PROMPT_LENGTH", "10000")),
+            max_perspective_name_length=int(
+                os.getenv("CS_MAX_PERSPECTIVE_NAME_LENGTH", "100")
+            ),
+            max_custom_prompt_length=int(
+                os.getenv("CS_MAX_CUSTOM_PROMPT_LENGTH", "10000")
+            ),
         )
 
         self.session = SessionConfig(
