@@ -40,7 +40,7 @@ session_manager = SessionManager(
 )
 
 # Initialize orchestrator (required by admin tools)
-from .orchestrator import ThreadOrchestrator
+from .orchestrator import ThreadOrchestrator  # noqa: E402
 
 orchestrator = ThreadOrchestrator()
 
@@ -100,8 +100,5 @@ async def start_context_analysis(
 
 def main():
     """Main entry point for the MCP server"""
-    import asyncio
-    from mcp.server import serve
-
-    # Start the MCP server
-    asyncio.run(serve(mcp))
+    # Start the MCP server using stdio transport
+    mcp.run()
