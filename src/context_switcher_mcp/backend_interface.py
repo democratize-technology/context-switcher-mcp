@@ -102,7 +102,6 @@ class ModelBackendInterface(ABC):
         """Prepare messages in standard format"""
         messages = [{"role": "system", "content": thread.system_prompt}]
 
-        # Add conversation history
         for msg in thread.conversation_history:
             messages.append({"role": msg["role"], "content": msg["content"]})
 
@@ -125,7 +124,6 @@ class BedrockBackend(ModelBackendInterface):
             client = boto3.client("bedrock-runtime", region_name="us-east-1")
             model_config = self.get_model_config(thread)
 
-            # Prepare messages for Bedrock Converse API
             messages = []
             for msg in thread.conversation_history:
                 messages.append(
@@ -135,7 +133,6 @@ class BedrockBackend(ModelBackendInterface):
                     }
                 )
 
-            # Validate model ID
             from .security import validate_model_id
 
             is_valid, error_msg = validate_model_id(model_config.model_name)
@@ -171,7 +168,6 @@ class BedrockBackend(ModelBackendInterface):
             client = boto3.client("bedrock-runtime")
             model_config = self.get_model_config(thread)
 
-            # Prepare messages
             messages = []
             for msg in thread.conversation_history:
                 messages.append(
@@ -181,7 +177,6 @@ class BedrockBackend(ModelBackendInterface):
                     }
                 )
 
-            # Validate model ID
             from .security import validate_model_id
 
             is_valid, error_msg = validate_model_id(model_config.model_name)
@@ -198,7 +193,6 @@ class BedrockBackend(ModelBackendInterface):
                 },
             )
 
-            # Stream response chunks
             full_content = ""
             for event in response["stream"]:
                 if "contentBlockDelta" in event:
@@ -301,7 +295,6 @@ class OllamaBackend(ModelBackendInterface):
             )
 
 
-# Backend registry
 BACKEND_REGISTRY: Dict[str, ModelBackendInterface] = {
     "bedrock": BedrockBackend(),
     "litellm": LiteLLMBackend(),

@@ -113,7 +113,6 @@ class ContextSwitcherConfig:
         )
 
 
-# Global configuration instance
 config = ContextSwitcherConfig()
 
 

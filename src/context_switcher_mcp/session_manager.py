@@ -53,7 +53,6 @@ class SessionManager:
         """
         async with self._lock:
             if len(self.sessions) >= self.max_sessions:
-                # Try to clean up expired sessions first
                 await self._cleanup_expired_sessions()
 
                 if len(self.sessions) >= self.max_sessions:
@@ -71,7 +70,6 @@ class SessionManager:
         async with self._lock:
             session = self.sessions.get(session_id)
             if session and self._is_expired(session):
-                # Remove expired session
                 del self.sessions[session_id]
                 logger.info(f"Removed expired session {session_id}")
                 return None
@@ -84,13 +82,11 @@ class SessionManager:
                 del self.sessions[session_id]
                 logger.info(f"Removed session {session_id}")
 
-                # Clean up rate limiter state if available
                 try:
                     from . import rate_limiter
 
                     rate_limiter.cleanup_session(session_id)
                 except ImportError:
-                    # Rate limiter not available
                     pass
 
                 return True
@@ -99,7 +95,6 @@ class SessionManager:
     async def list_active_sessions(self) -> Dict[str, ContextSwitcherSession]:
         """List all active (non-expired) sessions"""
         async with self._lock:
-            # Clean up first
             await self._cleanup_expired_sessions()
             return self.sessions.copy()
 
@@ -118,13 +113,11 @@ class SessionManager:
         for session_id in expired:
             del self.sessions[session_id]
 
-            # Clean up rate limiter state if available
             try:
                 from . import rate_limiter
 
                 rate_limiter.cleanup_session(session_id)
             except ImportError:
-                # Rate limiter not available
                 pass
 
         if expired:
@@ -143,7 +136,6 @@ class SessionManager:
             try:
                 await self._cleanup_task
             except asyncio.CancelledError:
-                # Expected when task is cancelled - safe to ignore
                 pass
             logger.info("Stopped session cleanup task")
 

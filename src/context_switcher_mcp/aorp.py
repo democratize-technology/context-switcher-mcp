@@ -157,24 +157,18 @@ def calculate_analysis_confidence(
     if total_perspectives == 0:
         return 0.0
 
-    # Base confidence from response coverage
     active_responses = perspectives_responded - abstention_count
     coverage_factor = active_responses / total_perspectives
 
-    # Penalty for errors (each error reduces confidence by 15%)
     error_penalty = max(0, 1 - (error_count * 0.15))
 
-    # Quality factor from response depth
     avg_length = (
         sum(response_lengths) / len(response_lengths) if response_lengths else 0
     )
-    # Normalize by expected response length (100-500 chars is good)
     quality_factor = min(1.0, max(0.3, avg_length / 300))
 
-    # Abstention penalty (abstentions are better than errors but reduce confidence)
     abstention_penalty = max(0.5, 1 - (abstention_count * 0.1))
 
-    # Combined confidence
     confidence = coverage_factor * error_penalty * quality_factor * abstention_penalty
 
     return min(1.0, max(0.0, confidence))
@@ -191,21 +185,16 @@ def calculate_synthesis_confidence(
     if perspectives_analyzed == 0:
         return 0.0
 
-    # Base confidence from perspective coverage
     coverage_factor = min(1.0, perspectives_analyzed / 4)  # 4+ perspectives is ideal
 
-    # Pattern identification factor
     pattern_factor = min(1.0, patterns_identified / 3)  # 3+ patterns is good
 
-    # Tension mapping adds confidence (shows thorough analysis)
     tension_factor = min(1.0, tensions_mapped / 2)  # 2+ tensions shows depth
 
-    # Synthesis depth factor
     depth_factor = min(
         1.0, max(0.2, synthesis_length / 1000)
     )  # 1000+ chars is substantial
 
-    # Combined confidence
     confidence = (coverage_factor + pattern_factor + tension_factor + depth_factor) / 4
 
     return min(1.0, max(0.0, confidence))
@@ -242,7 +231,6 @@ def generate_analysis_next_steps(
             "analyze_from_perspectives('<follow-up>') - Explore specific aspects"
         )
 
-    # Always provide a continuation option
     if not steps:
         steps.append("synthesize_perspectives() - Find patterns across viewpoints")
 
@@ -287,10 +275,8 @@ def create_error_response(
 
     builder = AORPBuilder()
 
-    # Determine urgency based on error type
     urgency = "critical" if error_type in CRITICAL_ERROR_TYPES else "high"
 
-    # Generate recovery steps
     next_steps = []
     if recoverable:
         if error_type == "session_not_found":
@@ -348,13 +334,11 @@ def convert_legacy_response(
 
     builder = AORPBuilder()
 
-    # Handle errors first
     if "error" in legacy_response:
         return create_error_response(
             legacy_response["error"], "legacy_error", legacy_response, recoverable=True
         )
 
-    # Tool-specific conversions
     if tool_type == "analysis":
         return _convert_analysis_response(legacy_response, builder)
     elif tool_type == "synthesis":
@@ -376,7 +360,6 @@ def _convert_analysis_response(
     total_count = summary.get("total_perspectives", 1)
     error_count = summary.get("errors", 0)
 
-    # Calculate confidence
     confidence = calculate_analysis_confidence(
         active_count,
         total_count,
@@ -385,7 +368,6 @@ def _convert_analysis_response(
         [100] * active_count,
     )
 
-    # Generate key insight
     if active_count == 0:
         key_insight = "No perspectives provided analysis"
     elif error_count > 0:
@@ -428,7 +410,6 @@ def _convert_synthesis_response(
     metadata = legacy.get("metadata", {})
     active_count = metadata.get("active_perspectives", 0)
 
-    # Estimate synthesis quality
     synthesis_text = legacy.get("synthesis", "")
     synthesis_length = len(synthesis_text)
 
