@@ -5,6 +5,7 @@ Multi-perspective analysis using thread orchestration
 """
 
 import logging
+import secrets
 import time
 from datetime import datetime
 from typing import Dict, List, Optional, Any
@@ -47,6 +48,16 @@ MAX_CHARS_OPUS = 20000
 MAX_CHARS_DEFAULT = 12000
 MAX_SESSION_ID_LENGTH = 100
 MAX_TOPIC_LENGTH = 1000
+
+
+def generate_secure_session_id() -> str:
+    """Generate cryptographically secure session ID
+
+    Uses secrets.token_urlsafe(32) which generates 256 bits of entropy
+    and is safe for URLs and session identifiers.
+    """
+    return secrets.token_urlsafe(32)
+
 
 DEFAULT_PERSPECTIVES = {
     "technical": """You are a technical architecture expert. Analyze from a technical implementation perspective.
@@ -239,8 +250,8 @@ async def start_context_analysis(
             recoverable=True,
         )
 
-    # Create new session
-    session_id = str(uuid4())
+    # Create new session with cryptographically secure ID
+    session_id = generate_secure_session_id()
     session = ContextSwitcherSession(
         session_id=session_id, created_at=datetime.utcnow()
     )

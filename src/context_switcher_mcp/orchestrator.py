@@ -83,6 +83,15 @@ class CircuitBreakerState:
     failure_threshold: int = None
     timeout_seconds: int = None
 
+    @staticmethod
+    def _handle_save_error(task: asyncio.Task):
+        """Handle errors in fire-and-forget save operations"""
+        try:
+            # This will raise if the task failed
+            task.result()
+        except Exception as e:
+            logger.error(f"Failed to save circuit breaker state: {e}")
+
     def __post_init__(self):
         """Initialize with config defaults if not provided"""
         config = get_config()
@@ -116,8 +125,8 @@ class CircuitBreakerState:
             self.state = "CLOSED"
         self.last_failure_time = None
 
-        # Save state asynchronously (fire and forget)
-        asyncio.create_task(
+        # Save state asynchronously (fire and forget) with error handling
+        task = asyncio.create_task(
             save_circuit_breaker_state(
                 self.backend.value,
                 self.failure_count,
@@ -125,6 +134,8 @@ class CircuitBreakerState:
                 self.state,
             )
         )
+        # Add error handling for fire-and-forget task
+        task.add_done_callback(self._handle_save_error)
 
     def record_failure(self):
         """Record failed request"""
@@ -133,8 +144,8 @@ class CircuitBreakerState:
         if self.failure_count >= self.failure_threshold:
             self.state = "OPEN"
 
-        # Save state asynchronously (fire and forget)
-        asyncio.create_task(
+        # Save state asynchronously (fire and forget) with error handling
+        task = asyncio.create_task(
             save_circuit_breaker_state(
                 self.backend.value,
                 self.failure_count,
@@ -142,6 +153,8 @@ class CircuitBreakerState:
                 self.state,
             )
         )
+        # Add error handling for fire-and-forget task
+        task.add_done_callback(self._handle_save_error)
 
 
 class ThreadOrchestrator:
