@@ -134,7 +134,9 @@ class TestMCPTools:
         session.topic = "Test topic"
 
         # Test adding default perspectives
-        from src.context_switcher_mcp.helpers.session_helpers import DEFAULT_PERSPECTIVES
+        from src.context_switcher_mcp.helpers.session_helpers import (
+            DEFAULT_PERSPECTIVES,
+        )
 
         for name, prompt in DEFAULT_PERSPECTIVES.items():
             thread = Thread(
@@ -155,7 +157,10 @@ class TestMCPTools:
     @pytest.mark.asyncio
     async def test_validation_functions(self):
         """Test input validation functions"""
-        from src.context_switcher_mcp.validation import validate_topic, validate_session_id
+        from src.context_switcher_mcp.validation import (
+            validate_topic,
+            validate_session_id,
+        )
 
         # Test topic validation
         valid, error = validate_topic("Valid topic")
@@ -179,7 +184,9 @@ class TestMCPTools:
         # and doesn't necessarily block this specific string
 
         # Test session ID validation (without existing session)
-        valid, error = await validate_session_id("non-existent-session", "test_operation")
+        valid, error = await validate_session_id(
+            "non-existent-session", "test_operation"
+        )
         assert valid is False
         assert "not found" in error.lower()
 
