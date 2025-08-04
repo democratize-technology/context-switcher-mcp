@@ -83,19 +83,6 @@ class CircuitBreakerState:
     failure_threshold: int = None
     timeout_seconds: int = None
 
-    @staticmethod
-    def _handle_save_error(task: asyncio.Task):
-        """Handle errors in fire-and-forget save operations"""
-        try:
-            # This will raise if the task failed
-            task.result()
-        except Exception as e:
-            from .security import sanitize_error_message
-
-            logger.error(
-                f"Failed to save circuit breaker state: {sanitize_error_message(str(e))}"
-            )
-
     def __post_init__(self):
         """Initialize with config defaults if not provided"""
         config = get_config()
@@ -121,7 +108,7 @@ class CircuitBreakerState:
             return True
         return False
 
-    def record_success(self):
+    async def record_success(self):
         """Record successful request"""
         self.failure_count = 0
         if self.state == "HALF_OPEN":
@@ -129,36 +116,42 @@ class CircuitBreakerState:
             self.state = "CLOSED"
         self.last_failure_time = None
 
-        # Save state asynchronously (fire and forget) with error handling
-        task = asyncio.create_task(
-            save_circuit_breaker_state(
+        # Save state with proper error handling
+        try:
+            await save_circuit_breaker_state(
                 self.backend.value,
                 self.failure_count,
                 self.last_failure_time,
                 self.state,
             )
-        )
-        # Add error handling for fire-and-forget task
-        task.add_done_callback(self._handle_save_error)
+        except Exception as e:
+            from .security import sanitize_error_message
 
-    def record_failure(self):
+            logger.error(
+                f"Failed to save circuit breaker state: {sanitize_error_message(str(e))}"
+            )
+
+    async def record_failure(self):
         """Record failed request"""
         self.failure_count += 1
         self.last_failure_time = datetime.utcnow()
         if self.failure_count >= self.failure_threshold:
             self.state = "OPEN"
 
-        # Save state asynchronously (fire and forget) with error handling
-        task = asyncio.create_task(
-            save_circuit_breaker_state(
+        # Save state with proper error handling
+        try:
+            await save_circuit_breaker_state(
                 self.backend.value,
                 self.failure_count,
                 self.last_failure_time,
                 self.state,
             )
-        )
-        # Add error handling for fire-and-forget task
-        task.add_done_callback(self._handle_save_error)
+        except Exception as e:
+            from .security import sanitize_error_message
+
+            logger.error(
+                f"Failed to save circuit breaker state: {sanitize_error_message(str(e))}"
+            )
 
 
 class ThreadOrchestrator:
@@ -418,7 +411,7 @@ class ThreadOrchestrator:
             try:
                 response = await backend_fn(thread)
                 # Record success in circuit breaker
-                circuit_breaker.record_success()
+                await circuit_breaker.record_success()
                 return response
             except Exception as e:
                 last_error = e
@@ -437,7 +430,7 @@ class ThreadOrchestrator:
                         "model not found",
                     ]
                 ):
-                    circuit_breaker.record_failure()
+                    await circuit_breaker.record_failure()
 
                 # Don't retry on non-transient errors
                 if any(
@@ -506,274 +499,6 @@ class ThreadOrchestrator:
         except Exception:
             # The backend interface already formats errors appropriately
             raise
-
-    async def _call_bedrock(self, thread: Thread) -> str:
-        """Call AWS Bedrock model"""
-        try:
-            import boto3
-
-            # Create Bedrock client
-            client = boto3.client(
-                service_name="bedrock-runtime", region_name="us-east-1"
-            )
-
-            # Prepare messages for Bedrock Converse API
-            messages = []
-
-            # Add conversation history (skip system message)
-            for msg in thread.conversation_history:
-                # Bedrock expects content as a list of content blocks
-                messages.append(
-                    {
-                        "role": msg["role"],
-                        "content": [{"text": msg["content"]}],  # Fixed: content as list
-                    }
-                )
-
-            # Call Bedrock with model validation
-            config = get_config()
-            model_id = thread.model_name or config.model.bedrock_model_id
-
-            # Validate model ID
-            from .security import validate_model_id
-
-            is_valid, error_msg = validate_model_id(model_id)
-            if not is_valid:
-                raise ValueError(f"Invalid model ID: {error_msg}")
-
-            response = client.converse(
-                modelId=model_id,
-                messages=messages,
-                system=[{"text": thread.system_prompt}],
-                inferenceConfig={
-                    "maxTokens": config.model.default_max_tokens,
-                    "temperature": config.model.default_temperature,
-                },
-            )
-
-            # Extract response
-            content = response["output"]["message"]["content"][0]["text"]
-            return content
-
-        except Exception as e:
-            # Already sanitized in AORP response
-            logger.error(f"Bedrock error: {str(e)}")
-            from .security import sanitize_error_message
-
-            if "inference profile" in str(e).lower():
-                error_response = create_error_response(
-                    error_message="Model needs inference profile ID. Try: us.anthropic.claude-3-7-sonnet-20250219-v1:0",
-                    error_type="model_configuration_error",
-                    context={"backend": "bedrock", "model_id": thread.model_name},
-                    recoverable=True,
-                )
-            elif "credentials" in str(e).lower():
-                error_response = create_error_response(
-                    error_message="AWS credentials not configured. Run: aws configure",
-                    error_type="credentials_error",
-                    context={"backend": "bedrock"},
-                    recoverable=True,
-                )
-            else:
-                error_response = create_error_response(
-                    error_message=f"Bedrock API error: {sanitize_error_message(str(e))}",
-                    error_type="api_error",
-                    context={"backend": "bedrock"},
-                    recoverable=True,
-                )
-            return f"AORP_ERROR: {error_response}"
-
-    async def _call_bedrock_stream(self, thread: Thread):
-        """Call AWS Bedrock model with streaming support"""
-        try:
-            import boto3
-
-            # Create Bedrock client
-            client = boto3.client("bedrock-runtime")
-
-            # Prepare messages for Converse API
-            messages = []
-            for msg in thread.conversation_history:
-                messages.append(
-                    {
-                        "role": msg["role"],
-                        "content": [{"text": msg["content"]}],  # Converse API format
-                    }
-                )
-
-            # Get model ID with validation
-            config = get_config()
-            model_id = thread.model_name or config.model.bedrock_model_id
-
-            # Validate model ID
-            from .security import validate_model_id
-
-            is_valid, error_msg = validate_model_id(model_id)
-            if not is_valid:
-                raise ValueError(f"Invalid model ID: {error_msg}")
-
-            # Use converse_stream for streaming responses
-            response = client.converse_stream(
-                modelId=model_id,
-                messages=messages,
-                system=[{"text": thread.system_prompt}],
-                inferenceConfig={
-                    "maxTokens": config.model.default_max_tokens,
-                    "temperature": config.model.default_temperature,
-                },
-            )
-
-            # Stream response chunks
-            full_content = ""
-            for event in response["stream"]:
-                if "contentBlockDelta" in event:
-                    chunk = event["contentBlockDelta"]["delta"]["text"]
-                    full_content += chunk
-                    yield {
-                        "type": "chunk",
-                        "content": chunk,
-                        "thread_name": thread.name,
-                    }
-                elif "messageStop" in event:
-                    yield {
-                        "type": "complete",
-                        "content": full_content,
-                        "thread_name": thread.name,
-                    }
-
-        except Exception as e:
-            # Already sanitized in AORP response
-            logger.error(f"Bedrock streaming error: {str(e)}")
-            from .security import sanitize_error_message
-
-            error_response = create_error_response(
-                error_message=f"Bedrock streaming error: {sanitize_error_message(str(e))}",
-                error_type="streaming_error",
-                context={"backend": "bedrock", "thread": thread.name},
-                recoverable=True,
-            )
-            yield {
-                "type": "error",
-                "content": f"AORP_ERROR: {error_response}",
-                "thread_name": thread.name,
-            }
-
-    async def _call_litellm(self, thread: Thread) -> str:
-        """Call model via LiteLLM"""
-        try:
-            import litellm
-
-            # Prepare messages
-            messages = [{"role": "system", "content": thread.system_prompt}]
-
-            # Add conversation history
-            for msg in thread.conversation_history:
-                messages.append({"role": msg["role"], "content": msg["content"]})
-
-            # Call LiteLLM
-            config = get_config()
-            model = thread.model_name or config.model.litellm_model
-
-            response = await litellm.acompletion(
-                model=model,
-                messages=messages,
-                temperature=config.model.default_temperature,
-                max_tokens=config.model.default_max_tokens,
-            )
-
-            return response.choices[0].message.content
-
-        except Exception as e:
-            # Already sanitized in AORP response
-            logger.error(f"LiteLLM error: {str(e)}")
-            from .security import sanitize_error_message
-
-            if "api_key" in str(e).lower():
-                error_response = create_error_response(
-                    error_message="Missing API key. Set OPENAI_API_KEY or ANTHROPIC_API_KEY environment variable",
-                    error_type="credentials_error",
-                    context={"backend": "litellm"},
-                    recoverable=True,
-                )
-            elif "connection" in str(e).lower():
-                error_response = create_error_response(
-                    error_message="Cannot connect to LiteLLM. Check LITELLM_API_BASE is set correctly",
-                    error_type="connection_error",
-                    context={"backend": "litellm"},
-                    recoverable=True,
-                )
-            else:
-                error_response = create_error_response(
-                    error_message=f"LiteLLM API error: {sanitize_error_message(str(e))}",
-                    error_type="api_error",
-                    context={"backend": "litellm"},
-                    recoverable=True,
-                )
-            return f"AORP_ERROR: {error_response}"
-
-    async def _call_ollama(self, thread: Thread) -> str:
-        """Call local Ollama model"""
-        try:
-            import httpx
-
-            # Prepare messages
-            messages = [{"role": "system", "content": thread.system_prompt}]
-
-            # Add conversation history
-            for msg in thread.conversation_history:
-                messages.append({"role": msg["role"], "content": msg["content"]})
-
-            # Call Ollama API
-            config = get_config()
-            model = thread.model_name or config.model.ollama_model
-
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    config.model.ollama_host + "/api/chat",
-                    json={
-                        "model": model,
-                        "messages": messages,
-                        "stream": False,
-                        "options": {
-                            "temperature": config.model.default_temperature,
-                            "num_predict": config.model.default_max_tokens,
-                        },
-                    },
-                    timeout=60.0,
-                )
-
-                response.raise_for_status()
-                result = response.json()
-                return result["message"]["content"]
-
-        except Exception as e:
-            # Already sanitized in AORP response
-            logger.error(f"Ollama error: {str(e)}")
-            from .security import sanitize_error_message
-
-            config = get_config()
-            if "connection" in str(e).lower():
-                error_response = create_error_response(
-                    error_message="Cannot connect to Ollama. Is it running? Set OLLAMA_HOST=http://your-host:11434",
-                    error_type="connection_error",
-                    context={"backend": "ollama", "host": config.model.ollama_host},
-                    recoverable=True,
-                )
-            elif "model" in str(e).lower():
-                error_response = create_error_response(
-                    error_message=f"Model not found. Pull it first: ollama pull {model}",
-                    error_type="model_not_found",
-                    context={"backend": "ollama", "model": model},
-                    recoverable=True,
-                )
-            else:
-                error_response = create_error_response(
-                    error_message=f"Ollama API error: {sanitize_error_message(str(e))}",
-                    error_type="api_error",
-                    context={"backend": "ollama"},
-                    recoverable=True,
-                )
-            return f"AORP_ERROR: {error_response}"
 
     def _store_metrics(self, metrics: OrchestrationMetrics) -> None:
         """Store metrics in circular buffer (automatically maintains size limit)"""

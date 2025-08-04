@@ -2,7 +2,7 @@
 
 import asyncio
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from src.context_switcher_mcp.handlers.session_handler import generate_secure_session_id
 from src.context_switcher_mcp.orchestrator import CircuitBreakerState
@@ -84,83 +84,63 @@ class TestSecureSessionIDGeneration:
 class TestCircuitBreakerErrorHandling:
     """Test circuit breaker error handling enhancements"""
 
-    def test_circuit_breaker_has_error_handler(self):
-        """Test that CircuitBreakerState has error handler method"""
-        assert hasattr(CircuitBreakerState, "_handle_save_error")
-        assert callable(CircuitBreakerState._handle_save_error)
-
-    def test_error_handler_is_static_method(self):
-        """Test that error handler is a static method"""
-        assert isinstance(
-            CircuitBreakerState.__dict__["_handle_save_error"], staticmethod
-        )
-
-    @patch("src.context_switcher_mcp.orchestrator.logger")
-    def test_error_handler_logs_exceptions(self, mock_logger):
-        """Test that error handler properly logs exceptions"""
-        # Create a mock task that failed
-        mock_task = MagicMock()
-        mock_task.result.side_effect = ValueError("Test error message")
-
-        # Call the error handler
-        CircuitBreakerState._handle_save_error(mock_task)
-
-        # Verify error was logged
-        mock_logger.error.assert_called_once()
-        call_args = mock_logger.error.call_args[0][0]
-        assert "Failed to save circuit breaker state" in call_args
-        assert "Test error message" in call_args
-
-    @patch("src.context_switcher_mcp.orchestrator.logger")
-    def test_error_handler_handles_successful_tasks(self, mock_logger):
-        """Test that error handler doesn't log for successful tasks"""
-        # Create a mock task that succeeded
-        mock_task = MagicMock()
-        mock_task.result.return_value = "success"
-
-        # Call the error handler
-        CircuitBreakerState._handle_save_error(mock_task)
-
-        # Verify no error was logged
-        mock_logger.error.assert_not_called()
+    @pytest.mark.asyncio
+    async def test_record_success_is_async(self):
+        """Test that record_success is now an async method"""
+        cb = CircuitBreakerState(backend=ModelBackend.BEDROCK)
+        # Should be able to await it
+        with patch("src.context_switcher_mcp.orchestrator.save_circuit_breaker_state"):
+            await cb.record_success()
+        assert cb.failure_count == 0
 
     @pytest.mark.asyncio
-    async def test_record_success_adds_error_callback(self):
-        """Test that record_success adds error callback to async task"""
+    async def test_record_failure_is_async(self):
+        """Test that record_failure is now an async method"""
+        cb = CircuitBreakerState(backend=ModelBackend.BEDROCK)
+        # Should be able to await it
+        with patch("src.context_switcher_mcp.orchestrator.save_circuit_breaker_state"):
+            await cb.record_failure()
+        assert cb.failure_count == 1
+
+    @pytest.mark.asyncio
+    async def test_record_success_handles_save_errors(self):
+        """Test that record_success handles save errors gracefully"""
         cb = CircuitBreakerState(backend=ModelBackend.BEDROCK)
 
         with patch(
-            "src.context_switcher_mcp.orchestrator.asyncio.create_task"
-        ) as mock_create_task:
-            # Mock the task
-            mock_task = MagicMock()
-            mock_create_task.return_value = mock_task
+            "src.context_switcher_mcp.orchestrator.save_circuit_breaker_state"
+        ) as mock_save:
+            # Make save fail
+            mock_save.side_effect = Exception("Save failed")
 
-            # Call record_success
-            cb.record_success()
+            with patch("src.context_switcher_mcp.orchestrator.logger") as mock_logger:
+                # Call should not raise even if save fails
+                await cb.record_success()
 
-            # Verify task was created and callback was added
-            mock_create_task.assert_called_once()
-            mock_task.add_done_callback.assert_called_once_with(cb._handle_save_error)
+                # Verify error was logged
+                mock_logger.error.assert_called_once()
+                call_args = mock_logger.error.call_args[0][0]
+                assert "Failed to save circuit breaker state" in call_args
 
     @pytest.mark.asyncio
-    async def test_record_failure_adds_error_callback(self):
-        """Test that record_failure adds error callback to async task"""
+    async def test_record_failure_handles_save_errors(self):
+        """Test that record_failure handles save errors gracefully"""
         cb = CircuitBreakerState(backend=ModelBackend.BEDROCK)
 
         with patch(
-            "src.context_switcher_mcp.orchestrator.asyncio.create_task"
-        ) as mock_create_task:
-            # Mock the task
-            mock_task = MagicMock()
-            mock_create_task.return_value = mock_task
+            "src.context_switcher_mcp.orchestrator.save_circuit_breaker_state"
+        ) as mock_save:
+            # Make save fail
+            mock_save.side_effect = Exception("Save failed")
 
-            # Call record_failure
-            cb.record_failure()
+            with patch("src.context_switcher_mcp.orchestrator.logger") as mock_logger:
+                # Call should not raise even if save fails
+                await cb.record_failure()
 
-            # Verify task was created and callback was added
-            mock_create_task.assert_called_once()
-            mock_task.add_done_callback.assert_called_once_with(cb._handle_save_error)
+                # Verify error was logged
+                mock_logger.error.assert_called_once()
+                call_args = mock_logger.error.call_args[0][0]
+                assert "Failed to save circuit breaker state" in call_args
 
 
 class TestAsyncErrorHandlingIntegration:
@@ -266,8 +246,9 @@ class TestSecurityRegression:
         assert initial_state == "CLOSED"
 
         # Record failures to trigger state change
-        for _ in range(cb.failure_threshold):
-            cb.record_failure()
+        with patch("src.context_switcher_mcp.orchestrator.save_circuit_breaker_state"):
+            for _ in range(cb.failure_threshold):
+                await cb.record_failure()
 
         # Verify state changed
         assert cb.state == "OPEN"
@@ -281,21 +262,16 @@ class TestSecurityRegression:
         # Test normal circuit breaker behavior
         assert cb.should_allow_request() is True
 
-        # Mock the async operations to avoid actual async calls
-        with patch(
-            "src.context_switcher_mcp.orchestrator.asyncio.create_task"
-        ) as mock_create_task:
-            mock_task = MagicMock()
-            mock_create_task.return_value = mock_task
-
+        # Mock the save operations
+        with patch("src.context_switcher_mcp.orchestrator.save_circuit_breaker_state"):
             # Trigger failures
             for _ in range(cb.failure_threshold):
-                cb.record_failure()
+                await cb.record_failure()
 
             # Should be open now
             assert cb.state == "OPEN"
             assert cb.should_allow_request() is False
 
             # Test success recovery
-            cb.record_success()
+            await cb.record_success()
             assert cb.failure_count == 0

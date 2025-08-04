@@ -2,6 +2,7 @@
 
 import pytest
 from datetime import datetime
+from unittest.mock import patch
 
 from src.context_switcher_mcp.models import Thread, ContextSwitcherSession, ModelBackend
 from src.context_switcher_mcp.orchestrator import ThreadOrchestrator
@@ -97,26 +98,29 @@ class TestThreadOrchestrator:
         assert cb.failure_count == 0
 
         # Test recording failures
-        for _ in range(5):  # Failure threshold is 5
-            cb.record_failure()
-        assert cb.state == "OPEN"
+        with patch("src.context_switcher_mcp.orchestrator.save_circuit_breaker_state"):
+            for _ in range(5):  # Failure threshold is 5
+                await cb.record_failure()
+            assert cb.state == "OPEN"
 
-        # Test success recording - circuit breaker should remain OPEN until HALF_OPEN transition
-        cb.record_success()
-        assert cb.state == "OPEN"  # Still OPEN because we're not in HALF_OPEN state
-        assert cb.failure_count == 0
+            # Test success recording - circuit breaker should remain OPEN until HALF_OPEN transition
+            await cb.record_success()
+            assert cb.state == "OPEN"  # Still OPEN because we're not in HALF_OPEN state
+            assert cb.failure_count == 0
 
-        # Test proper HALF_OPEN -> CLOSED transition
-        # First, wait for timeout to transition to HALF_OPEN (simulate time passage)
-        from datetime import datetime, timedelta
+            # Test proper HALF_OPEN -> CLOSED transition
+            # First, wait for timeout to transition to HALF_OPEN (simulate time passage)
+            from datetime import datetime, timedelta
 
-        cb.last_failure_time = datetime.utcnow() - timedelta(minutes=6)  # 6 minutes ago
-        assert cb.should_allow_request() is True  # This transitions to HALF_OPEN
-        assert cb.state == "HALF_OPEN"
+            cb.last_failure_time = datetime.utcnow() - timedelta(
+                minutes=6
+            )  # 6 minutes ago
+            assert cb.should_allow_request() is True  # This transitions to HALF_OPEN
+            assert cb.state == "HALF_OPEN"
 
-        # Now success should transition to CLOSED
-        cb.record_success()
-        assert cb.state == "CLOSED"
+            # Now success should transition to CLOSED
+            await cb.record_success()
+            assert cb.state == "CLOSED"
 
 
 class TestMCPTools:
