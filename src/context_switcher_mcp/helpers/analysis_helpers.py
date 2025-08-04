@@ -172,5 +172,3 @@ def store_analysis_results(session: Any, prompt: str, results: Any) -> None:
     }
 
     session.analyses.append(analysis_data)
-
-
