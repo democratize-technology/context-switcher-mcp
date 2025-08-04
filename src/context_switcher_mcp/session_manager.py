@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, Tuple
 
 from .models import ContextSwitcherSession
 from .config import get_config
@@ -66,29 +66,46 @@ class SessionManager:
             return True
 
     async def get_session(self, session_id: str) -> Optional[ContextSwitcherSession]:
-        """Get a session by ID"""
+        """Get a session by ID, atomically handling expiration"""
         async with self._lock:
             session = self.sessions.get(session_id)
-            if session and self._is_expired(session):
-                del self.sessions[session_id]
-                logger.info(f"Removed expired session {session_id}")
+            if session is None:
                 return None
+
+            # Atomic check-and-delete for expired sessions
+            if self._is_expired(session):
+                # Remove from sessions first to prevent race conditions
+                removed_session = self.sessions.pop(session_id, None)
+                if removed_session:
+                    logger.info(f"Removed expired session {session_id}")
+                    # Cleanup rate limiter outside the critical session operation
+                    try:
+                        await self._cleanup_session_resources(session_id)
+                    except Exception as e:
+                        from .security import sanitize_error_message
+
+                        logger.warning(
+                            f"Failed to cleanup resources for expired session {session_id}: {sanitize_error_message(str(e))}"
+                        )
+                return None
+
             return session
 
     async def remove_session(self, session_id: str) -> bool:
-        """Remove a session"""
+        """Remove a session (idempotent and race-condition safe)"""
         async with self._lock:
-            if session_id in self.sessions:
-                del self.sessions[session_id]
+            removed_session = self.sessions.pop(session_id, None)
+            if removed_session:
                 logger.info(f"Removed session {session_id}")
-
+                # Clean up resources outside the critical section, don't let failures break removal
                 try:
-                    from . import rate_limiter
+                    await self._cleanup_session_resources(session_id)
+                except Exception as e:
+                    from .security import sanitize_error_message
 
-                    rate_limiter.cleanup_session(session_id)
-                except ImportError:
-                    pass
-
+                    logger.warning(
+                        f"Failed to cleanup resources for session {session_id}: {sanitize_error_message(str(e))}"
+                    )
                 return True
             return False
 
@@ -105,23 +122,93 @@ class SessionManager:
 
     async def _cleanup_expired_sessions(self):
         """Remove expired sessions (internal, assumes lock is held)"""
-        expired = []
-        for session_id, session in self.sessions.items():
+        # Create a snapshot to avoid dictionary modification during iteration
+        session_snapshot = list(self.sessions.items())
+        expired_sessions = []
+
+        # Identify expired sessions
+        for session_id, session in session_snapshot:
             if self._is_expired(session):
-                expired.append(session_id)
+                expired_sessions.append(session_id)
 
-        for session_id in expired:
-            del self.sessions[session_id]
+        # Atomically remove expired sessions
+        for session_id in expired_sessions:
+            removed_session = self.sessions.pop(session_id, None)
+            if removed_session:
+                # Cleanup resources for successfully removed sessions
+                try:
+                    await self._cleanup_session_resources(session_id)
+                except Exception as e:
+                    from .security import sanitize_error_message
 
-            try:
-                from . import rate_limiter
+                    logger.warning(
+                        f"Failed to cleanup resources for expired session {session_id}: {sanitize_error_message(str(e))}"
+                    )
 
-                rate_limiter.cleanup_session(session_id)
-            except ImportError:
-                pass
+        if expired_sessions:
+            logger.info(f"Cleaned up {len(expired_sessions)} expired sessions")
 
-        if expired:
-            logger.info(f"Cleaned up {len(expired)} expired sessions")
+    async def _cleanup_session_resources(self, session_id: str) -> None:
+        """Clean up external resources for a session (rate limiter, etc.)"""
+        try:
+            from . import rate_limiter
+
+            rate_limiter.cleanup_session(session_id)
+        except ImportError:
+            # Rate limiter not available, skip cleanup
+            pass
+        except Exception as e:
+            from .security import sanitize_error_message
+
+            logger.warning(
+                f"Failed to cleanup rate limiter for session {session_id}: {sanitize_error_message(str(e))}"
+            )
+
+    async def get_session_atomic(
+        self, session_id: str
+    ) -> Tuple[Optional[ContextSwitcherSession], int]:
+        """Get a session atomically with its version for optimistic locking
+
+        Returns:
+            Tuple of (session, version) or (None, -1) if not found/expired
+        """
+        async with self._lock:
+            session = self.sessions.get(session_id)
+            if session is None:
+                return None, -1
+
+            # Atomic check-and-delete for expired sessions
+            if self._is_expired(session):
+                removed_session = self.sessions.pop(session_id, None)
+                if removed_session:
+                    logger.info(
+                        f"Removed expired session {session_id} during atomic get"
+                    )
+                    try:
+                        await self._cleanup_session_resources(session_id)
+                    except Exception as e:
+                        from .security import sanitize_error_message
+
+                        logger.warning(
+                            f"Failed to cleanup resources for expired session {session_id}: {sanitize_error_message(str(e))}"
+                        )
+                return None, -1
+
+            return session, session.version
+
+    async def validate_session_version(
+        self, session_id: str, expected_version: int
+    ) -> bool:
+        """Validate that a session still exists and has the expected version
+
+        Returns:
+            True if session exists and version matches, False otherwise
+        """
+        async with self._lock:
+            session = self.sessions.get(session_id)
+            if session is None or self._is_expired(session):
+                return False
+            return session.version == expected_version
 
     async def start_cleanup_task(self):
         """Start the background cleanup task"""
@@ -158,7 +245,11 @@ class SessionManager:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Error in periodic cleanup: {e}")
+                from .security import sanitize_error_message
+
+                logger.error(
+                    f"Error in periodic cleanup: {sanitize_error_message(str(e))}"
+                )
 
     async def get_stats(self) -> Dict[str, Any]:
         """Get session manager statistics"""

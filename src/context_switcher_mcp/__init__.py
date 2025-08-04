@@ -26,13 +26,25 @@ from .confidence_metrics import (
     analyze_synthesis_quality,
 )
 from .compression import prepare_synthesis_input
-from .models import ModelBackend, Thread, ContextSwitcherSession
+from .models import ModelBackend, Thread
 from .orchestrator import ThreadOrchestrator, NO_RESPONSE
 from .perspective_selector import SmartPerspectiveSelector
 from .rate_limiter import SessionRateLimiter
-from .security import sanitize_user_input, log_security_event, sanitize_error_message
+from .security import (
+    log_security_event,
+    sanitize_error_message,
+    validate_user_content,
+    validate_perspective_data,
+    validate_analysis_prompt,
+)
 from .session_manager import SessionManager
 from .templates import PERSPECTIVE_TEMPLATES
+from .client_binding import (
+    create_secure_session_with_binding,
+    validate_session_access,
+    log_security_event_with_binding,
+    client_binding_manager,
+)
 
 __all__ = ["main", "mcp"]
 
@@ -136,8 +148,14 @@ rate_limiter = SessionRateLimiter(
 
 
 # Helper functions
-async def validate_session_id(session_id: str) -> tuple[bool, str]:
-    """Validate session ID format and existence
+async def validate_session_id(
+    session_id: str, tool_name: str = "unknown"
+) -> tuple[bool, str]:
+    """Validate session ID format, existence, and client binding security
+
+    Args:
+        session_id: The session ID to validate
+        tool_name: The name of the tool being accessed (for security tracking)
 
     Returns:
         Tuple of (is_valid, error_message)
@@ -158,6 +176,26 @@ async def validate_session_id(session_id: str) -> tuple[bool, str]:
         )
         return False, f"Session '{session_id}' not found or expired. {hint}"
 
+    # Validate client binding security
+    binding_valid, binding_error = validate_session_access(session, tool_name)
+    if not binding_valid:
+        # Log security event with enhanced context
+        log_security_event_with_binding(
+            "session_access_blocked",
+            session_id,
+            {
+                "tool_name": tool_name,
+                "binding_error": binding_error,
+                "access_count": session.access_count,
+                "session_age_minutes": (
+                    datetime.utcnow() - session.created_at
+                ).total_seconds()
+                / 60,
+            },
+            session,
+        )
+        return False, f"Session access denied: {binding_error}"
+
     return True, ""
 
 
@@ -177,14 +215,25 @@ def validate_topic(topic: str) -> tuple[bool, str]:
             f"Topic too long (max {MAX_TOPIC_LENGTH} characters, got {len(topic)})",
         )
 
-    # Security validation
-    is_safe, cleaned_topic, issues = sanitize_user_input(topic, MAX_TOPIC_LENGTH)
-    if not is_safe:
-        log_security_event("blocked_input", {"input_type": "topic", "issues": issues})
-        return (
-            False,
-            f"Invalid topic content: {issues[0] if issues else 'Security check failed'}",
+    # Enhanced security validation
+    validation_result = validate_user_content(topic, "topic", MAX_TOPIC_LENGTH)
+    if not validation_result.is_valid:
+        log_security_event(
+            "topic_validation_failure",
+            {
+                "input_type": "topic",
+                "issues": validation_result.issues,
+                "risk_level": validation_result.risk_level,
+                "blocked_patterns": len(validation_result.blocked_patterns),
+            },
         )
+        # Return sanitized error message
+        safe_error = sanitize_error_message(
+            validation_result.issues[0]
+            if validation_result.issues
+            else "Security check failed"
+        )
+        return False, f"Invalid topic content: {safe_error}"
 
     return True, ""
 
@@ -250,12 +299,40 @@ async def start_context_analysis(
             recoverable=True,
         )
 
-    # Create new session with cryptographically secure ID
+    # Validate initial_perspectives if provided
+    if request.initial_perspectives:
+        for perspective_name in request.initial_perspectives:
+            validation_result = validate_user_content(
+                perspective_name, "perspective_name", 100
+            )
+            if not validation_result.is_valid:
+                log_security_event(
+                    "initial_perspective_validation_failure",
+                    {
+                        "perspective_name": perspective_name[:50],
+                        "issues": validation_result.issues,
+                        "risk_level": validation_result.risk_level,
+                        "blocked_patterns": len(validation_result.blocked_patterns),
+                    },
+                )
+                return create_error_response(
+                    f"Invalid perspective name '{sanitize_error_message(perspective_name[:50])}': {sanitize_error_message(validation_result.issues[0] if validation_result.issues else 'Security check failed')}",
+                    "validation_error",
+                    {
+                        "invalid_perspective": perspective_name[:50],
+                        "validation_issues": len(validation_result.issues),
+                        "risk_level": validation_result.risk_level,
+                    },
+                    recoverable=True,
+                )
+
+    # Create new session with cryptographically secure ID and client binding
     session_id = generate_secure_session_id()
-    session = ContextSwitcherSession(
-        session_id=session_id, created_at=datetime.utcnow()
+    session = create_secure_session_with_binding(
+        session_id=session_id,
+        topic=request.topic,
+        initial_tool="start_context_analysis",
     )
-    session.topic = request.topic  # Store topic for easy reference
 
     # Initialize default perspectives or use provided ones
     if request.template and request.template in PERSPECTIVE_TEMPLATES:
@@ -427,14 +504,44 @@ class AddPerspectiveRequest(BaseModel):
 )
 async def add_perspective(request: AddPerspectiveRequest) -> Dict[str, Any]:
     """Add a new perspective to an existing analysis session"""
-    # Validate session ID
-    session_valid, session_error = await validate_session_id(request.session_id)
+    # Validate session ID with client binding
+    session_valid, session_error = await validate_session_id(
+        request.session_id, "add_perspective"
+    )
     if not session_valid:
         return create_error_response(
             session_error,
             "session_not_found",
             {"session_id": request.session_id},
             recoverable=True,
+        )
+
+    # Enhanced validation for perspective data
+    validation_result = validate_perspective_data(
+        request.name, request.description, request.custom_prompt
+    )
+    if not validation_result.is_valid:
+        log_security_event(
+            "perspective_validation_failure",
+            {
+                "session_id": request.session_id,
+                "perspective_name": request.name[:50],  # Truncate for logging
+                "issues": validation_result.issues,
+                "risk_level": validation_result.risk_level,
+                "blocked_patterns": len(validation_result.blocked_patterns),
+            },
+            session_id=request.session_id,
+        )
+        return create_error_response(
+            f"Invalid perspective data: {sanitize_error_message(validation_result.issues[0] if validation_result.issues else 'Security check failed')}",
+            "validation_error",
+            {
+                "session_id": request.session_id,
+                "validation_issues": len(validation_result.issues),
+                "risk_level": validation_result.risk_level,
+            },
+            recoverable=True,
+            session_id=request.session_id,
         )
 
     # Get session
@@ -543,8 +650,10 @@ async def analyze_from_perspectives(
             recoverable=True,
         )
 
-    # Validate session ID
-    session_valid, session_error = await validate_session_id(request.session_id)
+    # Validate session ID with client binding
+    session_valid, session_error = await validate_session_id(
+        request.session_id, "analyze_from_perspectives"
+    )
     if not session_valid:
         # Log failed session access for security monitoring
         log_security_event(
@@ -557,6 +666,32 @@ async def analyze_from_perspectives(
             "session_not_found",
             {"session_id": request.session_id},
             recoverable=True,
+        )
+
+    # Enhanced validation for analysis prompt
+    validation_result = validate_analysis_prompt(request.prompt, request.session_id)
+    if not validation_result.is_valid:
+        log_security_event(
+            "analysis_prompt_validation_failure",
+            {
+                "session_id": request.session_id,
+                "prompt_preview": request.prompt[:100],  # First 100 chars for context
+                "issues": validation_result.issues,
+                "risk_level": validation_result.risk_level,
+                "blocked_patterns": len(validation_result.blocked_patterns),
+            },
+            session_id=request.session_id,
+        )
+        return create_error_response(
+            f"Invalid analysis prompt: {sanitize_error_message(validation_result.issues[0] if validation_result.issues else 'Security check failed')}",
+            "validation_error",
+            {
+                "session_id": request.session_id,
+                "validation_issues": len(validation_result.issues),
+                "risk_level": validation_result.risk_level,
+            },
+            recoverable=True,
+            session_id=request.session_id,
         )
 
     # Get session
@@ -741,14 +876,43 @@ async def analyze_from_perspectives_stream(
     request: AnalyzeFromPerspectivesStreamRequest,
 ):
     """Stream responses from all perspectives as they are generated"""
-    # Validate session ID
-    session_valid, session_error = await validate_session_id(request.session_id)
+    # Validate session ID with client binding
+    session_valid, session_error = await validate_session_id(
+        request.session_id, "analyze_from_perspectives_stream"
+    )
     if not session_valid:
         yield create_error_response(
             session_error,
             "session_not_found",
             {"session_id": request.session_id},
             recoverable=True,
+        )
+        return
+
+    # Enhanced validation for streaming analysis prompt
+    validation_result = validate_analysis_prompt(request.prompt, request.session_id)
+    if not validation_result.is_valid:
+        log_security_event(
+            "streaming_prompt_validation_failure",
+            {
+                "session_id": request.session_id,
+                "prompt_preview": request.prompt[:100],
+                "issues": validation_result.issues,
+                "risk_level": validation_result.risk_level,
+                "blocked_patterns": len(validation_result.blocked_patterns),
+            },
+            session_id=request.session_id,
+        )
+        yield create_error_response(
+            f"Invalid streaming prompt: {sanitize_error_message(validation_result.issues[0] if validation_result.issues else 'Security check failed')}",
+            "validation_error",
+            {
+                "session_id": request.session_id,
+                "validation_issues": len(validation_result.issues),
+                "risk_level": validation_result.risk_level,
+            },
+            recoverable=True,
+            session_id=request.session_id,
         )
         return
 
@@ -850,16 +1014,21 @@ async def synthesize_perspectives(
     request: SynthesizePerspectivesRequest,
 ) -> Dict[str, Any]:
     """Analyze patterns across all perspectives from the last analysis"""
-    # Get session
-    session = await session_manager.get_session(request.session_id)
-    if not session:
+    # Validate session ID with client binding
+    session_valid, session_error = await validate_session_id(
+        request.session_id, "synthesize_perspectives"
+    )
+    if not session_valid:
         return create_error_response(
-            f"Session {request.session_id} not found",
+            session_error,
             "session_not_found",
             {"session_id": request.session_id},
             recoverable=True,
             session_id=request.session_id,
         )
+
+    # Get session
+    session = await session_manager.get_session(request.session_id)
 
     if not session.analyses:
         return create_error_response(
@@ -1211,14 +1380,20 @@ class GetSessionRequest(BaseModel):
 @mcp.tool(description="Get details of a specific context-switching session")
 async def get_session(request: GetSessionRequest) -> Dict[str, Any]:
     """Get detailed information about a session"""
-    session = await session_manager.get_session(request.session_id)
-    if not session:
+    # Validate session ID with client binding
+    session_valid, session_error = await validate_session_id(
+        request.session_id, "get_session"
+    )
+    if not session_valid:
         return create_error_response(
-            f"Session {request.session_id} not found or expired",
+            session_error,
             "session_not_found",
             {"session_id": request.session_id},
             recoverable=True,
         )
+
+    # Get session after validation
+    session = await session_manager.get_session(request.session_id)
 
     # Build legacy response
     legacy_response = {
@@ -1339,6 +1514,85 @@ async def reset_circuit_breakers() -> Dict[str, Any]:
         "message": "Circuit breakers reset successfully",
         "reset_status": reset_status,
         "warning": "This is an administrative operation. Monitor backends for continued issues.",
+    }
+
+
+@mcp.tool(description="Get session security metrics and client binding status")
+async def get_security_metrics() -> Dict[str, Any]:
+    """Get comprehensive security metrics for monitoring session security"""
+    # Get client binding manager metrics
+    binding_metrics = client_binding_manager.get_security_metrics()
+
+    # Get session manager statistics
+    session_stats = await session_manager.get_stats()
+
+    # Count sessions with client binding
+    active_sessions = await session_manager.list_active_sessions()
+    sessions_with_binding = sum(
+        1 for session in active_sessions.values() if session.client_binding
+    )
+    sessions_without_binding = len(active_sessions) - sessions_with_binding
+
+    # Count suspicious sessions
+    suspicious_count = sum(
+        1
+        for session in active_sessions.values()
+        if session.client_binding and session.client_binding.is_suspicious()
+    )
+
+    # Security event summary
+    security_events = {}
+    for session in active_sessions.values():
+        for event in session.security_events:
+            event_type = event["type"]
+            security_events[event_type] = security_events.get(event_type, 0) + 1
+
+    # Build comprehensive metrics
+    metrics = {
+        "session_security": {
+            "total_sessions": len(active_sessions),
+            "sessions_with_binding": sessions_with_binding,
+            "sessions_without_binding": sessions_without_binding,
+            "suspicious_sessions": suspicious_count,
+            "binding_coverage_percentage": (
+                sessions_with_binding / len(active_sessions) * 100
+            )
+            if active_sessions
+            else 0,
+        },
+        "client_binding": binding_metrics,
+        "session_manager": session_stats,
+        "security_events": security_events,
+        "security_status": {
+            "overall_security_level": "HIGH"
+            if sessions_without_binding == 0 and suspicious_count == 0
+            else "MEDIUM"
+            if suspicious_count < 3
+            else "ALERT",
+            "recommendations": [],
+        },
+    }
+
+    # Add recommendations
+    if sessions_without_binding > 0:
+        metrics["security_status"]["recommendations"].append(
+            f"Consider migrating {sessions_without_binding} legacy sessions to use client binding"
+        )
+
+    if suspicious_count > 0:
+        metrics["security_status"]["recommendations"].append(
+            f"Investigate {suspicious_count} sessions flagged as suspicious"
+        )
+
+    if not binding_metrics.get("binding_secret_key_set", False):
+        metrics["security_status"]["recommendations"].append(
+            "Configure secure binding secret key for production use"
+        )
+
+    return {
+        "status": "success",
+        "metrics": metrics,
+        "timestamp": datetime.utcnow().isoformat(),
     }
 
 

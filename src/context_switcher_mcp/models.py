@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional, Any
+import hashlib
+import secrets
 
 
 class ModelBackend(str, Enum):
@@ -37,14 +39,78 @@ class Thread:
 
 
 @dataclass
+class ClientBinding:
+    """Secure client binding data for session validation"""
+
+    # Core binding identifiers
+    session_entropy: str  # Cryptographically secure session entropy
+    creation_timestamp: datetime  # Session creation time
+    binding_signature: str  # HMAC signature of binding data
+
+    # Behavioral fingerprint
+    access_pattern_hash: str  # Hash of initial access patterns
+    tool_usage_sequence: List[str] = field(
+        default_factory=list
+    )  # Initial tool usage pattern
+
+    # Security metadata
+    validation_failures: int = 0  # Count of validation failures
+    last_validated: datetime = field(default_factory=datetime.utcnow)
+    security_flags: List[str] = field(default_factory=list)  # Security event flags
+
+    def generate_binding_signature(self, secret_key: str) -> str:
+        """Generate HMAC signature for binding validation"""
+        data = f"{self.session_entropy}:{self.creation_timestamp.isoformat()}"
+        return hashlib.pbkdf2_hmac(
+            "sha256", data.encode(), secret_key.encode(), 100000
+        ).hex()
+
+    def validate_binding(self, secret_key: str) -> bool:
+        """Validate the binding signature"""
+        expected_signature = self.generate_binding_signature(secret_key)
+        return secrets.compare_digest(self.binding_signature, expected_signature)
+
+    def add_security_flag(self, flag: str) -> None:
+        """Add a security flag to the binding"""
+        if flag not in self.security_flags:
+            self.security_flags.append(flag)
+
+    def is_suspicious(self) -> bool:
+        """Check if binding shows suspicious activity"""
+        return (
+            self.validation_failures > 3
+            or len(self.security_flags) > 5
+            or "multiple_failed_validations" in self.security_flags
+        )
+
+
+@dataclass
 class ContextSwitcherSession:
-    """Manages a context-switching analysis session"""
+    """Manages a context-switching analysis session with client binding"""
 
     session_id: str
     created_at: datetime
+    client_binding: Optional[ClientBinding] = None
     threads: Dict[str, Thread] = field(default_factory=dict)
     analyses: List[Dict[str, Any]] = field(default_factory=list)
     topic: Optional[str] = None
+
+    # Session security metadata
+    access_count: int = 0
+    last_accessed: datetime = field(default_factory=datetime.utcnow)
+    security_events: List[Dict[str, Any]] = field(default_factory=list)
+
+    # Concurrency control
+    version: int = 0  # Version for optimistic locking and race condition detection
+    _access_lock: Optional[Any] = field(
+        default=None, init=False, repr=False
+    )  # Will be set to asyncio.Lock() in __post_init__
+
+    def __post_init__(self):
+        """Initialize async components that can't be set in dataclass fields"""
+        import asyncio
+
+        self._access_lock = asyncio.Lock()
 
     def add_thread(self, thread: Thread) -> None:
         """Add a perspective thread to the session"""
@@ -53,6 +119,63 @@ class ContextSwitcherSession:
     def get_thread(self, name: str) -> Optional[Thread]:
         """Get a thread by name"""
         return self.threads.get(name)
+
+    async def record_access(self, tool_name: str) -> None:
+        """Record session access for behavioral analysis (thread-safe async version)"""
+        if self._access_lock is None:
+            # Fallback for sessions created before __post_init__ was called
+            import asyncio
+
+            self._access_lock = asyncio.Lock()
+
+        async with self._access_lock:
+            self.access_count += 1
+            self.last_accessed = datetime.utcnow()
+            self.version += 1  # Increment version for change tracking
+
+            # Update client binding tool usage pattern
+            if (
+                self.client_binding
+                and len(self.client_binding.tool_usage_sequence) < 10
+            ):
+                self.client_binding.tool_usage_sequence.append(tool_name)
+
+    def record_access_sync(self, tool_name: str) -> None:
+        """Record session access for behavioral analysis (synchronous version)
+
+        Note: This version is not thread-safe for concurrent access, but safe for
+        single-threaded initialization and simple cases. Use record_access() for
+        concurrent scenarios.
+        """
+        self.access_count += 1
+        self.last_accessed = datetime.utcnow()
+        self.version += 1  # Increment version for change tracking
+
+        # Update client binding tool usage pattern
+        if self.client_binding and len(self.client_binding.tool_usage_sequence) < 10:
+            self.client_binding.tool_usage_sequence.append(tool_name)
+
+    def record_security_event(self, event_type: str, details: Dict[str, Any]) -> None:
+        """Record a security event for this session"""
+        event = {
+            "type": event_type,
+            "timestamp": datetime.utcnow().isoformat(),
+            "details": details,
+        }
+        self.security_events.append(event)
+
+        # Add security flag to client binding if present
+        if self.client_binding:
+            self.client_binding.add_security_flag(event_type)
+
+    def is_binding_valid(self, secret_key: str) -> bool:
+        """Validate client binding if present"""
+        if not self.client_binding:
+            return (
+                True  # No binding = legacy session (allowed for backward compatibility)
+            )
+
+        return self.client_binding.validate_binding(secret_key)
 
     def record_analysis(
         self,
@@ -71,6 +194,9 @@ class ContextSwitcherSession:
                 "abstained_count": abstained_count,
             }
         )
+
+        # Record analysis as access using sync version
+        self.record_access_sync("analyze_from_perspectives")
 
     def get_last_analysis(self) -> Optional[Dict[str, Any]]:
         """Get the most recent analysis"""

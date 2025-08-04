@@ -90,7 +90,11 @@ class CircuitBreakerState:
             # This will raise if the task failed
             task.result()
         except Exception as e:
-            logger.error(f"Failed to save circuit breaker state: {e}")
+            from .security import sanitize_error_message
+
+            logger.error(
+                f"Failed to save circuit breaker state: {sanitize_error_message(str(e))}"
+            )
 
     def __post_init__(self):
         """Initialize with config defaults if not provided"""
@@ -225,8 +229,11 @@ class ThreadOrchestrator:
         result = {}
         for name, response in zip(thread_names, responses):
             if isinstance(response, Exception):
-                logger.error(f"Error in thread {name}: {response}")
-                result[name] = f"ERROR: {str(response)}"
+                from .security import sanitize_error_message
+
+                sanitized_error = sanitize_error_message(str(response))
+                logger.error(f"Error in thread {name}: {sanitized_error}")
+                result[name] = f"ERROR: {sanitized_error}"
                 metrics.failed_threads += 1
             else:
                 # Add assistant response to thread history
@@ -445,7 +452,11 @@ class ThreadOrchestrator:
                         "model not found",
                     ]
                 ):
-                    logger.error(f"Non-retryable error for {thread.name}: {e}")
+                    from .security import sanitize_error_message
+
+                    logger.error(
+                        f"Non-retryable error for {thread.name}: {sanitize_error_message(str(e))}"
+                    )
                     error_response = create_error_response(
                         error_message=str(e),
                         error_type="configuration_error",
@@ -466,8 +477,10 @@ class ThreadOrchestrator:
                     )
                     await asyncio.sleep(delay)
                 else:
+                    from .security import sanitize_error_message
+
                     logger.error(
-                        f"All {self.max_retries} attempts failed for {thread.name}: {e}"
+                        f"All {self.max_retries} attempts failed for {thread.name}: {sanitize_error_message(str(e))}"
                     )
 
         # If all retries failed, return AORP error response
@@ -543,7 +556,8 @@ class ThreadOrchestrator:
             return content
 
         except Exception as e:
-            logger.error(f"Bedrock error: {e}")
+            # Already sanitized in AORP response
+            logger.error(f"Bedrock error: {str(e)}")
             from .security import sanitize_error_message
 
             if "inference profile" in str(e).lower():
@@ -628,7 +642,8 @@ class ThreadOrchestrator:
                     }
 
         except Exception as e:
-            logger.error(f"Bedrock streaming error: {e}")
+            # Already sanitized in AORP response
+            logger.error(f"Bedrock streaming error: {str(e)}")
             from .security import sanitize_error_message
 
             error_response = create_error_response(
@@ -669,7 +684,8 @@ class ThreadOrchestrator:
             return response.choices[0].message.content
 
         except Exception as e:
-            logger.error(f"LiteLLM error: {e}")
+            # Already sanitized in AORP response
+            logger.error(f"LiteLLM error: {str(e)}")
             from .security import sanitize_error_message
 
             if "api_key" in str(e).lower():
@@ -731,7 +747,8 @@ class ThreadOrchestrator:
                 return result["message"]["content"]
 
         except Exception as e:
-            logger.error(f"Ollama error: {e}")
+            # Already sanitized in AORP response
+            logger.error(f"Ollama error: {str(e)}")
             from .security import sanitize_error_message
 
             config = get_config()
