@@ -56,8 +56,7 @@ class SessionHandler:
             session_id = generate_secure_session_id()
 
             # Create secure session with client binding
-            session = await create_secure_session_with_binding(session_id)
-            session.topic = topic
+            session = create_secure_session_with_binding(session_id, topic)
 
             # Determine which perspectives to use
             perspectives_to_use = determine_perspectives_to_use(
