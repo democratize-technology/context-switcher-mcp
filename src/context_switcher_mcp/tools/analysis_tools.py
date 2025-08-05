@@ -1,12 +1,12 @@
 """Analysis tools for Context-Switcher MCP Server"""
 
 import logging
+from datetime import datetime
 from typing import Dict, Any
 from pydantic import BaseModel, Field
 
 from ..aorp import (
     AORPBuilder,
-    calculate_analysis_confidence,
     generate_synthesis_next_steps,
     create_error_response,
 )
@@ -18,9 +18,7 @@ from ..confidence_metrics import (
 from ..helpers.analysis_helpers import (
     validate_analysis_request,
     build_analysis_aorp_response,
-    store_analysis_results,
 )
-from ..orchestrator import ThreadOrchestrator
 from ..rate_limiter import SessionRateLimiter
 from ..security import sanitize_error_message
 from ..validation import validate_session_id
@@ -71,20 +69,60 @@ def register_analysis_tools(mcp):
 
         session = await session_manager.get_session(request.session_id)
 
-        # Initialize orchestrator with session threads
-        orchestrator = ThreadOrchestrator(list(session.threads.values()))
+        # Initialize orchestrator
+        from ..orchestrator import ThreadOrchestrator
+
+        orchestrator = ThreadOrchestrator()
 
         try:
-            results = await orchestrator.execute_prompt(request.prompt)
-            store_analysis_results(session, request.prompt, results)
-            confidence = calculate_analysis_confidence(
-                results.active_count,
-                results.abstained_count,
-                len(results.model_errors),
-                results.execution_time,
+            # Execute analysis across all perspectives
+            results = await orchestrator.broadcast_message(
+                session.threads, request.prompt, request.session_id
             )
+
+            # Count active vs abstained responses
+            active_count = sum(
+                1
+                for r in results.values()
+                if "[NO_RESPONSE]" not in r and not r.startswith("ERROR:")
+            )
+            abstained_count = sum(1 for r in results.values() if "[NO_RESPONSE]" in r)
+            error_count = sum(1 for r in results.values() if r.startswith("ERROR:"))
+
+            # Store analysis in session
+            session.analyses.append(
+                {
+                    "prompt": request.prompt,
+                    "results": results,
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "active_count": active_count,
+                    "abstained_count": abstained_count,
+                    "error_count": error_count,
+                }
+            )
+
+            # Calculate confidence
+            total_perspectives = len(session.threads)
+            confidence = (
+                active_count / total_perspectives if total_perspectives > 0 else 0.0
+            )
+
+            # Create a results object for the helper function
+            class AnalysisResults:
+                def __init__(self):
+                    self.perspectives = results
+                    self.active_count = active_count
+                    self.abstained_count = abstained_count
+                    self.model_errors = [
+                        k for k, v in results.items() if v.startswith("ERROR:")
+                    ]
+                    self.execution_time = 0.0  # We don't track this yet
+
+            analysis_results = AnalysisResults()
+
+            # Build AORP response using existing helper
             return build_analysis_aorp_response(
-                request.prompt, results, session, confidence
+                request.prompt, analysis_results, session, confidence
             )
 
         except SessionNotFoundError as e:
