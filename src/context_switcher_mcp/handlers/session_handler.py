@@ -71,7 +71,7 @@ class SessionHandler:
             # Store session
             from .. import session_manager
 
-            await session_manager.add_session(session_id, session)
+            await session_manager.add_session(session)
 
             # Build and return success response
             return build_session_creation_response(
