@@ -218,7 +218,12 @@ class ThreadManager:
         thread_names = []
 
         for name, thread in threads.items():
-            thread.add_message("user", message)
+            # Only add message if not already present (CoT may have added it)
+            if message and (
+                not thread.conversation_history
+                or thread.conversation_history[-1].get("content") != message
+            ):
+                thread.add_message("user", message)
 
             task = self._get_thread_response_with_metrics(thread, metrics)
             tasks.append(task)
@@ -305,7 +310,12 @@ class ThreadManager:
 
         tasks = []
         for name, thread in threads.items():
-            thread.add_message("user", message)
+            # Only add message if not already present (CoT may have added it)
+            if message and (
+                not thread.conversation_history
+                or thread.conversation_history[-1].get("content") != message
+            ):
+                thread.add_message("user", message)
 
             # Yield start event for this thread
             yield {

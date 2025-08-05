@@ -181,9 +181,7 @@ class PerspectiveOrchestrator:
         # Process each thread with CoT
         tasks = []
         for name, thread in threads.items():
-            # Add the message to thread history
-            thread.add_message("user", message)
-
+            # Don't add message here - analyze_with_reasoning will handle it
             # Create task for CoT processing
             task = asyncio.create_task(
                 self._process_thread_with_cot(
