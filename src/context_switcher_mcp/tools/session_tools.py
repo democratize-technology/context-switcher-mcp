@@ -33,7 +33,6 @@ def register_session_tools(mcp):
                 }
             )
 
-        # Get session manager stats
         stats = await session_manager.get_stats()
 
         return {
@@ -84,13 +83,11 @@ def register_session_tools(mcp):
                 "hint": "Start with: start_context_analysis",
             }
 
-        # Get most recent session
         recent_session_id = max(
             active_sessions.keys(), key=lambda sid: active_sessions[sid].created_at
         )
         session = active_sessions[recent_session_id]
 
-        # Get summary of last analysis if any
         last_analysis = None
         if session.analyses:
             last = session.analyses[-1]
@@ -134,7 +131,6 @@ def register_session_tools(mcp):
         if not session_valid:
             return session_not_found_error(request.session_id, session_error)
 
-        # Get session after validation
         from .. import session_manager
 
         session = await session_manager.get_session(request.session_id)

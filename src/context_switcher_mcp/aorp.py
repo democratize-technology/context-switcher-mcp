@@ -125,7 +125,6 @@ class AORPBuilder:
         if "confidence" not in immediate:
             raise ValueError("Confidence score is required")
 
-        # Set defaults for quality if not provided
         quality = self.response["quality"]
         if "completeness" not in quality:
             quality["completeness"] = 0.5
@@ -134,7 +133,6 @@ class AORPBuilder:
         if "urgency" not in quality:
             quality["urgency"] = "medium"
 
-        # Set default empty structures
         if "next_steps" not in self.response["actionable"]:
             self.response["actionable"]["next_steps"] = []
         if "recommendations" not in self.response["actionable"]:

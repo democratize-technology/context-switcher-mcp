@@ -30,7 +30,6 @@ async def validate_analysis_request(
     Returns:
         Tuple of (is_valid, error_response_or_none)
     """
-    # Check rate limits for analysis operations
     allowed, rate_error = rate_limiter.check_request(session_id, "analysis")
     if not allowed:
         return False, create_error_response(

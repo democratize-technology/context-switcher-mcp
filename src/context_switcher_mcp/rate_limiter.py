@@ -111,13 +111,11 @@ class SessionRateLimiter:
             Tuple of (is_allowed, error_message)
         """
         with self._lock:
-            # Initialize session buckets if needed
             if session_id not in self.session_buckets:
                 self._init_session_buckets(session_id)
 
             buckets = self.session_buckets[session_id]
 
-            # Check appropriate bucket based on operation type
             if operation_type == "analysis":
                 bucket = buckets["analysis"]
                 limit_name = "analysis"

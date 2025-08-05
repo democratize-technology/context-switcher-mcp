@@ -104,7 +104,6 @@ class ResponseFormatter:
             )
             synthesis_thread.add_message("user", synthesis_prompt)
 
-            # Get synthesis response
             backend_interface = get_backend_interface(synthesis_backend.value)
             synthesis_response = await backend_interface.call_model(synthesis_thread)
 

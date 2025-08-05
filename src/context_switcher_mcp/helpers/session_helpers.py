@@ -125,7 +125,6 @@ def determine_perspectives_to_use(
                     perspective_name
                 ]
             else:
-                # Create a generic perspective for unknown names
                 perspectives_to_use[perspective_name] = f"""You are a {perspective_name} expert. Analyze from a {perspective_name} perspective.
 
 **Analysis approach:**
@@ -172,7 +171,6 @@ async def create_session_threads(
             )
             continue  # Skip this perspective
 
-        # Create thread
         thread = Thread(
             id=str(uuid4()),
             system_prompt=system_prompt,

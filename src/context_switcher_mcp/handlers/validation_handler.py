@@ -33,7 +33,6 @@ class ValidationHandler:
         Returns:
             Tuple of (is_valid, error_response_or_none)
         """
-        # Check rate limits for session creation
         allowed, rate_error = rate_limiter.check_session_creation()
         if not allowed:
             return False, rate_limit_error(

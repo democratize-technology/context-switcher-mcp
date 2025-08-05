@@ -14,7 +14,6 @@ def register_admin_tools(mcp):
     @mcp.tool(description="Get performance metrics and operational health status")
     async def get_performance_metrics() -> Dict[str, Any]:
         """Get performance metrics for monitoring operational health"""
-        # Get orchestrator instance from main module
         from .. import orchestrator
 
         orchestrator_metrics = await orchestrator.get_performance_metrics(last_n=20)
@@ -51,10 +50,8 @@ def register_admin_tools(mcp):
     @mcp.tool(description="Get session security metrics and client binding status")
     async def get_security_metrics() -> Dict[str, Any]:
         """Get comprehensive security metrics for monitoring session security"""
-        # Get client binding manager metrics
         binding_metrics = client_binding_manager.get_security_metrics()
 
-        # Get session manager statistics
         from .. import session_manager
 
         session_stats = await session_manager.get_stats()

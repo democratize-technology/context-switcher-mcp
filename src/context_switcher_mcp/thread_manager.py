@@ -211,7 +211,6 @@ class ThreadManager:
         self, threads: Dict[str, Thread], message: str, session_id: str = "unknown"
     ) -> Dict[str, str]:
         """Broadcast message to all threads and collect responses"""
-        # Initialize metrics
         metrics = ThreadOrchestrationMetrics(
             session_id=session_id,
             operation_type="broadcast",
@@ -223,10 +222,8 @@ class ThreadManager:
         thread_names = []
 
         for name, thread in threads.items():
-            # Add user message to thread history
             thread.add_message("user", message)
 
-            # Create task for this thread with metrics
             task = self._get_thread_response_with_metrics(thread, metrics)
             tasks.append(task)
             thread_names.append(name)
@@ -285,7 +282,6 @@ class ThreadManager:
             "timestamp": float
         }
         """
-        # Initialize metrics
         metrics = ThreadOrchestrationMetrics(
             session_id=session_id,
             operation_type="broadcast_stream",
@@ -293,10 +289,8 @@ class ThreadManager:
             total_threads=len(threads),
         )
 
-        # Create streaming tasks for each thread
         tasks = []
         for name, thread in threads.items():
-            # Add user message to thread history
             thread.add_message("user", message)
 
             # Yield start event for this thread
@@ -307,7 +301,6 @@ class ThreadManager:
                 "timestamp": time.time(),
             }
 
-            # Create streaming task using unified backend
             task = asyncio.create_task(self._stream_from_thread(thread, name))
             tasks.append(task)
 
@@ -426,7 +419,6 @@ class ThreadManager:
         if not backend_fn:
             raise ValueError(f"Unknown model backend: {thread.model_backend}")
 
-        # Check circuit breaker
         circuit_breaker = self.circuit_breakers[thread.model_backend]
         if not circuit_breaker.should_allow_request():
             logger.warning(
@@ -475,7 +467,6 @@ class ThreadManager:
                 )
                 raise OrchestrationError(f"Unexpected backend error: {e}") from e
 
-            # Check if error occurred and handle accordingly
             if last_error:
                 error_str = str(last_error).lower()
 
