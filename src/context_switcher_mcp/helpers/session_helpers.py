@@ -173,10 +173,10 @@ async def create_session_threads(
 
         thread = Thread(
             id=str(uuid4()),
+            name=perspective_name,
             system_prompt=system_prompt,
             model_backend=model_backend,
             model_name=model_name,
-            temperature=0.7,
         )
         session.threads[perspective_name] = thread
 

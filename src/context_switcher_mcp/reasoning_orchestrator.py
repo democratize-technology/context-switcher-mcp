@@ -144,8 +144,8 @@ Use chain_of_thought_step to structure your reasoning, then provide your analysi
             "system": [{"text": enhanced_prompt}],
             "toolConfig": {"tools": self.get_cot_tools()},
             "inferenceConfig": {
-                "temperature": thread.temperature,
-                "maxTokens": thread.max_tokens or 4096,
+                "temperature": 0.7,  # Default temperature for CoT reasoning
+                "maxTokens": 4096,  # Default max tokens
             },
         }
 

@@ -116,9 +116,10 @@ def register_perspective_tools(mcp):
         # Create new thread
         new_thread = Thread(
             id=str(uuid4()),
+            name=request.name,
             system_prompt=system_prompt,
             model_backend=ModelBackend.BEDROCK,  # Default backend
-            temperature=0.7,
+            model_name=None,
         )
 
         # Add to session
