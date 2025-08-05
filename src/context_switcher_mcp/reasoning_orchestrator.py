@@ -116,7 +116,7 @@ Focus on aspects most relevant to this perspective."""
 
         # Prepare messages
         messages = []
-        for msg in thread.messages:
+        for msg in thread.conversation_history:
             messages.append(
                 {"role": msg["role"], "content": [{"text": msg["content"]}]}
             )
