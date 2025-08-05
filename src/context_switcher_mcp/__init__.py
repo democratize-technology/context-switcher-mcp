@@ -26,20 +26,14 @@ __all__ = ["main", "mcp"]
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize MCP server
 mcp = FastMCP("context-switcher")
-
-# Get configuration
 config = get_config()
-
-# Initialize session manager with config
 session_manager = SessionManager(
     max_sessions=config.session.max_active_sessions,
     session_ttl_hours=config.session.default_ttl_hours,
     cleanup_interval_minutes=config.session.cleanup_interval_seconds // 60,
 )
 
-# Initialize orchestrator (required by admin tools)
 from .orchestrator import ThreadOrchestrator  # noqa: E402
 
 orchestrator = ThreadOrchestrator()
@@ -81,14 +75,11 @@ async def start_context_analysis(
     request: StartContextAnalysisRequest,
 ) -> Dict[str, Any]:
     """Initialize a new context-switching analysis session"""
-    # Validate the request
     is_valid, error_response = ValidationHandler.validate_session_creation_request(
         request.topic, request.initial_perspectives
     )
     if not is_valid:
         return error_response
-
-    # Create the session using the handler
     return await SessionHandler.create_session(
         topic=request.topic,
         initial_perspectives=request.initial_perspectives,
@@ -100,5 +91,4 @@ async def start_context_analysis(
 
 def main():
     """Main entry point for the MCP server"""
-    # Start the MCP server using stdio transport
     mcp.run()

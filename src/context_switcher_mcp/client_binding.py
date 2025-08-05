@@ -48,14 +48,9 @@ class ClientBindingManager:
         """
         now = datetime.utcnow()
 
-        # Generate cryptographically secure entropy
         session_entropy = secrets.token_urlsafe(32)
-
-        # Create access pattern hash based on initial conditions
         access_pattern_data = f"{session_id}:{initial_tool}:{now.timestamp()}"
         access_pattern_hash = hashlib.sha256(access_pattern_data.encode()).hexdigest()
-
-        # Create binding object
         binding = ClientBinding(
             session_entropy=session_entropy,
             creation_timestamp=now,
@@ -65,7 +60,6 @@ class ClientBindingManager:
             last_validated=now,
         )
 
-        # Generate and set binding signature
         binding.binding_signature = binding.generate_binding_signature(self.secret_key)
 
         logger.info(f"Created client binding for session {session_id}")

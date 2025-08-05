@@ -19,18 +19,14 @@ async def test_session_creation_and_access():
     """Test basic session creation and access"""
     session_manager = SessionManager(max_sessions=10, session_ttl_hours=1)
 
-    # Create a test session
     session = ContextSwitcherSession(
         session_id="test-session-123",
         created_at=datetime.utcnow(),
         topic="Test Session",
     )
 
-    # Add session
     result = await session_manager.add_session(session)
     assert result is True
-
-    # Get session
     retrieved_session = await session_manager.get_session("test-session-123")
     assert retrieved_session is not None
     assert retrieved_session.session_id == "test-session-123"

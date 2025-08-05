@@ -12,7 +12,6 @@ from ..templates import PERSPECTIVE_TEMPLATES
 
 logger = logging.getLogger(__name__)
 
-# Get configuration
 config = get_config()
 
 # Default perspectives (extracted from session_handler)

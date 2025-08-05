@@ -75,21 +75,14 @@ def register_analysis_tools(mcp):
         orchestrator = ThreadOrchestrator(list(session.threads.values()))
 
         try:
-            # Execute orchestrated analysis
             results = await orchestrator.execute_prompt(request.prompt)
-
-            # Store analysis results in session
             store_analysis_results(session, request.prompt, results)
-
-            # Calculate confidence score
             confidence = calculate_analysis_confidence(
                 results.active_count,
                 results.abstained_count,
                 len(results.model_errors),
                 results.execution_time,
             )
-
-            # Build and return AORP response
             return build_analysis_aorp_response(
                 request.prompt, results, session, confidence
             )

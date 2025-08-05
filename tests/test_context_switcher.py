@@ -210,14 +210,11 @@ class TestSessionManager:
         """Test adding sessions to manager"""
         sm = SessionManager(max_sessions=2)
 
-        # Add first session
         session1 = ContextSwitcherSession(
             session_id="test-1", created_at=datetime.utcnow()
         )
         assert await sm.add_session(session1) is True
         assert len(sm.sessions) == 1
-
-        # Add second session
         session2 = ContextSwitcherSession(
             session_id="test-2", created_at=datetime.utcnow()
         )
