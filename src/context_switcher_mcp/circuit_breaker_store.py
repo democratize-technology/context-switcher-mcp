@@ -34,6 +34,41 @@ class CircuitBreakerStore:
             config_dir = Path.home() / ".context_switcher"
             config_dir.mkdir(exist_ok=True)
             storage_path = config_dir / "circuit_breakers.json"
+        else:
+            # Validate and sanitize the provided path
+            storage_path = Path(storage_path)
+
+            # Resolve to absolute path and check for path traversal
+            try:
+                storage_path = storage_path.resolve(strict=False)
+            except (OSError, RuntimeError) as e:
+                raise ValueError(f"Invalid storage path: {e}") from e
+
+            # Ensure the path is within a safe directory (home or temp)
+            home_dir = Path.home().resolve()
+
+            # Check if path is within allowed directories
+            try:
+                storage_path.relative_to(home_dir)
+            except ValueError:
+                # Check if it's in a system temp directory
+                import tempfile
+
+                temp_root = Path(tempfile.gettempdir()).resolve()
+                try:
+                    storage_path.relative_to(temp_root)
+                except ValueError:
+                    # Also allow explicit /tmp for compatibility
+                    try:
+                        storage_path.relative_to(Path("/tmp").resolve())
+                    except ValueError:
+                        raise ValueError(
+                            f"Storage path must be within home directory or temp directory, got: {storage_path}"
+                        )
+
+            # Ensure filename ends with .json
+            if storage_path.suffix != ".json":
+                raise ValueError("Storage path must be a .json file")
 
         self.storage_path = Path(storage_path)
         self._lock = asyncio.Lock()

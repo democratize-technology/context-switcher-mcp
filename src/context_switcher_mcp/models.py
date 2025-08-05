@@ -62,7 +62,7 @@ class ClientBinding:
         """Generate HMAC signature for binding validation"""
         data = f"{self.session_entropy}:{self.creation_timestamp.isoformat()}"
         return hashlib.pbkdf2_hmac(
-            "sha256", data.encode(), secret_key.encode(), 100000
+            "sha256", data.encode(), secret_key.encode(), 600000
         ).hex()
 
     def validate_binding(self, secret_key: str) -> bool:
@@ -105,12 +105,16 @@ class ContextSwitcherSession:
     _access_lock: Optional[Any] = field(
         default=None, init=False, repr=False
     )  # Will be set to asyncio.Lock() in __post_init__
+    _lock_initialized: bool = field(
+        default=False, init=False, repr=False
+    )  # Track if lock is initialized
 
     def __post_init__(self):
         """Initialize async components that can't be set in dataclass fields"""
         import asyncio
 
         self._access_lock = asyncio.Lock()
+        self._lock_initialized = True
 
     def add_thread(self, thread: Thread) -> None:
         """Add a perspective thread to the session"""
@@ -122,11 +126,17 @@ class ContextSwitcherSession:
 
     async def record_access(self, tool_name: str) -> None:
         """Record session access for behavioral analysis (thread-safe async version)"""
-        if self._access_lock is None:
-            # Fallback for sessions created before __post_init__ was called
+        # Ensure lock is initialized - use double-checked locking pattern
+        if not self._lock_initialized:
             import asyncio
 
-            self._access_lock = asyncio.Lock()
+            # Use a temporary lock to avoid race conditions during initialization
+            temp_lock = asyncio.Lock()
+            async with temp_lock:
+                # Double-check inside the lock
+                if not self._lock_initialized:
+                    self._access_lock = asyncio.Lock()
+                    self._lock_initialized = True
 
         async with self._access_lock:
             self.access_count += 1

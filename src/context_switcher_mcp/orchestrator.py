@@ -489,10 +489,15 @@ class ThreadOrchestrator:
                 # Retryable errors
                 last_error = e
                 error_str = str(e).lower()
+
+                # Record failure in circuit breaker for transient errors
+                await circuit_breaker.record_failure()
+
             except ModelBackendError as e:
                 # Other model errors - check if retryable
                 last_error = e
                 error_str = str(e).lower()
+
             except Exception as e:
                 # Unexpected errors - wrap and treat as non-retryable
                 logger.error(
@@ -500,6 +505,10 @@ class ThreadOrchestrator:
                     exc_info=True,
                 )
                 raise OrchestrationError(f"Unexpected backend error: {e}") from e
+
+            # Check if error occurred and handle accordingly
+            if last_error:
+                error_str = str(last_error).lower()
 
                 # Record failure in circuit breaker for retryable errors
                 if not any(
@@ -532,10 +541,10 @@ class ThreadOrchestrator:
                     from .security import sanitize_error_message
 
                     logger.error(
-                        f"Non-retryable error for {thread.name}: {sanitize_error_message(str(e))}"
+                        f"Non-retryable error for {thread.name}: {sanitize_error_message(str(last_error))}"
                     )
                     error_response = create_error_response(
-                        error_message=str(e),
+                        error_message=str(last_error),
                         error_type="configuration_error",
                         context={
                             "thread": thread.name,
@@ -549,7 +558,7 @@ class ThreadOrchestrator:
                 if attempt < self.max_retries - 1:
                     delay = self.retry_delay * (2**attempt)
                     logger.warning(
-                        f"Attempt {attempt + 1} failed for {thread.name}: {e}. "
+                        f"Attempt {attempt + 1} failed for {thread.name}: {last_error}. "
                         f"Retrying in {delay}s..."
                     )
                     await asyncio.sleep(delay)
@@ -557,7 +566,7 @@ class ThreadOrchestrator:
                     from .security import sanitize_error_message
 
                     logger.error(
-                        f"All {self.max_retries} attempts failed for {thread.name}: {sanitize_error_message(str(e))}"
+                        f"All {self.max_retries} attempts failed for {thread.name}: {sanitize_error_message(str(last_error))}"
                     )
 
         # If all retries failed, return AORP error response

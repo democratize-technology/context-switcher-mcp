@@ -297,6 +297,13 @@ class LiteLLMBackend(ModelBackendInterface):
             model_config = self.get_model_config(thread)
             messages = self._prepare_messages(thread)
 
+            # Validate model name
+            from .security import validate_model_id
+
+            is_valid, error_msg = validate_model_id(model_config.model_name)
+            if not is_valid:
+                raise ValueError(f"Invalid model ID: {error_msg}")
+
             response = await litellm.acompletion(
                 model=model_config.model_name,
                 messages=messages,
@@ -308,6 +315,9 @@ class LiteLLMBackend(ModelBackendInterface):
 
         except ImportError as e:
             raise ConfigurationError("litellm library not installed") from e
+        except ValueError as e:
+            # Model validation error
+            raise ModelValidationError(str(e)) from e
         except Exception as e:
             # Map to specific exception types based on error
             error_type, error_message = self._get_error_type_and_message(e)
@@ -345,6 +355,13 @@ class OllamaBackend(ModelBackendInterface):
             model_config = self.get_model_config(thread)
             messages = self._prepare_messages(thread)
 
+            # Validate model name
+            from .security import validate_model_id
+
+            is_valid, error_msg = validate_model_id(model_config.model_name)
+            if not is_valid:
+                raise ValueError(f"Invalid model ID: {error_msg}")
+
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     self.config.model.ollama_host + "/api/chat",
@@ -368,6 +385,9 @@ class OllamaBackend(ModelBackendInterface):
             raise ConfigurationError(
                 "httpx library not installed for Ollama backend"
             ) from e
+        except ValueError as e:
+            # Model validation error
+            raise ModelValidationError(str(e)) from e
         except httpx.ConnectError as e:
             raise ModelConnectionError(
                 f"Failed to connect to Ollama at {self.config.model.ollama_host}"
