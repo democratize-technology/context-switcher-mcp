@@ -3,13 +3,18 @@
 import asyncio
 import logging
 import time
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 from dataclasses import dataclass
 
 from .models import Thread
 from .thread_manager import ThreadManager
 from .response_formatter import ResponseFormatter
 from .exceptions import OrchestrationError
+from .reasoning_orchestrator import (
+    PerspectiveReasoningOrchestrator,
+    CoTTimeoutError,
+    CoTProcessingError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -52,15 +57,33 @@ class PerspectiveOrchestrator:
         self,
         thread_manager: ThreadManager = None,
         response_formatter: ResponseFormatter = None,
+        enable_cot: bool = True,
+        cot_timeout: float = 30.0,
     ):
         """Initialize perspective orchestrator
 
         Args:
             thread_manager: Thread manager for parallel execution (creates default if None)
             response_formatter: Response formatter for AORP formatting (creates default if None)
+            enable_cot: Enable Chain of Thought reasoning for Bedrock (default: True)
+            cot_timeout: Timeout for CoT processing in seconds (default: 30.0)
         """
         self.thread_manager = thread_manager or ThreadManager()
         self.response_formatter = response_formatter or ResponseFormatter()
+
+        # Initialize reasoning orchestrator if enabled
+        self.enable_cot = enable_cot
+        self.reasoning_orchestrator = None
+        if enable_cot:
+            self.reasoning_orchestrator = PerspectiveReasoningOrchestrator(cot_timeout)
+            if self.reasoning_orchestrator.is_available:
+                logger.info(
+                    "Chain of Thought reasoning enabled for perspective analysis"
+                )
+            else:
+                logger.warning(
+                    "Chain of Thought tool not available - falling back to standard analysis"
+                )
 
         # Metrics storage
         self.metrics_history = []
@@ -79,10 +102,37 @@ class PerspectiveOrchestrator:
         )
 
         try:
-            # Use thread manager for parallel execution
-            responses = await self.thread_manager.broadcast_message(
-                threads, message, session_id
-            )
+            # Check if we should use CoT for any threads
+            use_cot_threads = {}
+            standard_threads = {}
+
+            for name, thread in threads.items():
+                if (
+                    self.enable_cot
+                    and self.reasoning_orchestrator
+                    and self.reasoning_orchestrator.is_available
+                    and thread.model_backend.value == "bedrock"
+                ):
+                    use_cot_threads[name] = thread
+                else:
+                    standard_threads[name] = thread
+
+            # Process threads in parallel
+            responses = {}
+
+            # Handle CoT threads if any
+            if use_cot_threads:
+                cot_responses = await self._broadcast_with_cot(
+                    use_cot_threads, message, session_id
+                )
+                responses.update(cot_responses)
+
+            # Handle standard threads
+            if standard_threads:
+                standard_responses = await self.thread_manager.broadcast_message(
+                    standard_threads, message, session_id
+                )
+                responses.update(standard_responses)
 
             # Classify responses for metrics
             for perspective_name, response in responses.items():
@@ -118,6 +168,96 @@ class PerspectiveOrchestrator:
 
             logger.error(f"Perspective broadcast failed: {e}")
             raise OrchestrationError(f"Perspective broadcast failed: {e}") from e
+
+    async def _broadcast_with_cot(
+        self, threads: Dict[str, Thread], message: str, session_id: str
+    ) -> Dict[str, str]:
+        """Broadcast to threads using Chain of Thought reasoning"""
+        import boto3
+
+        # Get Bedrock client
+        bedrock_client = boto3.client("bedrock-runtime", region_name="us-east-1")
+
+        # Process each thread with CoT
+        tasks = []
+        for name, thread in threads.items():
+            # Add the message to thread history
+            thread.add_message("user", message)
+
+            # Create task for CoT processing
+            task = asyncio.create_task(
+                self._process_thread_with_cot(
+                    name, thread, message, bedrock_client, session_id
+                )
+            )
+            tasks.append((name, task))
+
+        # Gather results
+        responses = {}
+        for name, task in tasks:
+            try:
+                response = await task
+                responses[name] = response
+            except Exception as e:
+                logger.error(f"CoT processing failed for {name}: {e}")
+                responses[name] = f"ERROR: {str(e)}"
+
+        return responses
+
+    async def _process_thread_with_cot(
+        self,
+        name: str,
+        thread: Thread,
+        message: str,
+        bedrock_client: Any,
+        session_id: str,
+    ) -> str:
+        """Process a single thread with Chain of Thought reasoning"""
+        try:
+            (
+                response_text,
+                reasoning_summary,
+            ) = await self.reasoning_orchestrator.analyze_with_reasoning(
+                thread, message, bedrock_client, session_id
+            )
+
+            # Add response to thread history
+            thread.add_message("assistant", response_text)
+
+            # Log CoT summary if available
+            if reasoning_summary and "overall_confidence" in reasoning_summary:
+                logger.info(
+                    f"CoT analysis for {name}: confidence={reasoning_summary['overall_confidence']}, "
+                    f"steps={reasoning_summary.get('total_steps', 0)}"
+                )
+
+            return response_text
+
+        except CoTTimeoutError as e:
+            logger.warning(f"CoT timeout for {name}: {e}")
+            # Fallback to standard processing
+            return await self._fallback_to_standard(thread, name)
+        except CoTProcessingError as e:
+            logger.error(f"CoT processing error for {name}: {e}")
+            # Fallback to standard processing
+            return await self._fallback_to_standard(thread, name)
+        except Exception as e:
+            logger.error(f"Unexpected error in CoT for {name}: {e}")
+            raise
+
+    async def _fallback_to_standard(self, thread: Thread, name: str) -> str:
+        """Fallback to standard processing when CoT fails"""
+        logger.info(f"Falling back to standard processing for {name}")
+        try:
+            # Use thread_manager's single thread processing
+            single_thread_dict = {name: thread}
+            responses = await self.thread_manager.broadcast_message(
+                single_thread_dict, "", "fallback"
+            )
+            return responses.get(name, "ERROR: Fallback failed")
+        except Exception as e:
+            logger.error(f"Fallback processing failed for {name}: {e}")
+            return f"ERROR: Both CoT and fallback failed: {str(e)}"
 
     async def broadcast_to_perspectives_stream(
         self, threads: Dict[str, Thread], message: str, session_id: str = "unknown"
