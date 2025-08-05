@@ -114,44 +114,69 @@ def build_analysis_aorp_response(
 
     # Build AORP response
     builder = AORPBuilder()
-    builder.set_objective(f"Multi-perspective analysis: {prompt}")
-    builder.set_confidence(confidence)
 
-    # Add perspective responses as recommendations
+    # Set immediate values
+    builder.status("success" if len(results.model_errors) == 0 else "partial")
+    builder.key_insight(
+        f"Analysis complete: {results.active_count} active perspectives, {results.abstained_count} abstained"
+    )
+    builder.confidence(confidence)
+
+    # Add perspective responses as structured data
+    perspectives_data = {}
     for response in results.responses:
         if response["content"] and response["content"] != NO_RESPONSE:
-            builder.add_recommendation(
-                f"{response['perspective']} Perspective",
-                response["content"],
-                confidence=0.8,  # Individual perspective confidence
-            )
+            perspectives_data[response["perspective"]] = response["content"]
 
-    # Add abstained perspectives as context
+    builder.summary(f"Multi-perspective analysis of: {prompt[:100]}...")
+    builder.data(
+        {
+            "perspectives": perspectives_data,
+            "metrics": {
+                "active_count": results.active_count,
+                "abstained_count": results.abstained_count,
+                "error_count": len(results.model_errors),
+                "confidence": confidence,
+            },
+        }
+    )
+
+    # Add abstained perspectives info
     abstained_perspectives = [
         r["perspective"] for r in results.responses if r["content"] == NO_RESPONSE
     ]
-    if abstained_perspectives:
-        builder.add_context(
-            "abstained_perspectives",
-            f"Perspectives that abstained: {', '.join(abstained_perspectives)}",
-        )
 
-    # Add execution metrics
-    builder.add_context("execution_time", f"{results.execution_time:.2f}s")
-    builder.add_context("perspectives_engaged", str(results.active_count))
+    # Set actionable information
+    builder.next_steps(next_steps)
+    builder.primary_recommendation(
+        "Review perspective insights and consider synthesis for deeper analysis"
+    )
+    builder.workflow_guidance(
+        "Present perspectives to user, highlight areas of agreement and tension"
+    )
 
-    # Handle model errors
-    if results.model_errors:
-        for error in results.model_errors:
-            builder.add_risk(
-                f"Model Error ({error['perspective']})",
-                f"Failed to get response: {sanitize_error_message(error['error'])}",
-                impact="medium",
-            )
+    # Set quality metrics
+    total_perspectives = results.active_count + results.abstained_count
+    builder.completeness(
+        results.active_count / total_perspectives if total_perspectives > 0 else 0
+    )
+    builder.reliability(confidence)
+    builder.urgency("medium" if results.active_count > 0 else "low")
 
-    # Set next steps
-    for step in next_steps:
-        builder.add_next_step(step)
+    # Add indicators
+    builder.indicators(
+        active_perspectives=results.active_count,
+        abstained_perspectives=results.abstained_count,
+        error_count=len(results.model_errors),
+        has_abstentions=len(abstained_perspectives) > 0,
+    )
+
+    # Add metadata
+    builder.metadata(
+        execution_time=f"{results.execution_time:.2f}s",
+        abstained_list=abstained_perspectives,
+        model_errors=results.model_errors,
+    )
 
     return builder.build()
 
