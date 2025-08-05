@@ -7,6 +7,9 @@ from typing import Dict, Optional, Any, Tuple
 
 from .models import ContextSwitcherSession
 from .config import get_config
+from .exceptions import (
+    SessionCleanupError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -81,11 +84,20 @@ class SessionManager:
                     # Cleanup rate limiter outside the critical session operation
                     try:
                         await self._cleanup_session_resources(session_id)
-                    except Exception as e:
+                    except (ImportError, AttributeError) as e:
+                        # Module or attribute not available - non-critical
                         from .security import sanitize_error_message
 
                         logger.warning(
                             f"Failed to cleanup resources for expired session {session_id}: {sanitize_error_message(str(e))}"
+                        )
+                    except Exception as e:
+                        # Unexpected errors - log but don't fail
+                        from .security import sanitize_error_message
+
+                        logger.error(
+                            f"Unexpected error cleaning up session {session_id}: {sanitize_error_message(str(e))}",
+                            exc_info=True,
                         )
                 return None
 
@@ -100,11 +112,20 @@ class SessionManager:
                 # Clean up resources outside the critical section, don't let failures break removal
                 try:
                     await self._cleanup_session_resources(session_id)
-                except Exception as e:
+                except (ImportError, AttributeError) as e:
+                    # Module or attribute not available - non-critical
                     from .security import sanitize_error_message
 
                     logger.warning(
                         f"Failed to cleanup resources for session {session_id}: {sanitize_error_message(str(e))}"
+                    )
+                except Exception as e:
+                    # Unexpected errors - log but don't fail
+                    from .security import sanitize_error_message
+
+                    logger.error(
+                        f"Unexpected error cleaning up session {session_id}: {sanitize_error_message(str(e))}",
+                        exc_info=True,
                     )
                 return True
             return False
@@ -138,11 +159,20 @@ class SessionManager:
                 # Cleanup resources for successfully removed sessions
                 try:
                     await self._cleanup_session_resources(session_id)
-                except Exception as e:
+                except (ImportError, AttributeError) as e:
+                    # Module or attribute not available - non-critical
                     from .security import sanitize_error_message
 
                     logger.warning(
                         f"Failed to cleanup resources for expired session {session_id}: {sanitize_error_message(str(e))}"
+                    )
+                except Exception as e:
+                    # Unexpected errors - log but don't fail
+                    from .security import sanitize_error_message
+
+                    logger.error(
+                        f"Unexpected error cleaning up session {session_id}: {sanitize_error_message(str(e))}",
+                        exc_info=True,
                     )
 
         if expired_sessions:
@@ -157,12 +187,18 @@ class SessionManager:
         except ImportError:
             # Rate limiter not available, skip cleanup
             pass
+        except AttributeError as e:
+            # cleanup_session method not available
+            logger.warning(f"Rate limiter missing cleanup_session method: {e}")
         except Exception as e:
+            # Unexpected errors - log but continue
             from .security import sanitize_error_message
 
-            logger.warning(
-                f"Failed to cleanup rate limiter for session {session_id}: {sanitize_error_message(str(e))}"
+            logger.error(
+                f"Unexpected error in rate limiter cleanup for session {session_id}: {sanitize_error_message(str(e))}",
+                exc_info=True,
             )
+            raise SessionCleanupError(f"Failed to cleanup rate limiter: {e}") from e
 
     async def get_session_atomic(
         self, session_id: str
@@ -186,11 +222,20 @@ class SessionManager:
                     )
                     try:
                         await self._cleanup_session_resources(session_id)
-                    except Exception as e:
+                    except (ImportError, AttributeError) as e:
+                        # Module or attribute not available - non-critical
                         from .security import sanitize_error_message
 
                         logger.warning(
                             f"Failed to cleanup resources for expired session {session_id}: {sanitize_error_message(str(e))}"
+                        )
+                    except Exception as e:
+                        # Unexpected errors - log but don't fail
+                        from .security import sanitize_error_message
+
+                        logger.error(
+                            f"Unexpected error cleaning up session {session_id}: {sanitize_error_message(str(e))}",
+                            exc_info=True,
                         )
                 return None, -1
 
@@ -245,11 +290,15 @@ class SessionManager:
             except asyncio.CancelledError:
                 break
             except Exception as e:
+                # Unexpected errors - log but continue running
                 from .security import sanitize_error_message
 
                 logger.error(
-                    f"Error in periodic cleanup: {sanitize_error_message(str(e))}"
+                    f"Unexpected error in periodic cleanup: {sanitize_error_message(str(e))}",
+                    exc_info=True,
                 )
+                # Sleep a bit extra to avoid tight error loops
+                await asyncio.sleep(10)
 
     async def get_stats(self) -> Dict[str, Any]:
         """Get session manager statistics"""

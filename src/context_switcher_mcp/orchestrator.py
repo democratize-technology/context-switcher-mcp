@@ -16,6 +16,16 @@ from .circuit_breaker_store import (
     load_circuit_breaker_state,
 )
 from .backend_interface import get_backend_interface
+from .exceptions import (
+    CircuitBreakerStateError,
+    CircuitBreakerOpenError,
+    OrchestrationError,
+    ModelBackendError,
+    ModelConnectionError,
+    ModelTimeoutError,
+    ModelRateLimitError,
+    ModelAuthenticationError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -124,12 +134,15 @@ class CircuitBreakerState:
                 self.last_failure_time,
                 self.state,
             )
-        except Exception as e:
+        except (OSError, IOError) as e:
             from .security import sanitize_error_message
 
             logger.error(
                 f"Failed to save circuit breaker state: {sanitize_error_message(str(e))}"
             )
+            raise CircuitBreakerStateError(
+                f"Failed to save circuit breaker state: {e}"
+            ) from e
 
     async def record_failure(self):
         """Record failed request"""
@@ -146,12 +159,15 @@ class CircuitBreakerState:
                 self.last_failure_time,
                 self.state,
             )
-        except Exception as e:
+        except (OSError, IOError) as e:
             from .security import sanitize_error_message
 
             logger.error(
                 f"Failed to save circuit breaker state: {sanitize_error_message(str(e))}"
             )
+            raise CircuitBreakerStateError(
+                f"Failed to save circuit breaker state: {e}"
+            ) from e
 
 
 class ThreadOrchestrator:
@@ -304,11 +320,23 @@ class ThreadOrchestrator:
                 else:  # Non-streaming response
                     result = await task
                     yield result
-            except Exception as e:
+            except (ModelBackendError, OrchestrationError) as e:
                 yield {
                     "type": "error",
                     "thread_name": "unknown",
                     "content": str(e),
+                    "timestamp": time.time(),
+                }
+            except asyncio.CancelledError:
+                # Let cancellation propagate
+                raise
+            except Exception as e:
+                # Unexpected errors - log and wrap
+                logger.error(f"Unexpected error in stream handler: {e}", exc_info=True)
+                yield {
+                    "type": "error",
+                    "thread_name": "unknown",
+                    "content": f"Unexpected error: {str(e)}",
                     "timestamp": time.time(),
                 }
 
@@ -329,11 +357,27 @@ class ThreadOrchestrator:
             async for event in backend_interface.call_model_stream(thread):
                 event["timestamp"] = time.time()
                 yield event
-        except Exception as e:
+        except ModelBackendError as e:
+            # Expected model errors - pass through
             yield {
                 "type": "error",
                 "thread_name": thread_name,
                 "content": str(e),
+                "timestamp": time.time(),
+            }
+        except asyncio.CancelledError:
+            # Let cancellation propagate
+            raise
+        except Exception as e:
+            # Unexpected errors - log and wrap
+            logger.error(
+                f"Unexpected error streaming from thread {thread_name}: {e}",
+                exc_info=True,
+            )
+            yield {
+                "type": "error",
+                "thread_name": thread_name,
+                "content": f"Unexpected error: {str(e)}",
                 "timestamp": time.time(),
             }
 
@@ -347,11 +391,24 @@ class ThreadOrchestrator:
                 "content": response,
                 "timestamp": time.time(),
             }
-        except Exception as e:
+        except (ModelBackendError, OrchestrationError) as e:
+            # Expected errors - pass through
             return {
                 "type": "error",
                 "thread_name": thread_name,
                 "content": str(e),
+                "timestamp": time.time(),
+            }
+        except Exception as e:
+            # Unexpected errors - log and wrap
+            logger.error(
+                f"Unexpected error getting response from thread {thread_name}: {e}",
+                exc_info=True,
+            )
+            return {
+                "type": "error",
+                "thread_name": thread_name,
+                "content": f"Unexpected error: {str(e)}",
                 "timestamp": time.time(),
             }
 
@@ -371,11 +428,23 @@ class ThreadOrchestrator:
             thread_metrics.success = not response.startswith("ERROR:")
             thread_metrics.end_time = time.time()
             return response
-        except Exception as e:
+        except (ModelBackendError, OrchestrationError, CircuitBreakerOpenError) as e:
+            # Expected errors - record and re-raise
             thread_metrics.success = False
             thread_metrics.error_message = str(e)
             thread_metrics.end_time = time.time()
             raise
+        except Exception as e:
+            # Unexpected errors - log, record, wrap and raise
+            logger.error(
+                f"Unexpected error in thread {thread.name}: {e}", exc_info=True
+            )
+            thread_metrics.success = False
+            thread_metrics.error_message = f"Unexpected error: {str(e)}"
+            thread_metrics.end_time = time.time()
+            raise OrchestrationError(
+                f"Unexpected error in thread {thread.name}: {e}"
+            ) from e
 
     async def _get_thread_response(self, thread: Thread) -> str:
         """Get response from a single thread with retry logic and circuit breaker"""
@@ -413,9 +482,24 @@ class ThreadOrchestrator:
                 # Record success in circuit breaker
                 await circuit_breaker.record_success()
                 return response
-            except Exception as e:
+            except ModelAuthenticationError:
+                # Authentication errors - don't retry
+                raise
+            except (ModelConnectionError, ModelTimeoutError, ModelRateLimitError) as e:
+                # Retryable errors
                 last_error = e
                 error_str = str(e).lower()
+            except ModelBackendError as e:
+                # Other model errors - check if retryable
+                last_error = e
+                error_str = str(e).lower()
+            except Exception as e:
+                # Unexpected errors - wrap and treat as non-retryable
+                logger.error(
+                    f"Unexpected error calling backend for thread {thread.name}: {e}",
+                    exc_info=True,
+                )
+                raise OrchestrationError(f"Unexpected backend error: {e}") from e
 
                 # Record failure in circuit breaker for retryable errors
                 if not any(
@@ -496,9 +580,15 @@ class ThreadOrchestrator:
         try:
             backend_interface = get_backend_interface(thread.model_backend.value)
             return await backend_interface.call_model(thread)
-        except Exception:
+        except ModelBackendError:
             # The backend interface already formats errors appropriately
             raise
+        except Exception as e:
+            # Unexpected errors - wrap
+            logger.error(
+                f"Unexpected error in unified backend call: {e}", exc_info=True
+            )
+            raise OrchestrationError(f"Backend call failed unexpectedly: {e}") from e
 
     def _store_metrics(self, metrics: OrchestrationMetrics) -> None:
         """Store metrics in circular buffer (automatically maintains size limit)"""
@@ -623,8 +713,14 @@ class ThreadOrchestrator:
                         f"state={breaker.state}, failures={breaker.failure_count}"
                     )
 
-        except Exception as e:
+        except (OSError, IOError, ValueError) as e:
+            # File system or parsing errors - log but continue
             logger.warning(f"Failed to load circuit breaker states: {e}")
+        except Exception as e:
+            # Unexpected errors - log with full trace but continue
+            logger.error(
+                f"Unexpected error loading circuit breaker states: {e}", exc_info=True
+            )
 
     async def save_all_circuit_breaker_states(self) -> None:
         """Manually save all circuit breaker states"""

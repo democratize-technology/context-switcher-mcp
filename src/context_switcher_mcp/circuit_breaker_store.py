@@ -7,6 +7,12 @@ from typing import Dict, Optional, Any
 from datetime import datetime
 from pathlib import Path
 
+from .exceptions import (
+    CircuitBreakerStateError,
+    StorageError,
+    SerializationError,
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -58,8 +64,17 @@ class CircuitBreakerStore:
                 await self._save_all_states(all_states)
                 logger.debug(f"Saved circuit breaker state for {backend}")
 
-            except Exception as e:
+            except (OSError, IOError) as e:
                 logger.error(f"Failed to save circuit breaker state for {backend}: {e}")
+                raise StorageError(f"Failed to save state for {backend}: {e}") from e
+            except Exception as e:
+                logger.error(
+                    f"Unexpected error saving circuit breaker state for {backend}: {e}",
+                    exc_info=True,
+                )
+                raise CircuitBreakerStateError(
+                    f"Unexpected error saving state: {e}"
+                ) from e
 
     async def load_state(self, backend: str) -> Optional[Dict[str, Any]]:
         """Load circuit breaker state for a backend
@@ -81,8 +96,14 @@ class CircuitBreakerStore:
 
                 return None
 
-            except Exception as e:
+            except (OSError, IOError, json.JSONDecodeError) as e:
                 logger.error(f"Failed to load circuit breaker state for {backend}: {e}")
+                return None
+            except Exception as e:
+                logger.error(
+                    f"Unexpected error loading circuit breaker state for {backend}: {e}",
+                    exc_info=True,
+                )
                 return None
 
     async def clear_state(self, backend: str) -> None:
@@ -99,10 +120,19 @@ class CircuitBreakerStore:
                     await self._save_all_states(all_states)
                     logger.debug(f"Cleared circuit breaker state for {backend}")
 
-            except Exception as e:
+            except (OSError, IOError) as e:
                 logger.error(
                     f"Failed to clear circuit breaker state for {backend}: {e}"
                 )
+                raise StorageError(f"Failed to clear state for {backend}: {e}") from e
+            except Exception as e:
+                logger.error(
+                    f"Unexpected error clearing circuit breaker state for {backend}: {e}",
+                    exc_info=True,
+                )
+                raise CircuitBreakerStateError(
+                    f"Unexpected error clearing state: {e}"
+                ) from e
 
     async def clear_all_states(self) -> None:
         """Clear all circuit breaker states"""
@@ -111,8 +141,17 @@ class CircuitBreakerStore:
                 await self._save_all_states({})
                 logger.info("Cleared all circuit breaker states")
 
-            except Exception as e:
+            except (OSError, IOError) as e:
                 logger.error(f"Failed to clear all circuit breaker states: {e}")
+                raise StorageError(f"Failed to clear all states: {e}") from e
+            except Exception as e:
+                logger.error(
+                    f"Unexpected error clearing all circuit breaker states: {e}",
+                    exc_info=True,
+                )
+                raise CircuitBreakerStateError(
+                    f"Unexpected error clearing all states: {e}"
+                ) from e
 
     async def get_all_states(self) -> Dict[str, Dict[str, Any]]:
         """Get all circuit breaker states
@@ -176,9 +215,17 @@ class CircuitBreakerStore:
                 None, self.storage_path.write_text, content, "utf-8"
             )
 
-        except Exception as e:
+        except (OSError, IOError) as e:
             logger.error(f"Failed to save circuit breaker states: {e}")
-            raise
+            raise StorageError(f"Failed to write state file: {e}") from e
+        except (TypeError, ValueError) as e:
+            logger.error(f"Failed to serialize circuit breaker states: {e}")
+            raise SerializationError(f"Failed to serialize states: {e}") from e
+        except Exception as e:
+            logger.error(
+                f"Unexpected error saving circuit breaker states: {e}", exc_info=True
+            )
+            raise CircuitBreakerStateError(f"Unexpected save error: {e}") from e
 
     async def _auto_save_loop(self, interval_seconds: int) -> None:
         """Background loop for auto-saving states"""
@@ -192,7 +239,12 @@ class CircuitBreakerStore:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Error in circuit breaker auto-save loop: {e}")
+                logger.error(
+                    f"Unexpected error in circuit breaker auto-save loop: {e}",
+                    exc_info=True,
+                )
+                # Continue loop despite errors
+                await asyncio.sleep(5)  # Brief pause to avoid tight error loops
 
 
 # Global store instance

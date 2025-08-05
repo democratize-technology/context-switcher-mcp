@@ -8,6 +8,15 @@ from .models import Thread
 from .config import get_config
 from .aorp import create_error_response
 from .security import sanitize_error_message
+from .exceptions import (
+    ModelBackendError,
+    ModelConnectionError,
+    ModelTimeoutError,
+    ModelRateLimitError,
+    ModelAuthenticationError,
+    ModelValidationError,
+    ConfigurationError,
+)
 
 
 @dataclass
@@ -57,11 +66,23 @@ class ModelBackendInterface(ABC):
                 "content": response,
                 "thread_name": thread.name,
             }
-        except Exception as e:
+        except ModelBackendError as e:
+            # Pass through model backend errors
             yield {
                 "type": "error",
                 "content": self._format_error_response(
                     str(e), "streaming_error", {"thread": thread.name}
+                ),
+                "thread_name": thread.name,
+            }
+        except Exception as e:
+            # Unexpected errors
+            yield {
+                "type": "error",
+                "content": self._format_error_response(
+                    f"Unexpected error: {str(e)}",
+                    "streaming_error",
+                    {"thread": thread.name},
                 ),
                 "thread_name": thread.name,
             }
@@ -151,13 +172,34 @@ class BedrockBackend(ModelBackendInterface):
 
             return response["output"]["message"]["content"][0]["text"]
 
+        except ImportError as e:
+            raise ConfigurationError(
+                "boto3 library not installed for Bedrock backend"
+            ) from e
+        except ValueError as e:
+            # Model validation error
+            raise ModelValidationError(str(e)) from e
         except Exception as e:
+            # Map to specific exception types based on error
             error_type, error_message = self._get_error_type_and_message(e)
-            raise Exception(
-                self._format_error_response(
-                    error_message, error_type, {"model_id": thread.model_name}
-                )
-            )
+
+            if error_type == "credentials_error":
+                raise ModelAuthenticationError(error_message) from e
+            elif error_type == "connection_error":
+                raise ModelConnectionError(error_message) from e
+            elif error_type == "model_not_found":
+                raise ModelValidationError(error_message) from e
+            elif "throttling" in str(e).lower() or "rate" in str(e).lower():
+                raise ModelRateLimitError("Rate limit exceeded") from e
+            elif "timeout" in str(e).lower():
+                raise ModelTimeoutError("Request timed out") from e
+            else:
+                # Generic model backend error
+                raise ModelBackendError(
+                    self._format_error_response(
+                        error_message, error_type, {"model_id": thread.model_name}
+                    )
+                ) from e
 
     async def call_model_stream(
         self, thread: Thread
@@ -210,6 +252,24 @@ class BedrockBackend(ModelBackendInterface):
                         "thread_name": thread.name,
                     }
 
+        except ImportError:
+            yield {
+                "type": "error",
+                "content": self._format_error_response(
+                    "boto3 library not installed",
+                    "configuration_error",
+                    {"thread": thread.name},
+                ),
+                "thread_name": thread.name,
+            }
+        except ValueError as e:
+            yield {
+                "type": "error",
+                "content": self._format_error_response(
+                    str(e), "validation_error", {"thread": thread.name}
+                ),
+                "thread_name": thread.name,
+            }
         except Exception as e:
             error_type, error_message = self._get_error_type_and_message(e)
             yield {
@@ -246,9 +306,27 @@ class LiteLLMBackend(ModelBackendInterface):
 
             return response.choices[0].message.content
 
+        except ImportError as e:
+            raise ConfigurationError("litellm library not installed") from e
         except Exception as e:
+            # Map to specific exception types based on error
             error_type, error_message = self._get_error_type_and_message(e)
-            raise Exception(self._format_error_response(error_message, error_type, {}))
+
+            if error_type == "credentials_error":
+                raise ModelAuthenticationError(error_message) from e
+            elif error_type == "connection_error":
+                raise ModelConnectionError(error_message) from e
+            elif error_type == "model_not_found":
+                raise ModelValidationError(error_message) from e
+            elif "rate" in str(e).lower() or "limit" in str(e).lower():
+                raise ModelRateLimitError("Rate limit exceeded") from e
+            elif "timeout" in str(e).lower():
+                raise ModelTimeoutError("Request timed out") from e
+            else:
+                # Generic model backend error
+                raise ModelBackendError(
+                    self._format_error_response(error_message, error_type, {})
+                ) from e
 
 
 class OllamaBackend(ModelBackendInterface):
@@ -286,13 +364,46 @@ class OllamaBackend(ModelBackendInterface):
                 result = response.json()
                 return result["message"]["content"]
 
+        except ImportError as e:
+            raise ConfigurationError(
+                "httpx library not installed for Ollama backend"
+            ) from e
+        except httpx.ConnectError as e:
+            raise ModelConnectionError(
+                f"Failed to connect to Ollama at {self.config.model.ollama_host}"
+            ) from e
+        except httpx.TimeoutException as e:
+            raise ModelTimeoutError(
+                f"Request to Ollama timed out after {model_config.timeout_seconds}s"
+            ) from e
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                raise ModelValidationError(
+                    f"Model '{model_config.model_name}' not found in Ollama"
+                ) from e
+            elif e.response.status_code == 429:
+                raise ModelRateLimitError("Ollama rate limit exceeded") from e
+            else:
+                raise ModelBackendError(
+                    f"Ollama HTTP error: {e.response.status_code}"
+                ) from e
         except Exception as e:
+            # Map to specific exception types based on error
             error_type, error_message = self._get_error_type_and_message(e)
-            raise Exception(
-                self._format_error_response(
-                    error_message, error_type, {"host": self.config.model.ollama_host}
-                )
-            )
+
+            if "connection" in str(e).lower():
+                raise ModelConnectionError(error_message) from e
+            elif "timeout" in str(e).lower():
+                raise ModelTimeoutError(error_message) from e
+            else:
+                # Generic model backend error
+                raise ModelBackendError(
+                    self._format_error_response(
+                        error_message,
+                        error_type,
+                        {"host": self.config.model.ollama_host},
+                    )
+                ) from e
 
 
 BACKEND_REGISTRY: Dict[str, ModelBackendInterface] = {

@@ -14,6 +14,10 @@ from ..security import (
 )
 from ..validation import validate_session_id
 from ..perspective_selector import SmartPerspectiveSelector
+from ..exceptions import (
+    SessionNotFoundError,
+    ModelBackendError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -174,8 +178,34 @@ def register_perspective_tools(mcp):
 
             return response
 
+        except SessionNotFoundError as e:
+            logger.error(f"Session error in recommend_perspectives: {e}")
+            return create_error_response(
+                f"Session error: {sanitize_error_message(str(e))}",
+                "session_error",
+                {"topic": request.topic},
+                recoverable=True,
+            )
+        except ModelBackendError as e:
+            logger.error(f"Model backend error in recommend_perspectives: {e}")
+            return create_error_response(
+                f"Model error during recommendation: {sanitize_error_message(str(e))}",
+                "model_error",
+                {"topic": request.topic},
+                recoverable=True,
+            )
+        except ValueError as e:
+            logger.error(f"Validation error in recommend_perspectives: {e}")
+            return create_error_response(
+                f"Invalid request: {sanitize_error_message(str(e))}",
+                "validation_error",
+                {"topic": request.topic},
+                recoverable=True,
+            )
         except Exception as e:
-            logger.error(f"Error in recommend_perspectives: {e}")
+            logger.error(
+                f"Unexpected error in recommend_perspectives: {e}", exc_info=True
+            )
             return create_error_response(
                 f"Failed to generate recommendations: {sanitize_error_message(str(e))}",
                 "recommendation_error",

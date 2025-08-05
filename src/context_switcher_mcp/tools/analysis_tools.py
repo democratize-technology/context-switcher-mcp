@@ -24,6 +24,10 @@ from ..orchestrator import ThreadOrchestrator
 from ..rate_limiter import SessionRateLimiter
 from ..security import sanitize_error_message
 from ..validation import validate_session_id
+from ..exceptions import (
+    SessionNotFoundError,
+    OrchestrationError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -90,8 +94,37 @@ def register_analysis_tools(mcp):
                 request.prompt, results, session, confidence
             )
 
+        except SessionNotFoundError as e:
+            logger.error(f"Session error in analyze_from_perspectives: {e}")
+            return create_error_response(
+                f"Session error: {sanitize_error_message(str(e))}",
+                "session_error",
+                {"session_id": request.session_id, "prompt": request.prompt[:100]},
+                recoverable=True,
+                session_id=request.session_id,
+            )
+        except OrchestrationError as e:
+            logger.error(f"Orchestration error in analyze_from_perspectives: {e}")
+            return create_error_response(
+                f"Analysis orchestration failed: {sanitize_error_message(str(e))}",
+                "orchestration_error",
+                {"session_id": request.session_id, "prompt": request.prompt[:100]},
+                recoverable=True,
+                session_id=request.session_id,
+            )
+        except ValueError as e:
+            logger.error(f"Validation error in analyze_from_perspectives: {e}")
+            return create_error_response(
+                f"Invalid request: {sanitize_error_message(str(e))}",
+                "validation_error",
+                {"session_id": request.session_id, "prompt": request.prompt[:100]},
+                recoverable=True,
+                session_id=request.session_id,
+            )
         except Exception as e:
-            logger.error(f"Error in analyze_from_perspectives: {e}")
+            logger.error(
+                f"Unexpected error in analyze_from_perspectives: {e}", exc_info=True
+            )
             return create_error_response(
                 f"Analysis execution failed: {sanitize_error_message(str(e))}",
                 "execution_error",
@@ -191,8 +224,28 @@ def register_analysis_tools(mcp):
 
             return builder.build()
 
+        except SessionNotFoundError as e:
+            logger.error(f"Session error in synthesize_perspectives: {e}")
+            return create_error_response(
+                f"Session error: {sanitize_error_message(str(e))}",
+                "session_error",
+                {"session_id": request.session_id},
+                recoverable=True,
+                session_id=request.session_id,
+            )
+        except (ValueError, KeyError, TypeError) as e:
+            logger.error(f"Data error in synthesize_perspectives: {e}")
+            return create_error_response(
+                f"Invalid synthesis data: {sanitize_error_message(str(e))}",
+                "data_error",
+                {"session_id": request.session_id},
+                recoverable=True,
+                session_id=request.session_id,
+            )
         except Exception as e:
-            logger.error(f"Error in synthesize_perspectives: {e}")
+            logger.error(
+                f"Unexpected error in synthesize_perspectives: {e}", exc_info=True
+            )
             return create_error_response(
                 f"Synthesis failed: {sanitize_error_message(str(e))}",
                 "synthesis_error",
