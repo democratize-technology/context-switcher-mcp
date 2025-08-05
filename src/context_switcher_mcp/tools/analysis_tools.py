@@ -117,6 +117,10 @@ def register_analysis_tools(mcp):
                         k for k, v in results.items() if v.startswith("ERROR:")
                     ]
                     self.execution_time = 0.0  # We don't track this yet
+                    # Create responses in the expected format
+                    self.responses = [
+                        {"perspective": k, "content": v} for k, v in results.items()
+                    ]
 
             analysis_results = AnalysisResults()
 

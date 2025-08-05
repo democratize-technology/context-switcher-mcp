@@ -105,7 +105,11 @@ def build_analysis_aorp_response(
     """
     # Generate next steps
     next_steps = generate_analysis_next_steps(
-        results.active_count, results.abstained_count, len(session.analyses)
+        session_state="active",
+        perspectives_count=results.active_count + results.abstained_count,
+        error_count=len(results.model_errors),
+        has_synthesis=False,
+        confidence=confidence,
     )
 
     # Build AORP response
