@@ -38,11 +38,15 @@ class CircuitBreakerStore:
             # Validate and sanitize the provided path
             storage_path = Path(storage_path)
 
-            # Resolve to absolute path and check for path traversal
-            try:
-                storage_path = storage_path.resolve(strict=False)
-            except (OSError, RuntimeError) as e:
-                raise ValueError(f"Invalid storage path: {e}") from e
+            # First check for obvious path traversal patterns
+            path_str = str(storage_path)
+            if ".." in path_str:
+                raise ValueError(
+                    f"Storage path must be within home directory or temp directory, got: {storage_path}"
+                )
+
+            # Expand user and resolve to absolute path
+            storage_path = storage_path.expanduser().resolve(strict=False)
 
             # Ensure the path is within a safe directory (home or temp)
             home_dir = Path.home().resolve()
@@ -71,7 +75,7 @@ class CircuitBreakerStore:
                 raise ValueError("Storage path must be a .json file")
 
         self.storage_path = Path(storage_path)
-        self._lock = asyncio.Lock()
+        self._lock: Optional[asyncio.Lock] = None
         self._auto_save_task: Optional[asyncio.Task] = None
 
         # Ensure parent directory exists
@@ -84,6 +88,8 @@ class CircuitBreakerStore:
             backend: Backend name (e.g., 'bedrock', 'litellm', 'ollama')
             state_data: Circuit breaker state dictionary
         """
+        if self._lock is None:
+            self._lock = asyncio.Lock()
         async with self._lock:
             try:
                 # Load existing data
@@ -120,6 +126,8 @@ class CircuitBreakerStore:
         Returns:
             Circuit breaker state dictionary or None if not found
         """
+        if self._lock is None:
+            self._lock = asyncio.Lock()
         async with self._lock:
             try:
                 all_states = await self._load_all_states()
@@ -147,6 +155,8 @@ class CircuitBreakerStore:
         Args:
             backend: Backend name
         """
+        if self._lock is None:
+            self._lock = asyncio.Lock()
         async with self._lock:
             try:
                 all_states = await self._load_all_states()
@@ -171,6 +181,8 @@ class CircuitBreakerStore:
 
     async def clear_all_states(self) -> None:
         """Clear all circuit breaker states"""
+        if self._lock is None:
+            self._lock = asyncio.Lock()
         async with self._lock:
             try:
                 await self._save_all_states({})
@@ -194,6 +206,8 @@ class CircuitBreakerStore:
         Returns:
             Dictionary mapping backend names to their states
         """
+        if self._lock is None:
+            self._lock = asyncio.Lock()
         async with self._lock:
             return await self._load_all_states()
 

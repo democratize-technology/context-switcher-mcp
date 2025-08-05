@@ -33,6 +33,7 @@ class ThreadOrchestrator:
 
         # Delegate properties to thread manager for backward compatibility
         self.circuit_breakers = self.thread_manager.circuit_breakers
+        self.backends = self.thread_manager.backends
         self.metrics_history = self.thread_manager.metrics_history
         self.metrics_lock = self.thread_manager.metrics_lock
 

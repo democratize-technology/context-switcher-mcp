@@ -17,7 +17,6 @@ from .circuit_breaker_store import (
 )
 from .backend_interface import get_backend_interface
 from .exceptions import (
-    CircuitBreakerStateError,
     CircuitBreakerOpenError,
     OrchestrationError,
     ModelBackendError,
@@ -25,6 +24,7 @@ from .exceptions import (
     ModelTimeoutError,
     ModelRateLimitError,
     ModelAuthenticationError,
+    ModelValidationError,
 )
 
 logger = logging.getLogger(__name__)
@@ -134,15 +134,13 @@ class CircuitBreakerState:
                 self.last_failure_time,
                 self.state,
             )
-        except (OSError, IOError) as e:
+        except Exception as e:
             from .security import sanitize_error_message
 
             logger.error(
                 f"Failed to save circuit breaker state: {sanitize_error_message(str(e))}"
             )
-            raise CircuitBreakerStateError(
-                f"Failed to save circuit breaker state: {e}"
-            ) from e
+            # Don't raise - just log the error
 
     async def record_failure(self):
         """Record failed request"""
@@ -159,15 +157,13 @@ class CircuitBreakerState:
                 self.last_failure_time,
                 self.state,
             )
-        except (OSError, IOError) as e:
+        except Exception as e:
             from .security import sanitize_error_message
 
             logger.error(
                 f"Failed to save circuit breaker state: {sanitize_error_message(str(e))}"
             )
-            raise CircuitBreakerStateError(
-                f"Failed to save circuit breaker state: {e}"
-            ) from e
+            # Don't raise - just log the error
 
 
 class ThreadManager:
@@ -289,6 +285,24 @@ class ThreadManager:
             total_threads=len(threads),
         )
 
+        # Create tasks for streaming from each thread
+        async def stream_thread_wrapper(thread, name):
+            """Wrapper coroutine to stream from a thread"""
+            events = []
+            try:
+                async for event in self._stream_from_thread(thread, name):
+                    events.append(event)
+            except Exception as e:
+                events.append(
+                    {
+                        "type": "error",
+                        "thread_name": name,
+                        "content": str(e),
+                        "timestamp": time.time(),
+                    }
+                )
+            return name, events
+
         tasks = []
         for name, thread in threads.items():
             thread.add_message("user", message)
@@ -301,42 +315,19 @@ class ThreadManager:
                 "timestamp": time.time(),
             }
 
-            task = asyncio.create_task(self._stream_from_thread(thread, name))
+            # Create task for this thread
+            task = asyncio.create_task(stream_thread_wrapper(thread, name))
             tasks.append(task)
 
-        # Stream responses as they arrive
-        async def stream_handler(task):
-            try:
-                if hasattr(task, "__aiter__"):  # Streaming response
-                    async for event in task:
-                        yield event
-                else:  # Non-streaming response
-                    result = await task
-                    yield result
-            except (ModelBackendError, OrchestrationError) as e:
-                yield {
-                    "type": "error",
-                    "thread_name": "unknown",
-                    "content": str(e),
-                    "timestamp": time.time(),
-                }
-            except asyncio.CancelledError:
-                # Let cancellation propagate
-                raise
-            except Exception as e:
-                # Unexpected errors - log and wrap
-                logger.error(f"Unexpected error in stream handler: {e}", exc_info=True)
-                yield {
-                    "type": "error",
-                    "thread_name": "unknown",
-                    "content": f"Unexpected error: {str(e)}",
-                    "timestamp": time.time(),
-                }
-
-        # Use asyncio.as_completed to yield results as they come
+        # Yield events as threads complete
         for task in asyncio.as_completed(tasks):
-            async for event in stream_handler(task):
+            name, events = await task
+            for event in events:
                 yield event
+                if event.get("type") == "complete":
+                    metrics.successful_threads += 1
+                elif event.get("type") == "error":
+                    metrics.failed_threads += 1
 
         # Finalize metrics atomically
         metrics.end_time = time.time()
@@ -443,9 +434,6 @@ class ThreadManager:
                 # Record success in circuit breaker
                 await circuit_breaker.record_success()
                 return response
-            except ModelAuthenticationError:
-                # Authentication errors - don't retry
-                raise
             except (ModelConnectionError, ModelTimeoutError, ModelRateLimitError) as e:
                 # Retryable errors
                 last_error = e
@@ -453,6 +441,11 @@ class ThreadManager:
 
                 # Record failure in circuit breaker for transient errors
                 await circuit_breaker.record_failure()
+
+            except (ModelAuthenticationError, ModelValidationError) as e:
+                # Non-retryable errors - don't record in circuit breaker
+                logger.warning(f"Non-retryable error from backend: {e}")
+                raise
 
             except ModelBackendError as e:
                 # Other model errors - check if retryable

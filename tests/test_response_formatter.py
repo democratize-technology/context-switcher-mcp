@@ -246,7 +246,10 @@ class TestResponseFormatter:
             call_args = mock_backend.call_model.call_args[0]
             thread = call_args[0]
             assert thread.name == "synthesis"
-            assert "synthesize insights" in thread.messages[0]["content"].lower()
+            assert (
+                "synthesize insights"
+                in thread.conversation_history[0]["content"].lower()
+            )
 
     @pytest.mark.asyncio
     async def test_synthesize_responses_empty_input(self, response_formatter):
@@ -379,5 +382,5 @@ class TestResponseFormatterIntegration:
             call_args = mock_backend.call_model.call_args[0]
             synthesis_thread = call_args[0]
             assert synthesis_thread.name == "synthesis"
-            assert synthesis_thread.temperature == 0.3
+            # Note: Thread doesn't have temperature attribute, it's part of backend config
             assert "expert analyst" in synthesis_thread.system_prompt

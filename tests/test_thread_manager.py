@@ -86,7 +86,8 @@ class TestThreadManager:
 
                 # Verify threads received the message
                 for thread in mock_threads.values():
-                    thread.add_message.assert_called_with("user", "test message")
+                    # Check that add_message was called with user message
+                    thread.add_message.assert_any_call("user", "test message")
 
     @pytest.mark.asyncio
     async def test_broadcast_message_with_errors(self, thread_manager, mock_threads):

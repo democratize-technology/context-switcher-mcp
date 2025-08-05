@@ -2,28 +2,26 @@
 
 import sys
 
-sys.path.insert(0, "src")
+sys.path.insert(0, "src")  # noqa: E402
 
-import pytest
-import asyncio
-import tempfile
-from pathlib import Path
-from datetime import datetime
-from unittest.mock import patch, MagicMock
+import asyncio  # noqa: E402
+import tempfile  # noqa: E402
+from datetime import datetime  # noqa: E402
+from pathlib import Path  # noqa: E402
+from unittest.mock import MagicMock, patch  # noqa: E402
 
-from context_switcher_mcp.circuit_breaker_store import CircuitBreakerStore
-from context_switcher_mcp.models import (
+import pytest  # noqa: E402
+
+from context_switcher_mcp.backend_interface import LiteLLMBackend, OllamaBackend  # noqa: E402
+from context_switcher_mcp.circuit_breaker_store import CircuitBreakerStore  # noqa: E402
+from context_switcher_mcp.exceptions import ModelConnectionError, ModelValidationError  # noqa: E402
+from context_switcher_mcp.models import (  # noqa: E402
     ClientBinding,
     ContextSwitcherSession,
-    Thread,
     ModelBackend,
+    Thread,
 )
-from context_switcher_mcp.orchestrator import ThreadOrchestrator
-from context_switcher_mcp.backend_interface import LiteLLMBackend, OllamaBackend
-from context_switcher_mcp.exceptions import (
-    ModelValidationError,
-    ModelConnectionError,
-)
+from context_switcher_mcp.orchestrator import ThreadOrchestrator  # noqa: E402
 
 
 class TestCircuitBreakerPathTraversal:
@@ -132,8 +130,10 @@ class TestModelNameValidation:
             model_name="../../etc/passwd",  # Malicious model name
         )
 
-        # Mock litellm import
-        with patch("context_switcher_mcp.backend_interface.litellm"):
+        # Mock litellm.acompletion to test validation happens before call
+        with patch("litellm.acompletion") as mock_litellm:
+            # Even with successful mock, validation should fail
+            mock_litellm.return_value = MagicMock()
             with pytest.raises(ModelValidationError, match="Invalid model ID"):
                 await backend.call_model(thread)
 
@@ -149,8 +149,14 @@ class TestModelNameValidation:
             model_name="'; DROP TABLE models; --",  # SQL injection attempt
         )
 
-        # Mock httpx
-        with patch("context_switcher_mcp.backend_interface.httpx"):
+        # Mock httpx.AsyncClient to test validation happens before call
+        with patch("httpx.AsyncClient") as mock_httpx:
+            # Even with successful mock, validation should fail
+            mock_client = MagicMock()
+            mock_httpx.return_value.__aenter__.return_value = mock_client
+            mock_client.post.return_value.json.return_value = {
+                "message": {"content": "response"}
+            }
             with pytest.raises(ModelValidationError, match="Invalid model ID"):
                 await backend.call_model(thread)
 
@@ -184,7 +190,7 @@ class TestModelNameValidation:
             ]
 
             with patch(
-                "context_switcher_mcp.backend_interface.litellm.acompletion",
+                "litellm.acompletion",
                 return_value=mock_response,
             ):
                 # Should not raise validation error
@@ -220,7 +226,7 @@ class TestCircuitBreakerRaceCondition:
         initial_failures = circuit_breaker.failure_count
 
         # Call should fail and record failures
-        response = await orchestrator._get_thread_response(thread)
+        response = await orchestrator.thread_manager._get_thread_response(thread)
 
         # Verify failure was recorded
         assert circuit_breaker.failure_count > initial_failures
@@ -229,37 +235,45 @@ class TestCircuitBreakerRaceCondition:
     @pytest.mark.asyncio
     async def test_circuit_breaker_does_not_record_non_transient_failures(self):
         """Test that circuit breaker doesn't record non-transient failures"""
-        orchestrator = ThreadOrchestrator(max_retries=2, retry_delay=0.01)
+        # Mock circuit breaker state loading to prevent restoration
+        with patch(
+            "context_switcher_mcp.thread_manager.load_circuit_breaker_state"
+        ) as mock_load:
+            mock_load.return_value = None  # No saved state
+            orchestrator = ThreadOrchestrator(max_retries=2, retry_delay=0.01)
 
-        thread = Thread(
-            id="test",
-            name="test_thread",
-            system_prompt="Test",
-            model_backend=ModelBackend.BEDROCK,
-            model_name="test-model",
-        )
+            thread = Thread(
+                id="test",
+                name="test_thread",
+                system_prompt="Test",
+                model_backend=ModelBackend.BEDROCK,
+                model_name="test-model",
+            )
 
-        # Mock backend to raise authentication error (non-transient)
-        from context_switcher_mcp.exceptions import ModelAuthenticationError
+            # Mock backend to raise authentication error (non-transient)
+            from context_switcher_mcp.exceptions import ModelAuthenticationError
 
-        async def mock_backend_call(t):
-            raise ModelAuthenticationError("Invalid api_key provided")
+            async def mock_backend_call(t):
+                raise ModelAuthenticationError("Invalid api_key provided")
 
-        orchestrator.backends[ModelBackend.BEDROCK] = mock_backend_call
+            orchestrator.backends[ModelBackend.BEDROCK] = mock_backend_call
 
-        # Get circuit breaker
-        circuit_breaker = orchestrator.circuit_breakers[ModelBackend.BEDROCK]
-        initial_failures = circuit_breaker.failure_count
+            # Get circuit breaker and reset it for clean test
+            circuit_breaker = orchestrator.circuit_breakers[ModelBackend.BEDROCK]
+            circuit_breaker.failure_count = 0
+            circuit_breaker.state = "CLOSED"
+            circuit_breaker.last_failure_time = None
+            initial_failures = circuit_breaker.failure_count
 
-        # Call should fail but NOT record failure
-        try:
-            await orchestrator._get_thread_response(thread)
-        except ModelAuthenticationError:
-            # Expected - authentication errors are not retried
-            pass
+            # Call should fail but NOT record failure
+            try:
+                await orchestrator.thread_manager._get_thread_response(thread)
+            except ModelAuthenticationError:
+                # Expected - authentication errors are not retried
+                pass
 
-        # Verify failure was NOT recorded (non-transient error)
-        assert circuit_breaker.failure_count == initial_failures
+            # Verify failure was NOT recorded (non-transient error)
+            assert circuit_breaker.failure_count == initial_failures
 
 
 class TestAsyncLockInitialization:

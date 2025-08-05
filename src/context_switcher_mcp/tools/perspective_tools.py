@@ -141,7 +141,7 @@ def register_perspective_tools(mcp):
         description="Get smart perspective recommendations based on problem analysis - AI suggests the most relevant expert viewpoints for your specific challenge"
     )
     async def recommend_perspectives(
-        request: RecommendPerspectivesRequest
+        request: RecommendPerspectivesRequest,
     ) -> Dict[str, Any]:
         """Get AI-powered perspective recommendations for a topic"""
         try:

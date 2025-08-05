@@ -5,7 +5,7 @@ import pytest
 from unittest.mock import patch
 
 from src.context_switcher_mcp.handlers.session_handler import generate_secure_session_id
-from src.context_switcher_mcp.orchestrator import CircuitBreakerState
+from src.context_switcher_mcp.thread_manager import CircuitBreakerState
 from src.context_switcher_mcp.models import ModelBackend
 
 
@@ -89,7 +89,9 @@ class TestCircuitBreakerErrorHandling:
         """Test that record_success is now an async method"""
         cb = CircuitBreakerState(backend=ModelBackend.BEDROCK)
         # Should be able to await it
-        with patch("src.context_switcher_mcp.orchestrator.save_circuit_breaker_state"):
+        with patch(
+            "src.context_switcher_mcp.thread_manager.save_circuit_breaker_state"
+        ):
             await cb.record_success()
         assert cb.failure_count == 0
 
@@ -98,7 +100,9 @@ class TestCircuitBreakerErrorHandling:
         """Test that record_failure is now an async method"""
         cb = CircuitBreakerState(backend=ModelBackend.BEDROCK)
         # Should be able to await it
-        with patch("src.context_switcher_mcp.orchestrator.save_circuit_breaker_state"):
+        with patch(
+            "src.context_switcher_mcp.thread_manager.save_circuit_breaker_state"
+        ):
             await cb.record_failure()
         assert cb.failure_count == 1
 
@@ -108,12 +112,12 @@ class TestCircuitBreakerErrorHandling:
         cb = CircuitBreakerState(backend=ModelBackend.BEDROCK)
 
         with patch(
-            "src.context_switcher_mcp.orchestrator.save_circuit_breaker_state"
+            "src.context_switcher_mcp.thread_manager.save_circuit_breaker_state"
         ) as mock_save:
             # Make save fail
             mock_save.side_effect = Exception("Save failed")
 
-            with patch("src.context_switcher_mcp.orchestrator.logger") as mock_logger:
+            with patch("src.context_switcher_mcp.thread_manager.logger") as mock_logger:
                 # Call should not raise even if save fails
                 await cb.record_success()
 
@@ -128,12 +132,12 @@ class TestCircuitBreakerErrorHandling:
         cb = CircuitBreakerState(backend=ModelBackend.BEDROCK)
 
         with patch(
-            "src.context_switcher_mcp.orchestrator.save_circuit_breaker_state"
+            "src.context_switcher_mcp.thread_manager.save_circuit_breaker_state"
         ) as mock_save:
             # Make save fail
             mock_save.side_effect = Exception("Save failed")
 
-            with patch("src.context_switcher_mcp.orchestrator.logger") as mock_logger:
+            with patch("src.context_switcher_mcp.thread_manager.logger") as mock_logger:
                 # Call should not raise even if save fails
                 await cb.record_failure()
 
@@ -246,7 +250,9 @@ class TestSecurityRegression:
         assert initial_state == "CLOSED"
 
         # Record failures to trigger state change
-        with patch("src.context_switcher_mcp.orchestrator.save_circuit_breaker_state"):
+        with patch(
+            "src.context_switcher_mcp.thread_manager.save_circuit_breaker_state"
+        ):
             for _ in range(cb.failure_threshold):
                 await cb.record_failure()
 
@@ -263,7 +269,9 @@ class TestSecurityRegression:
         assert cb.should_allow_request() is True
 
         # Mock the save operations
-        with patch("src.context_switcher_mcp.orchestrator.save_circuit_breaker_state"):
+        with patch(
+            "src.context_switcher_mcp.thread_manager.save_circuit_breaker_state"
+        ):
             # Trigger failures
             for _ in range(cb.failure_threshold):
                 await cb.record_failure()

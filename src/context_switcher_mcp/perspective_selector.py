@@ -366,19 +366,19 @@ class SmartPerspectiveSelector:
         prompt = f"""You are a {description}.
 
 **Your expertise covers:**
-- Deep knowledge in {domain.value.replace('_', ' ')} domain
-- Practical experience with real-world {perspective_name.replace('_', ' ')} challenges
+- Deep knowledge in {domain.value.replace("_", " ")} domain
+- Practical experience with real-world {perspective_name.replace("_", " ")} challenges
 - Understanding of industry best practices and common pitfalls
 
 **When analyzing problems, focus on:**
-- Specific {perspective_name.replace('_', ' ')} considerations
+- Specific {perspective_name.replace("_", " ")} considerations
 - Actionable recommendations based on your expertise
 - Potential risks and mitigation strategies in your domain
 - Trade-offs and decision criteria
 
 **For this analysis of "{topic}", consider:**
-- How {domain.value.replace('_', ' ')} factors impact the solution
-- What {perspective_name.replace('_', ' ')} patterns or anti-patterns apply
+- How {domain.value.replace("_", " ")} factors impact the solution
+- What {perspective_name.replace("_", " ")} patterns or anti-patterns apply
 - Concrete steps to address the challenges
 - Metrics or criteria to evaluate success
 

@@ -119,12 +119,12 @@ class TestContentSanitization:
 
     def test_control_characters_removed(self):
         """Test that control characters are removed"""
-        content_with_controls = "Hello\x00\x01World\x7F"
+        content_with_controls = "Hello\x00\x01World\x7f"
         sanitized, changes = sanitize_for_llm(content_with_controls)
 
         assert "\x00" not in sanitized
         assert "\x01" not in sanitized
-        assert "\x7F" not in sanitized
+        assert "\x7f" not in sanitized
         assert "Removed control characters" in changes
 
     def test_excessive_whitespace_limited(self):

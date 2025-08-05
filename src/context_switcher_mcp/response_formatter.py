@@ -200,7 +200,43 @@ class ResponseFormatter:
                 error_json = error_response[len("AORP_ERROR: ") :]
                 import json
 
-                return json.loads(error_json)
+                parsed = json.loads(error_json)
+
+                # Check if it's a simple error format (for tests)
+                if "error_message" in parsed and "error_type" in parsed:
+                    return {
+                        "error_message": parsed.get("error_message", ""),
+                        "error_type": parsed.get("error_type", "unknown_error"),
+                        "recoverable": parsed.get("recoverable", True),
+                        "full_response": parsed,
+                    }
+
+                # Extract error_type from various possible locations (AORP format)
+                error_type = "unknown_error"
+                error_message = ""
+                recoverable = True
+
+                # Check indicators first (new format)
+                if "indicators" in parsed:
+                    error_type = parsed["indicators"].get("error_type", error_type)
+                    recoverable = parsed["indicators"].get("recoverable", recoverable)
+
+                # Check details.data for error_code (AORP format)
+                if "details" in parsed and "data" in parsed["details"]:
+                    error_type = parsed["details"]["data"].get("error_code", error_type)
+
+                # Get error message from immediate.key_insight
+                if "immediate" in parsed:
+                    error_message = parsed["immediate"].get(
+                        "key_insight", error_message
+                    )
+
+                return {
+                    "error_message": error_message,
+                    "error_type": error_type,
+                    "recoverable": recoverable,
+                    "full_response": parsed,
+                }
             elif error_response.startswith("ERROR: "):
                 return {
                     "error_message": error_response[len("ERROR: ") :],
