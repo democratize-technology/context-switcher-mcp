@@ -116,26 +116,33 @@ Focus on aspects most relevant to this perspective."""
 
         # Prepare messages
         messages = []
-        for msg in thread.conversation_history:
-            messages.append(
-                {"role": msg["role"], "content": [{"text": msg["content"]}]}
-            )
 
-        # Add the analysis prompt
-        messages.append(
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "text": f"""Analyze the following from your {thread.name} perspective:
+        # Only add conversation history if it exists and has content
+        if thread.conversation_history:
+            for msg in thread.conversation_history:
+                # Skip empty messages
+                if msg.get("content"):
+                    messages.append(
+                        {"role": msg["role"], "content": [{"text": msg["content"]}]}
+                    )
+
+        # If no messages yet or last message is not from user, add the analysis prompt
+        # This ensures conversation always starts with a user message
+        if not messages or messages[-1]["role"] != "user":
+            messages.append(
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "text": f"""Analyze the following from your {thread.name} perspective:
 
 {prompt}
 
 Use chain_of_thought_step to structure your reasoning, then provide your analysis."""
-                    }
-                ],
-            }
-        )
+                        }
+                    ],
+                }
+            )
 
         # Prepare Bedrock request with CoT tools
         request = {
