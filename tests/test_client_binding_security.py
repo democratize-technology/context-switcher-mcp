@@ -111,7 +111,7 @@ class TestClientBindingManager:
         assert binding.binding_signature
         assert binding.access_pattern_hash
         assert binding.tool_usage_sequence == ["start_context_analysis"]
-        assert binding.validate_binding(self.manager.secret_key) is True
+        assert binding.validate_binding(self.manager.key_manager.current_key) is True
 
     @pytest.mark.asyncio
     async def test_session_binding_validation_success(self):
@@ -122,7 +122,9 @@ class TestClientBindingManager:
 
         # Update binding manager's secret key to match
         session.client_binding.binding_signature = (
-            session.client_binding.generate_binding_signature(self.manager.secret_key)
+            session.client_binding.generate_binding_signature(
+                self.manager.key_manager.current_key
+            )
         )
 
         # Validation should succeed
@@ -174,7 +176,9 @@ class TestClientBindingManager:
         session_id = "test_session_123"
         session = create_secure_session_with_binding(session_id, "Test topic")
         session.client_binding.binding_signature = (
-            session.client_binding.generate_binding_signature(self.manager.secret_key)
+            session.client_binding.generate_binding_signature(
+                self.manager.key_manager.current_key
+            )
         )
 
         # Simulate rapid access
@@ -324,7 +328,7 @@ class TestSecurityIntegration:
         # Validate that session maintains binding integrity with global manager's key
         from context_switcher_mcp.client_binding import client_binding_manager
 
-        assert session.is_binding_valid(client_binding_manager.secret_key)
+        assert session.is_binding_valid(client_binding_manager.key_manager.current_key)
 
 
 @pytest.mark.asyncio

@@ -4,16 +4,144 @@ Client binding security utilities for session hijacking prevention
 
 import hashlib
 import secrets
+import os
 from datetime import datetime, timedelta
-from typing import Dict, Optional, Any, Tuple
+from typing import Dict, Optional, Any, Tuple, List
 import logging
+import json
+from pathlib import Path
 
 from .models import ClientBinding, ContextSwitcherSession
 
 logger = logging.getLogger(__name__)
 
-# Global secret key for HMAC operations (in production, load from secure config)
-_BINDING_SECRET_KEY = secrets.token_urlsafe(32)
+
+# Secret key management with rotation support
+def _load_or_generate_secret_key() -> str:
+    """Load secret key from environment or generate a secure one
+
+    Priority order:
+    1. CONTEXT_SWITCHER_SECRET_KEY environment variable
+    2. Secret key file in ~/.context_switcher/secret_key.json
+    3. Generate new key and save to file
+    """
+    # Try environment variable first
+    env_key = os.environ.get("CONTEXT_SWITCHER_SECRET_KEY")
+    if env_key:
+        logger.info("Using secret key from environment variable")
+        return env_key
+
+    # Try loading from file
+    config_dir = Path.home() / ".context_switcher"
+    secret_file = config_dir / "secret_key.json"
+
+    if secret_file.exists():
+        try:
+            with open(secret_file, "r") as f:
+                data = json.load(f)
+                if "current_key" in data:
+                    logger.info("Loaded secret key from file")
+                    return data["current_key"]
+        except (json.JSONDecodeError, IOError) as e:
+            logger.warning(f"Failed to load secret key from file: {e}")
+
+    # Generate new key and save it
+    new_key = secrets.token_urlsafe(32)
+    config_dir.mkdir(exist_ok=True, parents=True)
+
+    try:
+        # Save with rotation support structure
+        data = {
+            "current_key": new_key,
+            "previous_keys": [],  # For key rotation support
+            "created_at": datetime.utcnow().isoformat(),
+            "rotation_count": 0,
+        }
+        with open(secret_file, "w") as f:
+            json.dump(data, f, indent=2)
+        # Set restrictive permissions (owner read/write only)
+        secret_file.chmod(0o600)
+        logger.info("Generated and saved new secret key")
+    except IOError as e:
+        logger.warning(f"Failed to save secret key to file: {e}")
+
+    return new_key
+
+
+# Initialize the secret key
+_BINDING_SECRET_KEY = _load_or_generate_secret_key()
+
+
+# Key rotation support
+class SecretKeyManager:
+    """Manages secret key rotation for enhanced security"""
+
+    def __init__(self):
+        self.current_key = _BINDING_SECRET_KEY
+        self.previous_keys: List[str] = []
+        self._load_previous_keys()
+
+    def _load_previous_keys(self):
+        """Load previous keys for validation during rotation period"""
+        secret_file = Path.home() / ".context_switcher" / "secret_key.json"
+        if secret_file.exists():
+            try:
+                with open(secret_file, "r") as f:
+                    data = json.load(f)
+                    self.previous_keys = data.get("previous_keys", [])[
+                        :5
+                    ]  # Keep last 5 keys
+            except (json.JSONDecodeError, IOError):
+                pass
+
+    def rotate_key(self) -> str:
+        """Rotate to a new secret key, keeping the old one for grace period"""
+        new_key = secrets.token_urlsafe(32)
+        self.previous_keys.insert(0, self.current_key)
+        self.previous_keys = self.previous_keys[:5]  # Keep only last 5 keys
+
+        self.current_key = new_key
+
+        # Save the rotated keys
+        secret_file = Path.home() / ".context_switcher" / "secret_key.json"
+        try:
+            data = {
+                "current_key": new_key,
+                "previous_keys": self.previous_keys,
+                "rotated_at": datetime.utcnow().isoformat(),
+                "rotation_count": len(self.previous_keys),
+            }
+            with open(secret_file, "w") as f:
+                json.dump(data, f, indent=2)
+            secret_file.chmod(0o600)
+            logger.info("Successfully rotated secret key")
+        except IOError as e:
+            logger.error(f"Failed to save rotated key: {e}")
+
+        return new_key
+
+    def validate_with_any_key(self, data: str, signature: str) -> bool:
+        """Validate signature with current or previous keys (for rotation grace period)"""
+        # Try current key first
+        if self._validate_signature(data, signature, self.current_key):
+            return True
+
+        # Try previous keys during grace period
+        for key in self.previous_keys:
+            if self._validate_signature(data, signature, key):
+                logger.info("Validated with previous key during rotation grace period")
+                return True
+
+        return False
+
+    def _validate_signature(self, data: str, signature: str, key: str) -> bool:
+        """Validate a signature with a specific key"""
+        expected = hashlib.sha256(f"{data}:{key}".encode()).hexdigest()
+        return secrets.compare_digest(expected, signature)
+
+
+# Global secret key manager instance
+_SECRET_KEY_MANAGER = SecretKeyManager()
 
 # Security configuration
 MAX_VALIDATION_FAILURES = 3
@@ -29,9 +157,15 @@ class ClientBindingManager:
         """Initialize client binding manager
 
         Args:
-            secret_key: Optional secret key for HMAC operations
+            secret_key: Optional secret key for HMAC operations (deprecated, use environment variable)
         """
-        self.secret_key = secret_key or _BINDING_SECRET_KEY
+        # Use the global secret key manager for better security
+        self.key_manager = _SECRET_KEY_MANAGER
+        if secret_key:
+            logger.warning(
+                "Passing secret_key directly is deprecated. Use CONTEXT_SWITCHER_SECRET_KEY environment variable instead."
+            )
+            self.key_manager.current_key = secret_key
         self.suspicious_sessions: Dict[str, datetime] = {}
 
     def create_client_binding(
@@ -60,7 +194,9 @@ class ClientBindingManager:
             last_validated=now,
         )
 
-        binding.binding_signature = binding.generate_binding_signature(self.secret_key)
+        binding.binding_signature = binding.generate_binding_signature(
+            self.key_manager.current_key
+        )
 
         logger.info(f"Created client binding for session {session_id}")
         return binding
@@ -92,8 +228,8 @@ class ClientBindingManager:
             if datetime.utcnow() - last_suspicious < timedelta(hours=1):
                 return False, "Session flagged as suspicious - access denied"
 
-        # Validate binding signature
-        if not binding.validate_binding(self.secret_key):
+        # Validate binding signature (with key rotation support)
+        if not self._validate_binding_with_rotation(binding):
             binding.validation_failures += 1
             session.record_security_event(
                 "binding_validation_failed",
@@ -168,6 +304,33 @@ class ClientBindingManager:
 
         return False
 
+    def _validate_binding_with_rotation(self, binding: ClientBinding) -> bool:
+        """Validate binding with key rotation support
+
+        Args:
+            binding: The client binding to validate
+
+        Returns:
+            True if binding is valid with current or previous keys
+        """
+        # First try with current key
+        if binding.validate_binding(self.key_manager.current_key):
+            return True
+
+        # Try with previous keys during rotation grace period
+        for prev_key in self.key_manager.previous_keys:
+            if binding.validate_binding(prev_key):
+                logger.info(
+                    "Validated binding with previous key during rotation grace period"
+                )
+                # Optionally re-sign with current key for future validations
+                binding.binding_signature = binding.generate_binding_signature(
+                    self.key_manager.current_key
+                )
+                return True
+
+        return False
+
     def _mark_session_suspicious(self, session_id: str) -> None:
         """Mark a session as suspicious
 
@@ -176,6 +339,16 @@ class ClientBindingManager:
         """
         self.suspicious_sessions[session_id] = datetime.utcnow()
         logger.warning(f"Marked session {session_id} as suspicious")
+
+    def rotate_secret_key(self) -> None:
+        """Rotate the secret key for enhanced security
+
+        This should be called periodically (e.g., daily) or after security events
+        """
+        new_key = self.key_manager.rotate_key()
+        logger.info(
+            f"Secret key rotated. New key hash: {hashlib.sha256(new_key.encode()).hexdigest()[:8]}..."
+        )
 
     def cleanup_suspicious_sessions(self) -> None:
         """Clean up old suspicious session markers"""
@@ -194,7 +367,11 @@ class ClientBindingManager:
         """
         return {
             "suspicious_sessions_count": len(self.suspicious_sessions),
-            "binding_secret_key_set": bool(self.secret_key),
+            "binding_secret_key_set": bool(self.key_manager.current_key),
+            "key_rotation_count": len(self.key_manager.previous_keys),
+            "key_source": "environment"
+            if os.environ.get("CONTEXT_SWITCHER_SECRET_KEY")
+            else "file",
             "max_validation_failures": MAX_VALIDATION_FAILURES,
             "max_security_flags": MAX_SECURITY_FLAGS,
             "suspicious_access_threshold": SUSPICIOUS_ACCESS_THRESHOLD,

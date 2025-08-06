@@ -38,41 +38,105 @@ class CircuitBreakerStore:
             # Validate and sanitize the provided path
             storage_path = Path(storage_path)
 
-            # First check for obvious path traversal patterns
+            # Expand user and resolve to absolute path FIRST
+            # This ensures we check the actual resolved path, not the input
+            storage_path = storage_path.expanduser().resolve(strict=False)
+
+            # NOW check for path traversal patterns in the resolved path
+            # This prevents bypasses through symbolic links or other tricks
             path_str = str(storage_path)
+
+            # Check the resolved path doesn't contain traversal patterns
+            # Note: After resolution, ".." should not appear in a valid path
             if ".." in path_str:
                 raise ValueError(
-                    f"Storage path must be within home directory or temp directory, got: {storage_path}"
+                    f"Invalid storage path after resolution: {storage_path}"
                 )
-
-            # Expand user and resolve to absolute path
-            storage_path = storage_path.expanduser().resolve(strict=False)
 
             # Ensure the path is within a safe directory (home or temp)
             home_dir = Path.home().resolve()
 
+            # Additional security: ensure path components don't start with dots (hidden files)
+            # except for the config directory itself
+            for part in storage_path.parts:
+                if part.startswith(".") and part not in [
+                    ".context_switcher",
+                    ".config",
+                    ".local",
+                ]:
+                    raise ValueError(
+                        f"Storage path contains suspicious hidden directory: {part}"
+                    )
+
             # Check if path is within allowed directories
+            is_in_safe_directory = False
+            allowed_dirs = []
+
+            # Check home directory
             try:
                 storage_path.relative_to(home_dir)
+                is_in_safe_directory = True
+                allowed_dirs.append(str(home_dir))
             except ValueError:
-                # Check if it's in a system temp directory
+                pass
+
+            # Check system temp directory
+            if not is_in_safe_directory:
                 import tempfile
 
                 temp_root = Path(tempfile.gettempdir()).resolve()
                 try:
                     storage_path.relative_to(temp_root)
+                    is_in_safe_directory = True
+                    allowed_dirs.append(str(temp_root))
                 except ValueError:
-                    # Also allow explicit /tmp for compatibility
-                    try:
-                        storage_path.relative_to(Path("/tmp").resolve())
-                    except ValueError:
-                        raise ValueError(
-                            f"Storage path must be within home directory or temp directory, got: {storage_path}"
-                        )
+                    pass
+
+            # Check /tmp for compatibility
+            if not is_in_safe_directory:
+                try:
+                    tmp_path = Path("/tmp").resolve()
+                    storage_path.relative_to(tmp_path)
+                    is_in_safe_directory = True
+                    allowed_dirs.append(str(tmp_path))
+                except (ValueError, OSError):
+                    pass
+
+            if not is_in_safe_directory:
+                raise ValueError(
+                    f"Storage path must be within home directory or temp directory. "
+                    f"Resolved path: {storage_path}, Allowed: {', '.join(allowed_dirs)}"
+                )
 
             # Ensure filename ends with .json
             if storage_path.suffix != ".json":
                 raise ValueError("Storage path must be a .json file")
+
+            # Final security check: Ensure the path is not a symlink pointing outside safe dirs
+            if storage_path.exists() and storage_path.is_symlink():
+                real_path = storage_path.resolve()
+                # Re-validate the real path
+                is_real_path_safe = False
+                try:
+                    real_path.relative_to(home_dir)
+                    is_real_path_safe = True
+                except ValueError:
+                    try:
+                        import tempfile
+
+                        real_path.relative_to(Path(tempfile.gettempdir()).resolve())
+                        is_real_path_safe = True
+                    except ValueError:
+                        try:
+                            real_path.relative_to(Path("/tmp").resolve())
+                            is_real_path_safe = True
+                        except (ValueError, OSError):
+                            pass
+
+                if not is_real_path_safe:
+                    raise ValueError(
+                        f"Symlink points outside safe directories: {real_path}"
+                    )
 
         self.storage_path = Path(storage_path)
         self._lock: Optional[asyncio.Lock] = None

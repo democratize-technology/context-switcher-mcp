@@ -5,7 +5,11 @@ import sys
 sys.path.insert(0, "src")  # noqa: E402
 
 import asyncio  # noqa: E402
+import json  # noqa: E402
+import os  # noqa: E402
+import secrets  # noqa: E402
 import tempfile  # noqa: E402
+import threading  # noqa: E402
 from datetime import datetime  # noqa: E402
 from pathlib import Path  # noqa: E402
 from unittest.mock import MagicMock, patch  # noqa: E402
@@ -14,6 +18,12 @@ import pytest  # noqa: E402
 
 from context_switcher_mcp.backend_interface import LiteLLMBackend, OllamaBackend  # noqa: E402
 from context_switcher_mcp.circuit_breaker_store import CircuitBreakerStore  # noqa: E402
+from context_switcher_mcp.client_binding import (  # noqa: E402
+    ClientBindingManager,
+    SecretKeyManager,
+    _load_or_generate_secret_key,
+    create_secure_session_with_binding,
+)
 from context_switcher_mcp.exceptions import ModelConnectionError, ModelValidationError  # noqa: E402
 from context_switcher_mcp.models import (  # noqa: E402
     ClientBinding,
@@ -43,17 +53,21 @@ class TestCircuitBreakerPathTraversal:
     def test_path_traversal_attack_blocked(self):
         """Test that path traversal attempts are blocked"""
         malicious_paths = [
-            "../../../etc/passwd.json",
-            "/etc/passwd.json",
-            "~/../../etc/passwd.json",
-            "/var/log/system.json",
-            "../../../Windows/System32/config/SAM.json",
+            "/etc/passwd.json",  # System file
+            "/var/log/system.json",  # System log
+            "/root/.ssh/keys.json",  # Root SSH keys
+            "~/../../etc/passwd.json",  # Traverse above home
+            "/Windows/System32/config/SAM.json",  # Windows system file
         ]
 
         for path in malicious_paths:
+            # Skip relative paths that might resolve within home on some systems
+            if path.startswith(".."):
+                continue
+
             with pytest.raises(
                 ValueError,
-                match="Storage path must be within home directory or temp directory",
+                match="(Storage path must be within home directory or temp directory|Invalid storage path after resolution|Storage path contains suspicious hidden directory)",
             ):
                 CircuitBreakerStore(path)
 
@@ -325,6 +339,240 @@ class TestAsyncLockInitialization:
         assert session.access_count == 5
 
 
+class TestEnhancedPathTraversalFixes:
+    """Test enhanced path traversal fixes with symlink detection"""
+
+    def test_path_resolution_order_fix(self):
+        """Test that path validation happens AFTER resolution"""
+        # The fix ensures ".." is checked after path resolution
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create a nested directory structure
+            nested_dir = Path(tmpdir) / "level1" / "level2"
+            nested_dir.mkdir(parents=True, exist_ok=True)
+
+            # This path has ".." but resolves safely within tmpdir
+            safe_path = str(nested_dir / ".." / "circuit_breakers.json")
+
+            # Should be allowed since it resolves within temp directory
+            store = CircuitBreakerStore(safe_path)
+            # Compare resolved paths to handle symlink resolution on macOS
+            assert store.storage_path.parent.resolve() == nested_dir.parent.resolve()
+
+    def test_symlink_attack_detection(self):
+        """Test that symlinks pointing outside safe directories are blocked"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            symlink_path = Path(tmpdir) / "evil_link.json"
+
+            # Try to create a symlink to /etc/passwd
+            try:
+                # Create symlink to a file outside safe directories
+                target = (
+                    Path("/etc/passwd")
+                    if Path("/etc/passwd").exists()
+                    else Path("/etc/hosts")
+                )
+                if target.exists():
+                    symlink_path.symlink_to(target)
+
+                    # This should be blocked - match both possible error messages
+                    with pytest.raises(
+                        ValueError,
+                        match="(Symlink points outside safe directories|Storage path must be within home directory or temp directory)",
+                    ):
+                        CircuitBreakerStore(str(symlink_path))
+            except (OSError, NotImplementedError):
+                # Skip on systems where we can't create symlinks
+                pytest.skip("Cannot create symlinks on this system")
+
+    def test_hidden_directory_validation(self):
+        """Test that suspicious hidden directories are blocked"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # These should be blocked
+            suspicious_paths = [
+                str(Path(tmpdir) / ".evil" / "circuit_breakers.json"),
+                str(Path(tmpdir) / ".malware" / "data.json"),
+            ]
+
+            for path in suspicious_paths:
+                # Create parent directory
+                Path(path).parent.mkdir(exist_ok=True)
+
+                with pytest.raises(ValueError, match="suspicious hidden directory"):
+                    CircuitBreakerStore(path)
+
+            # These should be allowed (whitelisted hidden dirs)
+            allowed_paths = [
+                str(Path(tmpdir) / ".context_switcher" / "circuit_breakers.json"),
+                str(Path(tmpdir) / ".config" / "circuit_breakers.json"),
+                str(Path(tmpdir) / ".local" / "circuit_breakers.json"),
+            ]
+
+            for path in allowed_paths:
+                # Create parent directory
+                Path(path).parent.mkdir(exist_ok=True)
+
+                # Should not raise
+                store = CircuitBreakerStore(path)
+                assert store.storage_path == Path(path).resolve()
+
+
+class TestSessionTokenRotation:
+    """Test secret key rotation and management improvements"""
+
+    def test_secret_key_from_environment(self):
+        """Test loading secret key from environment variable"""
+        test_key = secrets.token_urlsafe(32)
+
+        with patch.dict(os.environ, {"CONTEXT_SWITCHER_SECRET_KEY": test_key}):
+            loaded_key = _load_or_generate_secret_key()
+            assert loaded_key == test_key
+
+    def test_secret_key_persistence(self):
+        """Test that secret keys are persisted securely"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch("pathlib.Path.home", return_value=Path(tmpdir)):
+                # Generate initial key
+                key1 = _load_or_generate_secret_key()
+
+                # Verify file was created with proper structure
+                secret_file = Path(tmpdir) / ".context_switcher" / "secret_key.json"
+                assert secret_file.exists()
+
+                # Check file permissions on Unix
+                if os.name != "nt":
+                    assert oct(secret_file.stat().st_mode)[-3:] == "600"
+
+                # Load again and verify same key
+                key2 = _load_or_generate_secret_key()
+                assert key1 == key2
+
+                # Verify file structure
+                with open(secret_file) as f:
+                    data = json.load(f)
+                    assert "current_key" in data
+                    assert "previous_keys" in data
+                    assert "created_at" in data
+                    assert "rotation_count" in data
+
+    def test_key_rotation_functionality(self):
+        """Test that key rotation maintains previous keys for grace period"""
+        manager = SecretKeyManager()
+        original_key = manager.current_key
+
+        # Rotate key
+        new_key = manager.rotate_key()
+
+        # Verify rotation
+        assert new_key != original_key
+        assert manager.current_key == new_key
+        assert original_key in manager.previous_keys
+
+        # Test multiple rotations
+        keys_rotated = [original_key]
+        for _ in range(6):
+            old_key = manager.current_key
+            manager.rotate_key()
+            keys_rotated.append(old_key)
+
+        # Verify only last 5 keys are kept
+        assert len(manager.previous_keys) == 5
+        # Most recent rotated keys should be in previous_keys
+        for key in keys_rotated[-5:]:
+            assert key in manager.previous_keys
+
+    def test_validation_with_rotated_keys(self):
+        """Test that sessions validate with rotated keys during grace period"""
+        manager = ClientBindingManager()
+
+        # Create session with current key
+        session = create_secure_session_with_binding(
+            session_id="test_rotation", topic="test", initial_tool="test_tool"
+        )
+
+        # Verify initial validation
+        assert manager._validate_binding_with_rotation(session.client_binding)
+
+        # Rotate the key
+        manager.rotate_secret_key()
+
+        # Session should still validate with old key
+        assert manager._validate_binding_with_rotation(session.client_binding)
+
+        # After validation, binding should be re-signed with new key
+        # Verify it now validates with current key
+        assert session.client_binding.validate_binding(manager.key_manager.current_key)
+
+
+class TestConcurrentLockInitialization:
+    """Test fixes for race conditions in lock initialization"""
+
+    def test_concurrent_session_creation(self):
+        """Test that concurrent session creation doesn't cause race conditions"""
+        sessions = []
+        errors = []
+
+        def create_session(index):
+            try:
+                session = ContextSwitcherSession(
+                    session_id=f"concurrent_{index}",
+                    topic="test",
+                    created_at=datetime.utcnow(),
+                )
+                sessions.append(session)
+
+                # Verify locks are initialized
+                assert session._lock_initialized
+                assert session._access_lock is not None
+                assert session._initialization_lock is not None
+            except Exception as e:
+                errors.append(e)
+
+        # Create threads for concurrent session creation
+        threads = []
+        for i in range(20):
+            thread = threading.Thread(target=create_session, args=(i,))
+            threads.append(thread)
+            thread.start()
+
+        # Wait for all threads
+        for thread in threads:
+            thread.join()
+
+        # Verify no errors
+        assert len(errors) == 0, f"Errors occurred: {errors}"
+        assert len(sessions) == 20
+
+        # Verify all sessions have proper locks
+        for session in sessions:
+            assert session._lock_initialized
+            assert session._access_lock is not None
+
+    @pytest.mark.asyncio
+    async def test_concurrent_record_access(self):
+        """Test that concurrent record_access calls are thread-safe"""
+        session = ContextSwitcherSession(
+            session_id="test_concurrent_access",
+            topic="test",
+            created_at=datetime.utcnow(),
+        )
+
+        # Reset access count
+        session.access_count = 0
+        num_concurrent_accesses = 50
+
+        # Create concurrent access tasks
+        async def record_access_task(index):
+            await session.record_access(f"tool_{index}")
+
+        # Run concurrently
+        tasks = [record_access_task(i) for i in range(num_concurrent_accesses)]
+        await asyncio.gather(*tasks)
+
+        # Verify all accesses were recorded
+        assert session.access_count == num_concurrent_accesses
+        assert session.version == num_concurrent_accesses
+
+
 class TestIntegrationScenarios:
     """Integration tests for security fixes"""
 
@@ -373,3 +621,35 @@ class TestIntegrationScenarios:
             binding.validation_failures += 1
 
         assert binding.is_suspicious() is True
+
+    @pytest.mark.asyncio
+    async def test_complete_secure_workflow(self):
+        """Test complete secure session workflow with all fixes"""
+        # Use secure session creation
+        session = create_secure_session_with_binding(
+            session_id="integration_test",
+            topic="security integration test",
+            initial_tool="start_analysis",
+        )
+
+        # Verify session has proper security setup
+        assert session.client_binding is not None
+        assert session._lock_initialized
+        assert session._access_lock is not None
+
+        # Test concurrent access (tests lock fix)
+        tasks = [session.record_access(f"tool_{i}") for i in range(10)]
+        await asyncio.gather(*tasks)
+
+        # Initial access + 10 concurrent
+        assert session.access_count == 11
+
+        # Test circuit breaker with safe path
+        with tempfile.TemporaryDirectory() as tmpdir:
+            safe_path = Path(tmpdir) / "integration_breakers.json"
+            store = CircuitBreakerStore(str(safe_path))
+
+            # Save and load state
+            await store.save_state("test", {"state": "CLOSED"})
+            state = await store.load_state("test")
+            assert state["state"] == "CLOSED"

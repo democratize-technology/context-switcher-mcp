@@ -108,13 +108,28 @@ class ContextSwitcherSession:
     _lock_initialized: bool = field(
         default=False, init=False, repr=False
     )  # Track if lock is initialized
+    _initialization_lock: Optional[Any] = field(
+        default=None, init=False, repr=False
+    )  # Class-level lock for initialization
 
     def __post_init__(self):
         """Initialize async components that can't be set in dataclass fields"""
         import asyncio
+        import threading
 
-        self._access_lock = asyncio.Lock()
-        self._lock_initialized = True
+        # Use a thread-safe initialization to prevent race conditions
+        # This ensures that even if multiple threads call __post_init__ simultaneously,
+        # the locks are initialized exactly once
+        if not self._lock_initialized:
+            # Use threading.Lock for the initialization phase since __post_init__ is synchronous
+            if not hasattr(ContextSwitcherSession, "_class_init_lock"):
+                ContextSwitcherSession._class_init_lock = threading.Lock()
+
+            with ContextSwitcherSession._class_init_lock:
+                if not self._lock_initialized:
+                    self._access_lock = asyncio.Lock()
+                    self._initialization_lock = asyncio.Lock()
+                    self._lock_initialized = True
 
     def add_thread(self, thread: Thread) -> None:
         """Add a perspective thread to the session"""
@@ -126,16 +141,19 @@ class ContextSwitcherSession:
 
     async def record_access(self, tool_name: str) -> None:
         """Record session access for behavioral analysis (thread-safe async version)"""
-        # Ensure lock is initialized - use double-checked locking pattern
+        # Ensure lock is initialized - use the initialization lock if needed
         if not self._lock_initialized:
+            # This should rarely happen since __post_init__ sets it up,
+            # but we handle it safely using the initialization lock
             import asyncio
-
-            # Use a temporary lock to avoid race conditions during initialization
-            temp_lock = asyncio.Lock()
-            async with temp_lock:
-                # Double-check inside the lock
+            
+            async with self._initialization_lock if self._initialization_lock else asyncio.Lock():
                 if not self._lock_initialized:
+                    import asyncio
+
                     self._access_lock = asyncio.Lock()
+                    if not self._initialization_lock:
+                        self._initialization_lock = asyncio.Lock()
                     self._lock_initialized = True
 
         async with self._access_lock:
