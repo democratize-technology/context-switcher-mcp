@@ -5,7 +5,7 @@ from typing import Dict, Any, Tuple
 from datetime import datetime
 
 from ..aorp import AORPBuilder, create_error_response, generate_analysis_next_steps
-from ..orchestrator import NO_RESPONSE
+from ..constants import NO_RESPONSE
 from ..rate_limiter import SessionRateLimiter
 from ..security import (
     log_security_event,

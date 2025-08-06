@@ -31,7 +31,7 @@ from context_switcher_mcp.models import (  # noqa: E402
     ModelBackend,
     Thread,
 )
-from context_switcher_mcp.orchestrator import ThreadOrchestrator  # noqa: E402
+from context_switcher_mcp.perspective_orchestrator import PerspectiveOrchestrator  # noqa: E402
 
 
 class TestCircuitBreakerPathTraversal:
@@ -218,7 +218,7 @@ class TestCircuitBreakerRaceCondition:
     @pytest.mark.asyncio
     async def test_circuit_breaker_records_transient_failures(self):
         """Test that circuit breaker correctly records transient failures"""
-        orchestrator = ThreadOrchestrator(max_retries=2, retry_delay=0.01)
+        orchestrator = PerspectiveOrchestrator(max_retries=2, retry_delay=0.01)
 
         # Create a thread that will fail
         thread = Thread(
@@ -254,7 +254,7 @@ class TestCircuitBreakerRaceCondition:
             "context_switcher_mcp.circuit_breaker_manager.load_circuit_breaker_state"
         ) as mock_load:
             mock_load.return_value = None  # No saved state
-            orchestrator = ThreadOrchestrator(max_retries=2, retry_delay=0.01)
+            orchestrator = PerspectiveOrchestrator(max_retries=2, retry_delay=0.01)
 
             thread = Thread(
                 id="test",

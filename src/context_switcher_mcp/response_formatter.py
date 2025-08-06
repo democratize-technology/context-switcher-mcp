@@ -4,15 +4,13 @@ import logging
 from typing import Dict, Any
 
 from .aorp import create_error_response
-from .compression import compress_perspectives
-from .models import Thread, ModelBackend
 from .backend_interface import get_backend_interface
+from .compression import compress_perspectives
+from .constants import NO_RESPONSE
 from .exceptions import ModelBackendError
+from .models import Thread, ModelBackend
 
 logger = logging.getLogger(__name__)
-
-# Constants
-NO_RESPONSE = "[NO_RESPONSE]"
 
 
 class ResponseFormatter:

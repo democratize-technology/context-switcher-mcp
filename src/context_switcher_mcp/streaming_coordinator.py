@@ -11,9 +11,6 @@ from .exceptions import ModelBackendError
 
 logger = logging.getLogger(__name__)
 
-# Constants
-NO_RESPONSE = "[NO_RESPONSE]"
-
 
 class StreamingCoordinator:
     """Coordinates streaming responses from multiple threads"""

@@ -65,9 +65,9 @@ def register_analysis_tools(mcp):
         session = await session_manager.get_session(request.session_id)
 
         # Initialize orchestrator
-        from ..orchestrator import ThreadOrchestrator
+        from ..perspective_orchestrator import PerspectiveOrchestrator
 
-        orchestrator = ThreadOrchestrator()
+        orchestrator = PerspectiveOrchestrator()
 
         try:
             # Execute analysis across all perspectives, passing the session topic for context

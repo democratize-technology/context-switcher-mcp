@@ -3,16 +3,14 @@
 import logging
 from typing import Dict
 
-from .models import Thread
-from .metrics_manager import MetricsManager
 from .circuit_breaker_manager import CircuitBreakerManager
+from .constants import NO_RESPONSE
+from .metrics_manager import MetricsManager
+from .models import Thread
 from .streaming_coordinator import StreamingCoordinator
 from .thread_lifecycle_manager import ThreadLifecycleManager
 
 logger = logging.getLogger(__name__)
-
-# Constants
-NO_RESPONSE = "[NO_RESPONSE]"
 
 
 class ThreadManager:

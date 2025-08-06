@@ -10,6 +10,7 @@ from .models import Thread
 from .thread_manager import ThreadManager
 from .response_formatter import ResponseFormatter
 from .exceptions import OrchestrationError
+from .constants import NO_RESPONSE
 from .reasoning_orchestrator import (
     PerspectiveReasoningOrchestrator,
     CoTTimeoutError,
@@ -17,9 +18,6 @@ from .reasoning_orchestrator import (
 )
 
 logger = logging.getLogger(__name__)
-
-# Constants
-NO_RESPONSE = "[NO_RESPONSE]"
 
 
 @dataclass
@@ -59,6 +57,8 @@ class PerspectiveOrchestrator:
         response_formatter: ResponseFormatter = None,
         enable_cot: bool = True,
         cot_timeout: float = 30.0,
+        max_retries: int = None,
+        retry_delay: float = None,
     ):
         """Initialize perspective orchestrator
 
@@ -67,8 +67,10 @@ class PerspectiveOrchestrator:
             response_formatter: Response formatter for AORP formatting (creates default if None)
             enable_cot: Enable Chain of Thought reasoning for Bedrock (default: True)
             cot_timeout: Timeout for CoT processing in seconds (default: 30.0)
+            max_retries: Maximum number of retries for failed calls (uses config default if None)
+            retry_delay: Initial delay between retries (uses config default if None)
         """
-        self.thread_manager = thread_manager or ThreadManager()
+        self.thread_manager = thread_manager or ThreadManager(max_retries, retry_delay)
         self.response_formatter = response_formatter or ResponseFormatter()
 
         # Initialize reasoning orchestrator if enabled
@@ -393,3 +395,37 @@ class PerspectiveOrchestrator:
                 for m in recent_metrics
             ],
         }
+
+    async def get_performance_metrics(self, last_n: int = 10) -> Dict[str, any]:
+        """Get combined performance metrics for recent operations"""
+        # Get metrics from thread manager and perspective orchestrator
+        thread_metrics = await self.thread_manager.get_thread_metrics(last_n)
+        perspective_metrics = await self.get_perspective_metrics(last_n)
+
+        # Add circuit breaker status
+        circuit_status = self.thread_manager.get_circuit_breaker_status()
+
+        return {
+            "thread_level": thread_metrics,
+            "perspective_level": perspective_metrics,
+            "circuit_breakers": circuit_status,
+        }
+
+    def reset_circuit_breakers(self) -> Dict[str, str]:
+        """Reset all circuit breakers to CLOSED state"""
+        return self.thread_manager.reset_circuit_breakers()
+
+    async def save_all_circuit_breaker_states(self) -> None:
+        """Manually save all circuit breaker states"""
+        await self.thread_manager.save_all_circuit_breaker_states()
+
+    # Expose circuit_breakers and backends for backward compatibility
+    @property
+    def circuit_breakers(self):
+        """Access to circuit breakers"""
+        return self.thread_manager.circuit_breaker_manager.circuit_breakers
+
+    @property
+    def backends(self):
+        """Access to backends"""
+        return self.thread_manager.thread_lifecycle_manager.backends

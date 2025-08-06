@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from unittest.mock import patch
 
 from src.context_switcher_mcp.models import Thread, ContextSwitcherSession, ModelBackend
-from src.context_switcher_mcp.orchestrator import ThreadOrchestrator
+from src.context_switcher_mcp.perspective_orchestrator import PerspectiveOrchestrator
 from src.context_switcher_mcp.session_manager import SessionManager
 from src.context_switcher_mcp import (
     session_manager,
@@ -71,13 +71,13 @@ class TestContextSwitcherSession:
         assert mock_session.threads["test"] == mock_thread
 
 
-class TestThreadOrchestrator:
-    """Test ThreadOrchestrator class"""
+class TestPerspectiveOrchestrator:
+    """Test PerspectiveOrchestrator class"""
 
     @pytest.mark.asyncio
     async def test_orchestrator_creation(self):
         """Test orchestrator is created with correct backends"""
-        orchestrator = ThreadOrchestrator()
+        orchestrator = PerspectiveOrchestrator()
         assert ModelBackend.BEDROCK in orchestrator.backends
         assert ModelBackend.LITELLM in orchestrator.backends
         assert ModelBackend.OLLAMA in orchestrator.backends
@@ -85,7 +85,7 @@ class TestThreadOrchestrator:
     @pytest.mark.asyncio
     async def test_circuit_breaker_functionality(self):
         """Test circuit breaker functionality"""
-        orchestrator = ThreadOrchestrator()
+        orchestrator = PerspectiveOrchestrator()
 
         # Check that circuit breakers are initialized
         assert ModelBackend.BEDROCK in orchestrator.circuit_breakers

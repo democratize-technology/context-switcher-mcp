@@ -76,10 +76,12 @@ class TestOrchestratorExceptionHandling:
     @pytest.fixture
     def mock_orchestrator(self):
         """Create a mock orchestrator with proper dependencies"""
-        from src.context_switcher_mcp.orchestrator import ThreadOrchestrator
+        from src.context_switcher_mcp.perspective_orchestrator import (
+            PerspectiveOrchestrator,
+        )
 
         # Create orchestrator without special mocking - let it use real config
-        orchestrator = ThreadOrchestrator()
+        orchestrator = PerspectiveOrchestrator()
         return orchestrator
 
     @pytest.mark.asyncio

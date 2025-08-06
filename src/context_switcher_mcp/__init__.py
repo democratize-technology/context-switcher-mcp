@@ -34,9 +34,9 @@ session_manager = SessionManager(
     cleanup_interval_minutes=config.session.cleanup_interval_seconds // 60,
 )
 
-from .orchestrator import ThreadOrchestrator  # noqa: E402
+from .perspective_orchestrator import PerspectiveOrchestrator  # noqa: E402
 
-orchestrator = ThreadOrchestrator()
+orchestrator = PerspectiveOrchestrator()
 
 
 # Request models for tools
