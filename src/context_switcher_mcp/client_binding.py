@@ -5,7 +5,7 @@ Client binding security utilities for session hijacking prevention
 import hashlib
 import secrets
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Dict, Optional, Any, Tuple, List
 import logging
 import json
@@ -65,7 +65,7 @@ def _load_or_generate_secret_key() -> str:
         data = {
             "current_key": new_key,
             "previous_keys": [],  # For key rotation support
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
             "rotation_count": 0,
         }
 
@@ -161,7 +161,7 @@ class SecretKeyManager:
             data = {
                 "current_key": new_key,
                 "previous_keys": self.previous_keys,
-                "rotated_at": datetime.utcnow().isoformat(),
+                "rotated_at": datetime.now(timezone.utc).isoformat(),
                 "rotation_count": len(self.previous_keys),
             }
 
@@ -270,7 +270,7 @@ class ClientBindingManager:
         Returns:
             ClientBinding object with secure binding data
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         session_entropy = secrets.token_urlsafe(32)
         access_pattern_data = f"{session_id}:{initial_tool}:{now.timestamp()}"
@@ -315,7 +315,7 @@ class ClientBindingManager:
         # Check if session is marked suspicious
         if session.session_id in self.suspicious_sessions:
             last_suspicious = self.suspicious_sessions[session.session_id]
-            if datetime.utcnow() - last_suspicious < timedelta(hours=1):
+            if datetime.now(timezone.utc) - last_suspicious < timedelta(hours=1):
                 return False, "Session flagged as suspicious - access denied"
 
         # Validate binding signature (with key rotation support)
@@ -344,7 +344,7 @@ class ClientBindingManager:
                     "tool_name": tool_name,
                     "access_count": session.access_count,
                     "time_since_creation": (
-                        datetime.utcnow() - session.created_at
+                        datetime.now(timezone.utc) - session.created_at
                     ).total_seconds(),
                 },
             )
@@ -352,7 +352,7 @@ class ClientBindingManager:
             return False, "Suspicious access pattern detected"
 
         # Update binding validation timestamp
-        binding.last_validated = datetime.utcnow()
+        binding.last_validated = datetime.now(timezone.utc)
 
         # Record successful validation
         await session.record_access(tool_name)
@@ -371,7 +371,7 @@ class ClientBindingManager:
         Returns:
             True if access pattern is suspicious
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         # Check access rate (requests per hour)
         session_age_hours = (now - session.created_at).total_seconds() / 3600
@@ -427,7 +427,7 @@ class ClientBindingManager:
         Args:
             session_id: The session ID to mark
         """
-        self.suspicious_sessions[session_id] = datetime.utcnow()
+        self.suspicious_sessions[session_id] = datetime.now(timezone.utc)
         logger.warning(f"Marked session {session_id} as suspicious")
 
     def rotate_secret_key(self) -> None:
@@ -442,7 +442,7 @@ class ClientBindingManager:
 
     def cleanup_suspicious_sessions(self) -> None:
         """Clean up old suspicious session markers"""
-        cutoff = datetime.utcnow() - timedelta(hours=24)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
         self.suspicious_sessions = {
             sid: timestamp
             for sid, timestamp in self.suspicious_sessions.items()
@@ -485,7 +485,7 @@ def create_secure_session_with_binding(
     Returns:
         ContextSwitcherSession with client binding
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     # Create client binding
     binding = client_binding_manager.create_client_binding(session_id, initial_tool)

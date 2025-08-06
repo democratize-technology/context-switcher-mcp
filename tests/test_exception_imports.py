@@ -50,14 +50,13 @@ def test_exception_imports():
         assert SerializationError("test")
 
         print("✓ All exception imports successful")
-        return True
 
     except ImportError as e:
         print(f"✗ Import error: {e}")
-        return False
+        assert False, f"Import error: {e}"
     except Exception as e:
         print(f"✗ Unexpected error: {e}")
-        return False
+        assert False, f"Unexpected error: {e}"
 
 
 if __name__ == "__main__":

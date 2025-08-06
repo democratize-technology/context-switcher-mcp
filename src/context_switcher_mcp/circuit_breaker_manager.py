@@ -3,7 +3,7 @@
 import logging
 from typing import Dict
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .models import ModelBackend
 from .config import get_config
@@ -41,7 +41,7 @@ class CircuitBreakerState:
         elif self.state == "OPEN":
             if self.last_failure_time:
                 time_since_failure = (
-                    datetime.utcnow() - self.last_failure_time
+                    datetime.now(timezone.utc) - self.last_failure_time
                 ).total_seconds()
                 if time_since_failure > self.timeout_seconds:
                     self.state = "HALF_OPEN"
@@ -78,7 +78,7 @@ class CircuitBreakerState:
     async def record_failure(self):
         """Record failed request"""
         self.failure_count += 1
-        self.last_failure_time = datetime.utcnow()
+        self.last_failure_time = datetime.now(timezone.utc)
         if self.failure_count >= self.failure_threshold:
             self.state = "OPEN"
 

@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Dict, Optional, Any, Tuple
 
 from .models import ContextSwitcherSession
@@ -138,7 +138,7 @@ class SessionManager:
 
     def _is_expired(self, session: ContextSwitcherSession) -> bool:
         """Check if a session has expired"""
-        age = datetime.utcnow() - session.created_at
+        age = datetime.now(timezone.utc) - session.created_at
         return age > self.session_ttl
 
     async def _cleanup_expired_sessions(self):

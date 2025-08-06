@@ -4,7 +4,7 @@ import hashlib
 import secrets
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 @dataclass
@@ -97,7 +97,7 @@ class SessionSecurity:
             New ClientBinding instance
         """
         session_entropy = secrets.token_urlsafe(32)
-        creation_timestamp = datetime.utcnow()
+        creation_timestamp = datetime.now(timezone.utc)
 
         binding = ClientBinding(
             session_entropy=session_entropy,
@@ -136,7 +136,7 @@ class SessionSecurity:
                 {"validation_failures": self.client_binding.validation_failures},
             )
         else:
-            self.client_binding.last_validated = datetime.utcnow()
+            self.client_binding.last_validated = datetime.now(timezone.utc)
 
         return is_valid
 
@@ -148,7 +148,7 @@ class SessionSecurity:
             details: Additional event details
         """
         event = SecurityEvent(
-            event_type=event_type, timestamp=datetime.utcnow(), details=details
+            event_type=event_type, timestamp=datetime.now(timezone.utc), details=details
         )
         self.security_events.append(event)
 
@@ -178,7 +178,8 @@ class SessionSecurity:
         recent_events = [
             event
             for event in self.security_events
-            if (datetime.utcnow() - event.timestamp).total_seconds() < 3600  # Last hour
+            if (datetime.now(timezone.utc) - event.timestamp).total_seconds()
+            < 3600  # Last hour
         ]
 
         return len(recent_events) > 10
@@ -212,7 +213,7 @@ class SessionSecurity:
 
     def _generate_default_pattern_hash(self) -> str:
         """Generate a default access pattern hash"""
-        default_data = f"{self.session_id}:{datetime.utcnow().isoformat()}"
+        default_data = f"{self.session_id}:{datetime.now(timezone.utc).isoformat()}"
         return hashlib.sha256(default_data.encode()).hexdigest()
 
     def cleanup_old_events(self, max_age_hours: int = 24) -> None:
@@ -221,7 +222,7 @@ class SessionSecurity:
         Args:
             max_age_hours: Maximum age of events to keep in hours
         """
-        cutoff_time = datetime.utcnow().timestamp() - (max_age_hours * 3600)
+        cutoff_time = datetime.now(timezone.utc).timestamp() - (max_age_hours * 3600)
         self.security_events = [
             event
             for event in self.security_events

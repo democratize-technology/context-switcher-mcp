@@ -4,7 +4,7 @@ import json
 import asyncio
 import logging
 from typing import Dict, Optional, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from .exceptions import (
@@ -128,7 +128,7 @@ class CircuitBreakerStore:
                 # Update with new state
                 all_states[backend] = {
                     **state_data,
-                    "last_updated": datetime.utcnow().isoformat(),
+                    "last_updated": datetime.now(timezone.utc).isoformat(),
                 }
 
                 # Save to file

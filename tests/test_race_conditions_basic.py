@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import asyncio  # noqa: E402
 import pytest  # noqa: E402
-from datetime import datetime, timedelta  # noqa: E402
+from datetime import datetime, timezone, timedelta  # noqa: E402
 
 from context_switcher_mcp.session_manager import SessionManager  # noqa: E402
 from context_switcher_mcp.models import ContextSwitcherSession  # noqa: E402
@@ -21,7 +21,7 @@ async def test_session_creation_and_access():
 
     session = ContextSwitcherSession(
         session_id="test-session-123",
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
         topic="Test Session",
     )
 
@@ -40,7 +40,7 @@ async def test_session_expiration():
     # Create an expired session
     expired_session = ContextSwitcherSession(
         session_id="expired-session-123",
-        created_at=datetime.utcnow() - timedelta(hours=2),  # Expired
+        created_at=datetime.now(timezone.utc) - timedelta(hours=2),  # Expired
         topic="Expired Session",
     )
 
@@ -59,7 +59,9 @@ async def test_session_expiration():
 async def test_concurrent_access_recording():
     """Test that concurrent access recording works"""
     session = ContextSwitcherSession(
-        session_id="test-session", created_at=datetime.utcnow(), topic="Concurrent Test"
+        session_id="test-session",
+        created_at=datetime.now(timezone.utc),
+        topic="Concurrent Test",
     )
 
     initial_count = session.access_count
@@ -82,7 +84,9 @@ async def test_atomic_session_get():
     session_manager = SessionManager(max_sessions=10, session_ttl_hours=1)
 
     session = ContextSwitcherSession(
-        session_id="atomic-test", created_at=datetime.utcnow(), topic="Atomic Test"
+        session_id="atomic-test",
+        created_at=datetime.now(timezone.utc),
+        topic="Atomic Test",
     )
 
     await session_manager.add_session(session)
@@ -101,7 +105,9 @@ async def test_version_validation():
     session_manager = SessionManager(max_sessions=10, session_ttl_hours=1)
 
     session = ContextSwitcherSession(
-        session_id="version-test", created_at=datetime.utcnow(), topic="Version Test"
+        session_id="version-test",
+        created_at=datetime.now(timezone.utc),
+        topic="Version Test",
     )
 
     await session_manager.add_session(session)

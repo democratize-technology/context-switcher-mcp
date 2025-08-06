@@ -1,7 +1,7 @@
 """Analysis tools for Context-Switcher MCP Server"""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any
 from pydantic import BaseModel, Field
 
@@ -89,7 +89,7 @@ def register_analysis_tools(mcp):
                 {
                     "prompt": request.prompt,
                     "results": results,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                     "active_count": active_count,
                     "abstained_count": abstained_count,
                     "error_count": error_count,

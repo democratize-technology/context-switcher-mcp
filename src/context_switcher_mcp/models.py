@@ -1,7 +1,7 @@
 """Data models for Context-Switcher MCP"""
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Dict, List, Optional, Any
 import hashlib
@@ -34,7 +34,7 @@ class Thread:
             {
                 "role": role,
                 "content": content,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         )
 
@@ -56,7 +56,7 @@ class ClientBinding:
 
     # Security metadata
     validation_failures: int = 0  # Count of validation failures
-    last_validated: datetime = field(default_factory=datetime.utcnow)
+    last_validated: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     security_flags: List[str] = field(default_factory=list)  # Security event flags
 
     def generate_binding_signature(self, secret_key: str) -> str:
@@ -98,7 +98,7 @@ class ContextSwitcherSession:
 
     # Session security metadata
     access_count: int = 0
-    last_accessed: datetime = field(default_factory=datetime.utcnow)
+    last_accessed: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     security_events: List[Dict[str, Any]] = field(default_factory=list)
 
     # Concurrency control
@@ -133,17 +133,12 @@ class ContextSwitcherSession:
         # Since __post_init__ is called exactly once by the dataclass mechanism,
         # we don't need complex synchronization here
         try:
-            # Try to get the current event loop
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # If loop is running, we can create asyncio locks
-                self._access_lock = asyncio.Lock()
-            else:
-                # If no loop or not running, we'll create the lock lazily
-                # when first needed in an async context
-                self._access_lock = None
+            # Try to get the current event loop using modern approach
+            asyncio.get_running_loop()
+            # If we're in a running loop, create the lock
+            self._access_lock = asyncio.Lock()
         except RuntimeError:
-            # No event loop exists yet, will create lock lazily
+            # No running event loop exists yet, will create lock lazily
             self._access_lock = None
 
         self._lock_initialized = True
@@ -172,7 +167,7 @@ class ContextSwitcherSession:
 
         async with self._access_lock:
             self.access_count += 1
-            self.last_accessed = datetime.utcnow()
+            self.last_accessed = datetime.now(timezone.utc)
             self.version += 1  # Increment version for change tracking
 
             # Update client binding tool usage pattern
@@ -186,7 +181,7 @@ class ContextSwitcherSession:
         """Record a security event for this session"""
         event = {
             "type": event_type,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "details": details,
         }
         self.security_events.append(event)
@@ -215,7 +210,7 @@ class ContextSwitcherSession:
         self.analyses.append(
             {
                 "prompt": prompt,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "responses": responses,
                 "active_count": active_count,
                 "abstained_count": abstained_count,

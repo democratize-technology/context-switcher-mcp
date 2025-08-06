@@ -5,7 +5,7 @@ import json
 import tempfile
 import threading
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from unittest.mock import Mock, patch, MagicMock
 import pytest
 import concurrent.futures
@@ -98,7 +98,7 @@ class TestSessionLockInitialization:
     def test_lock_initialized_in_post_init(self):
         """Test that locks are properly initialized in __post_init__"""
         session = ContextSwitcherSession(
-            session_id="test-123", created_at=datetime.utcnow()
+            session_id="test-123", created_at=datetime.now(timezone.utc)
         )
 
         assert session._lock_initialized is True
@@ -108,7 +108,7 @@ class TestSessionLockInitialization:
     async def test_record_access_handles_lazy_lock_creation(self):
         """Test that record_access creates lock lazily if needed"""
         session = ContextSwitcherSession(
-            session_id="test-456", created_at=datetime.utcnow()
+            session_id="test-456", created_at=datetime.now(timezone.utc)
         )
 
         # Clear the lock to simulate lazy creation scenario
@@ -125,7 +125,7 @@ class TestSessionLockInitialization:
     async def test_concurrent_access_no_race_condition(self):
         """Test that concurrent access doesn't cause race conditions"""
         session = ContextSwitcherSession(
-            session_id="test-789", created_at=datetime.utcnow()
+            session_id="test-789", created_at=datetime.now(timezone.utc)
         )
 
         # Simulate concurrent access
@@ -143,10 +143,10 @@ class TestSessionLockInitialization:
     def test_multiple_instances_independent_locks(self):
         """Test that multiple session instances have independent locks"""
         session1 = ContextSwitcherSession(
-            session_id="session-1", created_at=datetime.utcnow()
+            session_id="session-1", created_at=datetime.now(timezone.utc)
         )
         session2 = ContextSwitcherSession(
-            session_id="session-2", created_at=datetime.utcnow()
+            session_id="session-2", created_at=datetime.now(timezone.utc)
         )
 
         # Both should be initialized
@@ -166,7 +166,7 @@ class TestSessionManagerResourceCleanup:
         """Test that cleanup is always attempted even with errors"""
         manager = SessionManager()
         session = ContextSwitcherSession(
-            session_id="cleanup-test", created_at=datetime.utcnow()
+            session_id="cleanup-test", created_at=datetime.now(timezone.utc)
         )
         manager.sessions["cleanup-test"] = session
 
@@ -195,12 +195,12 @@ class TestSessionManagerResourceCleanup:
             mock_cleanup.side_effect = SessionCleanupError("Multiple errors occurred")
 
             session = ContextSwitcherSession(
-                session_id="multi-error-test", created_at=datetime.utcnow()
+                session_id="multi-error-test", created_at=datetime.now(timezone.utc)
             )
             # Make it expired by setting created_at to an old date
             from datetime import timedelta
 
-            session.created_at = datetime.utcnow() - timedelta(hours=2)
+            session.created_at = datetime.now(timezone.utc) - timedelta(hours=2)
             manager.sessions["multi-error-test"] = session
             manager.session_ttl = timedelta(seconds=0)  # Force expiration
 
@@ -237,7 +237,7 @@ class TestSessionManagerResourceCleanup:
             # Add multiple expired sessions
             for i in range(3):
                 session = ContextSwitcherSession(
-                    session_id=f"partial-{i}", created_at=datetime.utcnow()
+                    session_id=f"partial-{i}", created_at=datetime.now(timezone.utc)
                 )
                 manager.sessions[f"partial-{i}"] = session
 
@@ -255,7 +255,7 @@ class TestSessionManagerResourceCleanup:
         manager = SessionManager()
 
         session = ContextSwitcherSession(
-            session_id="import-error-test", created_at=datetime.utcnow()
+            session_id="import-error-test", created_at=datetime.now(timezone.utc)
         )
         manager.sessions["import-error-test"] = session
         manager.session_ttl = timedelta(seconds=0)  # Force expiration
@@ -309,7 +309,7 @@ class TestIntegration:
 
             # Create a session manually
             session = ContextSwitcherSession(
-                session_id="integration-test", created_at=datetime.utcnow()
+                session_id="integration-test", created_at=datetime.now(timezone.utc)
             )
             await manager.add_session(session)
 

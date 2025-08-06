@@ -10,7 +10,7 @@ import os  # noqa: E402
 import secrets  # noqa: E402
 import tempfile  # noqa: E402
 import threading  # noqa: E402
-from datetime import datetime  # noqa: E402
+from datetime import datetime, timezone  # noqa: E402
 from pathlib import Path  # noqa: E402
 from unittest.mock import MagicMock, patch  # noqa: E402
 
@@ -92,7 +92,7 @@ class TestPBKDF2IterationUpdate:
         """Test that PBKDF2 now uses 600,000 iterations"""
         binding = ClientBinding(
             session_entropy="test_entropy",
-            creation_timestamp=datetime.utcnow(),
+            creation_timestamp=datetime.now(timezone.utc),
             binding_signature="",
             access_pattern_hash="test_hash",
         )
@@ -114,7 +114,7 @@ class TestPBKDF2IterationUpdate:
         """Test that binding validation works with new iteration count"""
         binding = ClientBinding(
             session_entropy="test_entropy",
-            creation_timestamp=datetime.utcnow(),
+            creation_timestamp=datetime.now(timezone.utc),
             binding_signature="",
             access_pattern_hash="test_hash",
         )
@@ -297,7 +297,7 @@ class TestAsyncLockInitialization:
     async def test_concurrent_access_to_uninitialized_session(self):
         """Test that concurrent access to session with uninitialized lock works"""
         session = ContextSwitcherSession(
-            session_id="test", created_at=datetime.utcnow()
+            session_id="test", created_at=datetime.now(timezone.utc)
         )
 
         # Simulate __post_init__ not being called (clear the lock)
@@ -321,7 +321,7 @@ class TestAsyncLockInitialization:
     async def test_session_with_initialized_lock(self):
         """Test that session with properly initialized lock works correctly"""
         session = ContextSwitcherSession(
-            session_id="test", created_at=datetime.utcnow()
+            session_id="test", created_at=datetime.now(timezone.utc)
         )
 
         # Verify lock is initialized after __post_init__
@@ -521,7 +521,7 @@ class TestConcurrentLockInitialization:
                 session = ContextSwitcherSession(
                     session_id=f"concurrent_{index}",
                     topic="test",
-                    created_at=datetime.utcnow(),
+                    created_at=datetime.now(timezone.utc),
                 )
                 sessions.append(session)
 
@@ -560,7 +560,7 @@ class TestConcurrentLockInitialization:
         session = ContextSwitcherSession(
             session_id="test_concurrent_access",
             topic="test",
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
 
         # Reset access count
@@ -604,13 +604,13 @@ class TestIntegrationScenarios:
     def test_session_security_with_strong_binding(self):
         """Test session with strong client binding"""
         session = ContextSwitcherSession(
-            session_id="secure_session", created_at=datetime.utcnow()
+            session_id="secure_session", created_at=datetime.now(timezone.utc)
         )
 
         # Create secure binding
         binding = ClientBinding(
             session_entropy="strong_entropy_value",
-            creation_timestamp=datetime.utcnow(),
+            creation_timestamp=datetime.now(timezone.utc),
             binding_signature="",
             access_pattern_hash="initial_pattern_hash",
         )

@@ -2,7 +2,7 @@
 
 import pytest
 from unittest.mock import Mock, patch, AsyncMock
-from datetime import datetime
+from datetime import datetime, timezone
 
 from src.context_switcher_mcp.aorp import (
     convert_legacy_response,
@@ -164,7 +164,7 @@ class TestMockMCPToolIntegration:
     def mock_session(self):
         """Create a mock session for testing"""
         session = ContextSwitcherSession(
-            session_id="test-session-123", created_at=datetime.utcnow()
+            session_id="test-session-123", created_at=datetime.now(timezone.utc)
         )
         session.topic = "Test API design"
 

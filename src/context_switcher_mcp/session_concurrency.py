@@ -4,7 +4,7 @@ import asyncio
 import threading
 import logging
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ class SessionConcurrency:
         """
         self.session_id = session_id
         self.access_count = 0
-        self.last_accessed = datetime.utcnow()
+        self.last_accessed = datetime.now(timezone.utc)
         self.version = 0  # Version for optimistic locking and race condition detection
 
         # Concurrency control attributes
@@ -67,7 +67,7 @@ class SessionConcurrency:
 
         async with self._access_lock:
             self.access_count += 1
-            self.last_accessed = datetime.utcnow()
+            self.last_accessed = datetime.now(timezone.utc)
             self.version += 1  # Increment version for change tracking
 
             if tool_name:
@@ -164,7 +164,7 @@ class SessionConcurrency:
 
             # Increment version after successful update
             self.increment_version()
-            self.last_accessed = datetime.utcnow()
+            self.last_accessed = datetime.now(timezone.utc)
 
             return result
 
@@ -172,7 +172,7 @@ class SessionConcurrency:
         """Reset access tracking (useful for testing)"""
         self.access_count = 0
         self.version = 0
-        self.last_accessed = datetime.utcnow()
+        self.last_accessed = datetime.now(timezone.utc)
 
     def get_concurrency_status(self) -> dict:
         """Get detailed concurrency status

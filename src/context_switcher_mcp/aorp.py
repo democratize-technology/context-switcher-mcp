@@ -3,7 +3,7 @@ AI-Optimized Response Protocol (AORP) Implementation
 Transforms MCP responses from data dumps into AI workflow enablers
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional
 import logging
 
@@ -105,7 +105,7 @@ class AORPBuilder:
 
     def metadata(self, **kwargs) -> "AORPBuilder":
         """Set metadata with automatic timestamp"""
-        metadata = {"timestamp": datetime.utcnow().isoformat(), **kwargs}
+        metadata = {"timestamp": datetime.now(timezone.utc).isoformat(), **kwargs}
         self.response["details"]["metadata"] = metadata
         return self
 
@@ -316,7 +316,7 @@ def create_error_response(
                 "context": context or {},
             }
         )
-        .metadata(error_id=f"err_{int(datetime.utcnow().timestamp())}")
+        .metadata(error_id=f"err_{int(datetime.now(timezone.utc).timestamp())}")
     )
 
     if session_id:
