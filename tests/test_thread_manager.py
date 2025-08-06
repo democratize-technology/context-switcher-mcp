@@ -28,6 +28,7 @@ def mock_thread():
     thread = MagicMock(spec=Thread)
     thread.name = "test_thread"
     thread.model_backend = ModelBackend.BEDROCK
+    thread.conversation_history = []
     thread.add_message = MagicMock()
     return thread
 
@@ -40,6 +41,7 @@ def mock_threads():
         thread = MagicMock(spec=Thread)
         thread.name = name
         thread.model_backend = ModelBackend.BEDROCK
+        thread.conversation_history = []
         thread.add_message = MagicMock()
         threads[name] = thread
     return threads
@@ -323,6 +325,7 @@ class TestThreadManagerIntegration:
             thread = MagicMock(spec=Thread)
             thread.name = name
             thread.model_backend = ModelBackend.BEDROCK
+            thread.conversation_history = []
             thread.add_message = MagicMock()
             threads[name] = thread
 

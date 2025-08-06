@@ -90,7 +90,11 @@ class PerspectiveOrchestrator:
         self.metrics_lock = asyncio.Lock()
 
     async def broadcast_to_perspectives(
-        self, threads: Dict[str, Thread], message: str, session_id: str = "unknown"
+        self,
+        threads: Dict[str, Thread],
+        message: str,
+        session_id: str = "unknown",
+        topic: str = None,
     ) -> Dict[str, str]:
         """Broadcast message to all perspective threads and collect responses"""
         # Initialize metrics
@@ -123,7 +127,7 @@ class PerspectiveOrchestrator:
             # Handle CoT threads if any
             if use_cot_threads:
                 cot_responses = await self._broadcast_with_cot(
-                    use_cot_threads, message, session_id
+                    use_cot_threads, message, session_id, topic
                 )
                 responses.update(cot_responses)
 
@@ -170,7 +174,11 @@ class PerspectiveOrchestrator:
             raise OrchestrationError(f"Perspective broadcast failed: {e}") from e
 
     async def _broadcast_with_cot(
-        self, threads: Dict[str, Thread], message: str, session_id: str
+        self,
+        threads: Dict[str, Thread],
+        message: str,
+        session_id: str,
+        topic: str = None,
     ) -> Dict[str, str]:
         """Broadcast to threads using Chain of Thought reasoning"""
         import boto3
@@ -188,7 +196,7 @@ class PerspectiveOrchestrator:
             # Create task for CoT processing
             task = asyncio.create_task(
                 self._process_thread_with_cot(
-                    name, thread, message, bedrock_client, session_id
+                    name, thread, message, bedrock_client, session_id, topic
                 )
             )
             tasks.append((name, task))
@@ -212,6 +220,7 @@ class PerspectiveOrchestrator:
         message: str,
         bedrock_client: Any,
         session_id: str,
+        topic: str = None,
     ) -> str:
         """Process a single thread with Chain of Thought reasoning"""
         try:
@@ -219,7 +228,7 @@ class PerspectiveOrchestrator:
                 response_text,
                 reasoning_summary,
             ) = await self.reasoning_orchestrator.analyze_with_reasoning(
-                thread, message, bedrock_client, session_id
+                thread, message, bedrock_client, session_id, topic
             )
 
             # Add response to thread history

@@ -31,7 +31,9 @@ def mock_response_formatter():
 def perspective_orchestrator(mock_thread_manager, mock_response_formatter):
     """Create PerspectiveOrchestrator instance for testing"""
     return PerspectiveOrchestrator(
-        thread_manager=mock_thread_manager, response_formatter=mock_response_formatter
+        thread_manager=mock_thread_manager,
+        response_formatter=mock_response_formatter,
+        enable_cot=False,  # Disable CoT for unit tests
     )
 
 
@@ -40,9 +42,13 @@ def mock_threads():
     """Create dictionary of mock perspective threads"""
     threads = {}
     for name in ["technical", "business", "user"]:
-        thread = MagicMock(spec=Thread)
+        thread = MagicMock()
         thread.name = name
-        thread.model_backend = ModelBackend.BEDROCK
+        thread.model_backend = MagicMock()
+        thread.model_backend.value = "bedrock"  # Mock the value attribute
+        thread.system_prompt = f"You are a {name} perspective."
+        thread.model_name = "anthropic.claude-3-sonnet-20240229-v1:0"
+        thread.conversation_history = []
         thread.add_message = MagicMock()
         threads[name] = thread
     return threads
@@ -397,8 +403,8 @@ class TestPerspectiveOrchestratorIntegration:
     @pytest.mark.asyncio
     async def test_full_perspective_workflow(self):
         """Test complete perspective workflow with real components"""
-        # Create orchestrator with real components
-        orchestrator = PerspectiveOrchestrator()
+        # Create orchestrator with real components but disable CoT for testing
+        orchestrator = PerspectiveOrchestrator(enable_cot=False)
 
         # Create test threads
         threads = {}

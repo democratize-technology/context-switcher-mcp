@@ -22,12 +22,11 @@ def reasoning_orchestrator():
 def mock_thread():
     """Create a mock thread for testing"""
     thread = Thread(
+        id="test-thread-1",
         name="test-perspective",
         system_prompt="You are a test perspective.",
         model_backend=ModelBackend.BEDROCK,
         model_name="anthropic.claude-3-sonnet-20240229-v1:0",
-        temperature=0.7,
-        max_tokens=2048,
     )
     thread.add_message("user", "Test message")
     return thread
@@ -80,7 +79,11 @@ class TestPerspectiveReasoningOrchestrator:
     ):
         """Test analysis when CoT is not available"""
         response, summary = await reasoning_orchestrator.analyze_with_reasoning(
-            mock_thread, "Test prompt", mock_bedrock_client, "test-session"
+            mock_thread,
+            "Test prompt",
+            mock_bedrock_client,
+            "test-session",
+            "Test topic",
         )
         assert response == "Chain of Thought not available"
         assert summary == {}
@@ -116,7 +119,11 @@ class TestPerspectiveReasoningOrchestrator:
         }
 
         response, summary = await reasoning_orchestrator.analyze_with_reasoning(
-            mock_thread, "Test prompt", mock_bedrock_client, "test-session"
+            mock_thread,
+            "Test prompt",
+            mock_bedrock_client,
+            "test-session",
+            "Test topic",
         )
 
         assert response == "Test response from CoT"

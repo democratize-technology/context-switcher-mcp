@@ -23,6 +23,8 @@ class ProblemDomain(Enum):
     MIGRATION = "migration"
     INTEGRATION = "integration"
     SCALABILITY = "scalability"
+    ORGANIZATIONAL = "organizational"  # New domain for HR/team topics
+    PROCESS = "process"  # New domain for workflow/methodology
 
 
 @dataclass
@@ -182,6 +184,43 @@ class SmartPerspectiveSelector:
                 "horizontal",
                 "vertical",
             ],
+            ProblemDomain.ORGANIZATIONAL: [
+                "team",
+                "employee",
+                "staff",
+                "workforce",
+                "culture",
+                "morale",
+                "productivity",
+                "work week",
+                "work-life",
+                "remote",
+                "hybrid",
+                "management",
+                "leadership",
+                "hr",
+                "human resources",
+                "retention",
+                "hiring",
+                "burnout",
+                "wellbeing",
+            ],
+            ProblemDomain.PROCESS: [
+                "process",
+                "workflow",
+                "methodology",
+                "agile",
+                "scrum",
+                "kanban",
+                "waterfall",
+                "devops",
+                "ci/cd",
+                "automation",
+                "efficiency",
+                "optimization",
+                "standardization",
+                "best practices",
+            ],
         }
 
         # Specialized perspectives for each domain
@@ -257,6 +296,28 @@ class SmartPerspectiveSelector:
                     "Capacity planning and growth projection specialist",
                 ),
                 ("performance", "Load testing and optimization expert"),
+            ],
+            ProblemDomain.ORGANIZATIONAL: [
+                ("hr_specialist", "Human resources and workforce management expert"),
+                (
+                    "culture_analyst",
+                    "Organizational culture and team dynamics specialist",
+                ),
+                (
+                    "productivity_expert",
+                    "Workforce productivity and efficiency analyst",
+                ),
+                (
+                    "wellbeing_advocate",
+                    "Employee wellbeing and work-life balance specialist",
+                ),
+                ("change_manager", "Organizational change management expert"),
+            ],
+            ProblemDomain.PROCESS: [
+                ("process_engineer", "Business process optimization specialist"),
+                ("agile_coach", "Agile methodology and team transformation expert"),
+                ("automation_specialist", "Process automation and efficiency expert"),
+                ("quality_analyst", "Process quality and standardization specialist"),
             ],
         }
 

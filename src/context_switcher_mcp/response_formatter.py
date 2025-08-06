@@ -244,11 +244,20 @@ class ResponseFormatter:
                     "recoverable": True,
                 }
             else:
-                return {
-                    "error_message": error_response,
-                    "error_type": "unknown_error",
-                    "recoverable": True,
-                }
+                # For non-error formatted responses, check if it looks like an error
+                # If it contains typical error keywords, treat as an error
+                lower_response = error_response.lower()
+                if any(
+                    word in lower_response
+                    for word in ["error", "failed", "exception", "traceback"]
+                ):
+                    return {
+                        "error_message": error_response,
+                        "error_type": "unknown_error",
+                        "recoverable": True,
+                    }
+                # Otherwise, it's likely a successful response - return empty dict
+                return {}
         except Exception as e:
             logger.warning(f"Failed to parse error response: {e}")
             return {

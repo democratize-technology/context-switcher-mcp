@@ -77,6 +77,7 @@ class PerspectiveReasoningOrchestrator:
         prompt: str,
         bedrock_client: Any,
         session_id: str = "unknown",
+        topic: str = None,
     ) -> Tuple[str, Dict[str, Any]]:
         """Analyze a prompt using structured Chain of Thought reasoning
 
@@ -141,8 +142,16 @@ Focus on aspects most relevant to this perspective."""
                         {"role": msg["role"], "content": [{"text": content}]}
                     )
 
-        # Add the prompt with CoT instructions
-        cot_prompt = f"""Analyze the following from your {thread.name} perspective:
+        # Add the prompt with CoT instructions, including topic context if available
+        if topic:
+            cot_prompt = f"""Context: You are analyzing the topic "{topic}" from your {thread.name} perspective.
+
+Specific question to analyze:
+{prompt}
+
+Use chain_of_thought_step to structure your reasoning about "{topic}", then provide your analysis."""
+        else:
+            cot_prompt = f"""Analyze the following from your {thread.name} perspective:
 
 {prompt}
 

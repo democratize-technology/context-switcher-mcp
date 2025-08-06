@@ -38,11 +38,15 @@ class ThreadOrchestrator:
         self.metrics_lock = self.thread_manager.metrics_lock
 
     async def broadcast_message(
-        self, threads: Dict[str, Thread], message: str, session_id: str = "unknown"
+        self,
+        threads: Dict[str, Thread],
+        message: str,
+        session_id: str = "unknown",
+        topic: str = None,
     ) -> Dict[str, str]:
         """Broadcast message to all threads and collect responses"""
         return await self.perspective_orchestrator.broadcast_to_perspectives(
-            threads, message, session_id
+            threads, message, session_id, topic
         )
 
     async def broadcast_message_stream(

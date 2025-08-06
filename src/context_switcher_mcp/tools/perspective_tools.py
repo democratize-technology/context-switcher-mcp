@@ -148,17 +148,28 @@ def register_perspective_tools(mcp):
         try:
             selector = SmartPerspectiveSelector()
 
-            # Get recommendations
-            recommendations = await selector.recommend_perspectives(
+            # Get recommendations (synchronous call - no await needed)
+            recommendations = selector.recommend_perspectives(
                 topic=request.topic,
                 context=request.context,
                 max_recommendations=request.max_recommendations,
             )
 
+            # Convert PerspectiveRecommendation objects to dictionaries
+            recommendations_data = [
+                {
+                    "name": rec.name,
+                    "description": rec.description,
+                    "relevance_score": rec.relevance_score,
+                    "reasoning": rec.reasoning,
+                }
+                for rec in recommendations
+            ]
+
             response = {
                 "topic": request.topic,
-                "recommendations": recommendations,
-                "total_recommendations": len(recommendations),
+                "recommendations": recommendations_data,
+                "total_recommendations": len(recommendations_data),
                 "usage_hint": "Use add_perspective with these suggestions or include in start_context_analysis",
             }
 
@@ -171,7 +182,7 @@ def register_perspective_tools(mcp):
                 if session_valid:
                     response["session_id"] = request.existing_session_id
                     response["next_steps"] = [
-                        f"add_perspective(session_id='{request.existing_session_id}', name='{rec['name']}', description='{rec['description']}') - Add {rec['name']} perspective"
+                        f"add_perspective(session_id='{request.existing_session_id}', name='{rec.name}', description='{rec.description}') - Add {rec.name} perspective"
                         for rec in recommendations[:3]  # Show top 3
                     ]
                 else:

@@ -10,11 +10,6 @@ from ..aorp import (
     generate_synthesis_next_steps,
     create_error_response,
 )
-from ..compression import prepare_synthesis_input
-from ..confidence_metrics import (
-    ConfidenceCalibrator,
-    analyze_synthesis_quality,
-)
 from ..helpers.analysis_helpers import (
     validate_analysis_request,
     build_analysis_aorp_response,
@@ -75,9 +70,9 @@ def register_analysis_tools(mcp):
         orchestrator = ThreadOrchestrator()
 
         try:
-            # Execute analysis across all perspectives
+            # Execute analysis across all perspectives, passing the session topic for context
             results = await orchestrator.broadcast_message(
-                session.threads, request.prompt, request.session_id
+                session.threads, request.prompt, request.session_id, session.topic
             )
 
             # Count active vs abstained responses
@@ -205,57 +200,104 @@ def register_analysis_tools(mcp):
             )
 
         try:
-            # Prepare synthesis input with compression
-            _ = prepare_synthesis_input(session.analyses)
+            # Extract the most recent analysis results for synthesis
+            # session.analyses is a list where each item contains a 'results' dict
+            latest_analysis = session.analyses[-1]  # Get the most recent analysis
+            perspectives_data = latest_analysis.get("results", {})
 
-            # Initialize confidence calibrator
-            calibrator = ConfidenceCalibrator()
+            # Import and use ResponseFormatter for actual synthesis
+            from ..response_formatter import ResponseFormatter
+            from ..models import ModelBackend
 
-            # Perform synthesis analysis
-            synthesis_quality = analyze_synthesis_quality(
-                len(session.threads),
-                len(session.analyses),
-                sum(a["active_count"] for a in session.analyses),
-                sum(len(a.get("model_errors", [])) for a in session.analyses),
+            formatter = ResponseFormatter()
+
+            # Perform the actual synthesis using the ResponseFormatter
+            synthesis_result = await formatter.synthesize_responses(
+                perspectives_data,
+                session_id=request.session_id,
+                synthesis_backend=ModelBackend.BEDROCK,  # Default to Bedrock
             )
 
-            # Calculate synthesis confidence
-            synthesis_confidence = calibrator.calculate_synthesis_confidence(
-                perspective_count=len(session.threads),
-                analysis_count=len(session.analyses),
-                total_responses=sum(a["active_count"] for a in session.analyses),
-                error_count=sum(
-                    len(a.get("model_errors", [])) for a in session.analyses
-                ),
+            # Check if synthesis result is an error response (starts with ERROR: or AORP_ERROR:)
+            # Don't use extract_error_info as it incorrectly flags successful content containing error keywords
+            if synthesis_result.startswith("ERROR:") or synthesis_result.startswith(
+                "AORP_ERROR:"
+            ):
+                # If synthesis failed, extract the error message
+                error_msg = synthesis_result
+                if synthesis_result.startswith("ERROR:"):
+                    error_msg = synthesis_result[len("ERROR:") :].strip()
+                elif synthesis_result.startswith("AORP_ERROR:"):
+                    error_msg = synthesis_result[len("AORP_ERROR:") :].strip()
+
+                return create_error_response(
+                    error_msg,
+                    "synthesis_error",
+                    {"session_id": request.session_id},
+                    recoverable=True,
+                    session_id=request.session_id,
+                )
+
+            # Import the synthesis confidence calculation function
+            from ..aorp import calculate_synthesis_confidence
+
+            # Calculate synthesis confidence using the correct function
+            # Using simple metrics for now - can be enhanced later
+            synthesis_confidence = calculate_synthesis_confidence(
+                perspectives_analyzed=len(perspectives_data),
+                patterns_identified=2,  # Default estimate
+                tensions_mapped=1,  # Default estimate
+                synthesis_length=len(synthesis_result),
             )
 
             # Generate next steps for synthesis
+            # Using default values for tensions and insights, with calculated confidence
             next_steps = generate_synthesis_next_steps(
-                len(session.threads), len(session.analyses)
+                tensions_identified=1,  # Default estimate for tensions
+                emergent_insights=len(
+                    session.analyses
+                ),  # Number of analyses as insight count
+                confidence=synthesis_confidence,  # Use the calculated confidence
             )
 
             # Build AORP response for synthesis
             builder = AORPBuilder()
-            builder.set_objective(
-                "Cross-perspective synthesis and pattern identification"
+
+            # Set required immediate fields
+            builder.status("success")
+            builder.key_insight(
+                f"Synthesized {len(perspectives_data)} perspectives with {synthesis_confidence:.1%} confidence"
             )
-            builder.set_confidence(synthesis_confidence)
+            builder.confidence(synthesis_confidence)
+            builder.session_id(request.session_id)
 
-            # Add synthesis insights
-            builder.add_recommendation(
-                "Pattern Analysis",
-                f"Synthesized insights from {len(session.analyses)} analyses across {len(session.threads)} perspectives",
-                confidence=synthesis_confidence,
+            # Set actionable fields
+            builder.next_steps(next_steps)
+            builder.primary_recommendation(
+                "Use synthesis insights for strategic decision-making"
+            )
+            builder.workflow_guidance(
+                "Review synthesis, identify action items, and proceed with implementation"
             )
 
-            # Add quality metrics
-            builder.add_context("synthesis_quality", str(synthesis_quality))
-            builder.add_context("total_analyses", str(len(session.analyses)))
-            builder.add_context("total_perspectives", str(len(session.threads)))
+            # Set quality metrics
+            builder.completeness(1.0)  # Synthesis is complete
+            builder.reliability(synthesis_confidence)
+            builder.urgency("medium" if synthesis_confidence > 0.7 else "low")
 
-            # Set next steps
-            for step in next_steps:
-                builder.add_next_step(step)
+            # Set details
+            builder.summary(
+                f"Cross-perspective synthesis completed for {len(perspectives_data)} perspectives"
+            )
+            builder.data(
+                {
+                    "synthesis": synthesis_result,
+                    "perspectives_analyzed": len(perspectives_data),
+                    "total_perspectives": len(session.threads),
+                    "total_analyses": len(session.analyses),
+                    "confidence": synthesis_confidence,
+                }
+            )
 
             return builder.build()
 
