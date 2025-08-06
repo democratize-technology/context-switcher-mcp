@@ -117,36 +117,38 @@ Focus on aspects most relevant to this perspective."""
         # Prepare messages - MUST start with user message for Bedrock
         messages = []
 
-        # Only add conversation history if it exists and has content
+        # Process conversation history but skip the last message if it's the prompt we just added
+        # We'll add it back with CoT instructions
         if thread.conversation_history:
-            for msg in thread.conversation_history:
-                # Skip empty messages
-                if msg.get("content"):
+            last_msg = (
+                thread.conversation_history[-1] if thread.conversation_history else None
+            )
+            if (
+                last_msg
+                and last_msg.get("role") == "user"
+                and last_msg.get("content") == prompt
+            ):
+                # Last message is the prompt we just added, we'll replace it with CoT version
+                history_to_process = thread.conversation_history[:-1]
+            else:
+                history_to_process = thread.conversation_history
+
+            # Add history messages
+            for msg in history_to_process:
+                content = msg.get("content", "").strip()
+                if content:
                     messages.append(
-                        {"role": msg["role"], "content": [{"text": msg["content"]}]}
+                        {"role": msg["role"], "content": [{"text": content}]}
                     )
 
-        # Bedrock requires conversation to start with user message
-        # If messages is empty or doesn't start with user, add the prompt as first message
-        if not messages or messages[0]["role"] != "user":
-            # Insert user message at the beginning
-            user_message = {
-                "role": "user",
-                "content": [
-                    {
-                        "text": f"""Analyze the following from your {thread.name} perspective:
+        # Add the prompt with CoT instructions
+        cot_prompt = f"""Analyze the following from your {thread.name} perspective:
 
 {prompt}
 
 Use chain_of_thought_step to structure your reasoning, then provide your analysis."""
-                    }
-                ],
-            }
-            # If messages exist but don't start with user, prepend the user message
-            if messages:
-                messages.insert(0, user_message)
-            else:
-                messages.append(user_message)
+
+        messages.append({"role": "user", "content": [{"text": cot_prompt}]})
 
         # Prepare Bedrock request with CoT tools
         request = {

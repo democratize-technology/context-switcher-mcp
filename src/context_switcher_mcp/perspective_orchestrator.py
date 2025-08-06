@@ -181,7 +181,10 @@ class PerspectiveOrchestrator:
         # Process each thread with CoT
         tasks = []
         for name, thread in threads.items():
-            # Don't add message here - analyze_with_reasoning will handle it
+            # CRITICAL: Add the message to conversation history for CoT threads
+            # This was missing and causing empty conversation history!
+            thread.add_message("user", message)
+
             # Create task for CoT processing
             task = asyncio.create_task(
                 self._process_thread_with_cot(
