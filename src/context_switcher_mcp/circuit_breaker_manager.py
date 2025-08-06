@@ -1,7 +1,7 @@
 """Circuit breaker pattern implementation for resilient backend failure handling"""
 
 import logging
-from typing import Dict
+from typing import Any, Dict
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -137,7 +137,7 @@ class CircuitBreakerManager:
         circuit_breaker = self.circuit_breakers[backend]
         await circuit_breaker.record_failure()
 
-    def get_status_summary(self) -> Dict[str, Dict[str, any]]:
+    def get_status_summary(self) -> Dict[str, Dict[str, Any]]:
         """Get current circuit breaker status for all backends"""
         circuit_status = {}
         for backend, breaker in self.circuit_breakers.items():

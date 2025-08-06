@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import time
-from typing import Dict, AsyncGenerator
+from typing import Any, AsyncGenerator, Dict
 
 from .models import Thread
 from .backend_interface import get_backend_interface
@@ -25,7 +25,7 @@ class StreamingCoordinator:
 
     async def broadcast_stream(
         self, threads: Dict[str, Thread], message: str, session_id: str = "unknown"
-    ) -> AsyncGenerator[Dict[str, any], None]:
+    ) -> AsyncGenerator[Dict[str, Any], None]:
         """
         Broadcast message to all threads with streaming responses
 
@@ -105,7 +105,7 @@ class StreamingCoordinator:
 
     async def stream_single_thread(
         self, thread: Thread, thread_name: str
-    ) -> AsyncGenerator[Dict[str, any], None]:
+    ) -> AsyncGenerator[Dict[str, Any], None]:
         """Stream response from a single thread"""
         async for event in self._stream_from_thread(thread, thread_name):
             yield event
@@ -144,7 +144,7 @@ class StreamingCoordinator:
 
     def create_stream_event(
         self, event_type: str, thread_name: str, content: str = "", **kwargs
-    ) -> Dict[str, any]:
+    ) -> Dict[str, Any]:
         """Create a standardized streaming event"""
         event = {
             "type": event_type,

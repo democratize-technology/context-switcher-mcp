@@ -2,7 +2,7 @@
 
 import time
 import logging
-from typing import Dict
+from typing import Any, Dict
 from dataclasses import dataclass
 from threading import Lock
 
@@ -161,7 +161,7 @@ class SessionRateLimiter:
                 del self.session_buckets[session_id]
                 logger.debug(f"Cleaned up rate limit state for session {session_id}")
 
-    def get_stats(self) -> Dict[str, any]:
+    def get_stats(self) -> Dict[str, Any]:
         """Get rate limiter statistics"""
         with self._lock:
             active_sessions = len(self.session_buckets)
@@ -173,8 +173,8 @@ class SessionRateLimiter:
             for buckets in self.session_buckets.values():
                 buckets["request"]._refill()
                 buckets["analysis"]._refill()
-                total_request_tokens += buckets["request"].tokens
-                total_analysis_tokens += buckets["analysis"].tokens
+                total_request_tokens += int(buckets["request"].tokens)
+                total_analysis_tokens += int(buckets["analysis"].tokens)
 
             avg_request_tokens = (
                 total_request_tokens / active_sessions if active_sessions > 0 else 0

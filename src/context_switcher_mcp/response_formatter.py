@@ -1,7 +1,7 @@
 """Response formatting service for AORP-compliant responses"""
 
 import logging
-from typing import Dict, Any
+from typing import Any, Dict, Optional
 
 from .aorp import create_error_response
 from .backend_interface import get_backend_interface
@@ -24,7 +24,7 @@ class ResponseFormatter:
         self,
         error_message: str,
         error_type: str,
-        context: Dict[str, Any] = None,
+        context: Optional[Dict[str, Any]] = None,
         recoverable: bool = True,
     ) -> str:
         """Format an error response according to AORP specification"""
@@ -46,7 +46,7 @@ class ResponseFormatter:
         return f"{NO_RESPONSE}{reason_text}"
 
     def format_success_response(
-        self, content: str, metadata: Dict[str, Any] = None
+        self, content: str, metadata: Optional[Dict[str, Any]] = None
     ) -> str:
         """Format a successful response with optional metadata"""
         if metadata:
@@ -162,9 +162,9 @@ class ResponseFormatter:
         self,
         event_type: str,
         content: str,
-        perspective_name: str = None,
-        timestamp: float = None,
-        metadata: Dict[str, Any] = None,
+        perspective_name: Optional[str] = None,
+        timestamp: Optional[float] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Format a streaming event for real-time responses"""
         import time

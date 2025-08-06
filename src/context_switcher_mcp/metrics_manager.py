@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import time
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 from dataclasses import dataclass, field
 
 from .circular_buffer import CircularBuffer
@@ -124,7 +124,7 @@ class MetricsManager:
             f"Rate: {metrics.success_rate:.1f}%"
         )
 
-    async def get_performance_metrics(self, last_n: int = 10) -> Dict[str, any]:
+    async def get_performance_metrics(self, last_n: int = 10) -> Dict[str, Any]:
         """Get thread-level performance metrics"""
         async with self.metrics_lock:
             if self.metrics_history.is_empty():
@@ -191,7 +191,7 @@ class MetricsManager:
             },
         }
 
-    def get_storage_info(self) -> Dict[str, any]:
+    def get_storage_info(self) -> Dict[str, Any]:
         """Get metrics storage utilization information"""
         return {
             "current_size": len(self.metrics_history),

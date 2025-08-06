@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 try:
     from chain_of_thought import (
@@ -29,7 +29,7 @@ class ChainOfThoughtError(OrchestrationError):
 class CoTTimeoutError(ChainOfThoughtError):
     """Chain of Thought processing timeout"""
 
-    def __init__(self, timeout: float, message: str = None):
+    def __init__(self, timeout: float, message: Optional[str] = None):
         msg = message or f"Chain of Thought processing timed out after {timeout}s"
         super().__init__(msg)
         self.timeout = timeout
@@ -38,7 +38,7 @@ class CoTTimeoutError(ChainOfThoughtError):
 class CoTProcessingError(ChainOfThoughtError):
     """Error during Chain of Thought processing"""
 
-    def __init__(self, message: str, stage: str = None):
+    def __init__(self, message: str, stage: Optional[str] = None):
         super().__init__(message)
         self.stage = stage
 
@@ -77,7 +77,7 @@ class PerspectiveReasoningOrchestrator:
         prompt: str,
         bedrock_client: Any,
         session_id: str = "unknown",
-        topic: str = None,
+        topic: Optional[str] = None,
     ) -> Tuple[str, Dict[str, Any]]:
         """Analyze a prompt using structured Chain of Thought reasoning
 

@@ -1,7 +1,7 @@
 """Enhanced confidence calibration and quality metrics for Context Switcher MCP"""
 
 import re
-from typing import Dict, Tuple
+from typing import Any, Dict, Tuple
 from dataclasses import dataclass
 from enum import Enum
 
@@ -335,7 +335,7 @@ class ConfidenceCalibrator:
         error_count: int,
         abstention_count: int,
         total_perspectives: int,
-    ) -> Tuple[float, Dict[str, any]]:
+    ) -> Tuple[float, Dict[str, Any]]:
         """Calculate enhanced confidence score with detailed breakdown"""
 
         if total_perspectives == 0:
@@ -426,7 +426,7 @@ class ConfidenceCalibrator:
 
 def analyze_synthesis_quality(
     synthesis_text: str, perspectives_count: int, original_prompt: str
-) -> Tuple[float, Dict[str, any]]:
+) -> Tuple[float, Dict[str, Any]]:
     """Analyze synthesis quality with detailed metrics"""
 
     calibrator = ConfidenceCalibrator()

@@ -1,6 +1,6 @@
 """Smart perspective selection for Context Switcher MCP"""
 
-from typing import Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 from dataclasses import dataclass
 from enum import Enum
 import logging
@@ -369,7 +369,7 @@ class SmartPerspectiveSelector:
         # Filter domains with meaningful scores
         relevant_domains = [(d, s) for d, s in relevant_domains if s > 0.1]
 
-        recommendations = []
+        recommendations: List[Dict[str, Any]] = []
         used_perspectives = set(existing_perspectives or [])
         used_perspectives.update(self.base_perspectives)
 
@@ -524,7 +524,7 @@ Provide specific, practical insights. If the topic is outside your expertise, re
                 )
 
         # Convert to recommendations
-        recommendations = []
+        recommendations: List[Dict[str, Any]] = []
         for name, desc, reasoning in emerging_themes:
             recommendations.append(
                 PerspectiveRecommendation(

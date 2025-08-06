@@ -3,7 +3,7 @@
 import re
 import logging
 import time
-from typing import Tuple, List
+from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass
 from collections import defaultdict, deque
 
@@ -118,7 +118,7 @@ class ValidationResult:
     cleaned_content: str
     issues: List[str]
     risk_level: str = "low"  # low, medium, high, critical
-    blocked_patterns: List[str] = None
+    blocked_patterns: Optional[List[str]] = None
 
     def __post_init__(self):
         if self.blocked_patterns is None:
@@ -366,7 +366,7 @@ def detect_advanced_prompt_injection(text: str) -> List[InjectionAttempt]:
 
 
 def validate_perspective_data(
-    name: str, description: str, custom_prompt: str = None
+    name: str, description: str, custom_prompt: Optional[str] = None
 ) -> ValidationResult:
     """
     Validate perspective-specific data
@@ -414,7 +414,7 @@ def validate_perspective_data(
 
 
 def validate_analysis_prompt(
-    prompt: str, session_context: str = None
+    prompt: str, session_context: Optional[str] = None
 ) -> ValidationResult:
     """
     Validate analysis prompts with context awareness
@@ -539,7 +539,10 @@ def validate_model_id(model_id: str) -> Tuple[bool, str]:
 
 
 def log_security_event(
-    event_type: str, details: dict, session_id: str = None, client_id: str = None
+    event_type: str,
+    details: Dict[str, Any],
+    session_id: Optional[str] = None,
+    client_id: Optional[str] = None,
 ):
     """
     Enhanced logging for security-related events

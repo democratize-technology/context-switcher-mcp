@@ -1,7 +1,7 @@
 """Refactored Thread management with extracted components"""
 
 import logging
-from typing import Dict
+from typing import Any, Dict
 
 from .circuit_breaker_manager import CircuitBreakerManager
 from .constants import NO_RESPONSE
@@ -112,11 +112,11 @@ class ThreadManager:
     # Metrics storage now handled by MetricsManager
     # This method is no longer needed in this class
 
-    async def get_thread_metrics(self, last_n: int = 10) -> Dict[str, any]:
+    async def get_thread_metrics(self, last_n: int = 10) -> Dict[str, Any]:
         """Get thread-level performance metrics"""
         return await self.metrics_manager.get_performance_metrics(last_n)
 
-    def get_circuit_breaker_status(self) -> Dict[str, Dict[str, any]]:
+    def get_circuit_breaker_status(self) -> Dict[str, Dict[str, Any]]:
         """Get current circuit breaker status for all backends"""
         return self.circuit_breaker_manager.get_status_summary()
 

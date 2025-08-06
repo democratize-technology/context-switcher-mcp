@@ -6,7 +6,6 @@ from enum import Enum
 from typing import Dict, List, Optional, Any
 import hashlib
 import secrets
-import threading
 
 
 class ModelBackend(str, Enum):
@@ -103,45 +102,14 @@ class ContextSwitcherSession:
 
     # Concurrency control
     version: int = 0  # Version for optimistic locking and race condition detection
-    _access_lock: Optional[Any] = field(
-        default=None, init=False, repr=False
-    )  # Will be set to asyncio.Lock() in __post_init__
-    _lock_initialized: bool = field(
-        default=False, init=False, repr=False
-    )  # Track if lock is initialized
-
-    # CRITICAL: Class-level lock for thread-safe initialization
-    # This prevents race conditions during async lock creation
-    _initialization_lock: threading.Lock = field(
-        default_factory=lambda: threading.Lock(), init=False, repr=False, compare=False
-    )
 
     def __post_init__(self):
-        """Initialize async components that can't be set in dataclass fields
+        """Initialize session components
 
-        This method is guaranteed to be called only once per instance during
-        initialization, so we can safely set up locks here without race conditions.
+        Note: Async locks are now managed by SessionLockManager
         """
-        import asyncio
-
-        # Initialize the threading lock for double-checked locking
-        # This is a regular threading.Lock, not an asyncio.Lock
-        if not hasattr(self, "_initialization_lock"):
-            self._initialization_lock = threading.Lock()
-
-        # Initialize locks immediately without checking _lock_initialized
-        # Since __post_init__ is called exactly once by the dataclass mechanism,
-        # we don't need complex synchronization here
-        try:
-            # Try to get the current event loop using modern approach
-            asyncio.get_running_loop()
-            # If we're in a running loop, create the lock
-            self._access_lock = asyncio.Lock()
-        except RuntimeError:
-            # No running event loop exists yet, will create lock lazily
-            self._access_lock = None
-
-        self._lock_initialized = True
+        # No async lock initialization needed here anymore
+        pass
 
     def add_thread(self, thread: Thread) -> None:
         """Add a perspective thread to the session"""
@@ -153,19 +121,10 @@ class ContextSwitcherSession:
 
     async def record_access(self, tool_name: str) -> None:
         """Record session access for behavioral analysis (thread-safe async version)"""
-        import asyncio
+        from .session_lock_manager import get_session_lock_manager
 
-        # CRITICAL: Use double-checked locking pattern to prevent race conditions
-        # First check without lock (fast path for already initialized)
-        if self._access_lock is None:
-            # Acquire thread lock for initialization
-            with self._initialization_lock:
-                # Double-check inside the lock (another thread may have initialized)
-                if self._access_lock is None:
-                    # Now safe to create the asyncio lock
-                    self._access_lock = asyncio.Lock()
-
-        async with self._access_lock:
+        lock_manager = get_session_lock_manager()
+        async with lock_manager.acquire_lock(self.session_id):
             self.access_count += 1
             self.last_accessed = datetime.now(timezone.utc)
             self.version += 1  # Increment version for change tracking

@@ -225,7 +225,7 @@ class ThreadLifecycleManager:
             raise OrchestrationError(f"Backend call failed unexpectedly: {e}") from e
 
     async def execute_threads_parallel(
-        self, threads: Dict[str, Thread], message: str = None
+        self, threads: Dict[str, Thread], message: Optional[str] = None
     ) -> Dict[str, str]:
         """Execute multiple threads in parallel
 

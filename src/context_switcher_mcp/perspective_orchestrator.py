@@ -355,7 +355,7 @@ class PerspectiveOrchestrator:
         if len(self.metrics_history) > 100:
             self.metrics_history = self.metrics_history[-100:]
 
-    async def get_perspective_metrics(self, last_n: int = 10) -> Dict[str, any]:
+    async def get_perspective_metrics(self, last_n: int = 10) -> Dict[str, Any]:
         """Get perspective-level performance metrics"""
         async with self.metrics_lock:
             if not self.metrics_history:
@@ -396,7 +396,7 @@ class PerspectiveOrchestrator:
             ],
         }
 
-    async def get_performance_metrics(self, last_n: int = 10) -> Dict[str, any]:
+    async def get_performance_metrics(self, last_n: int = 10) -> Dict[str, Any]:
         """Get combined performance metrics for recent operations"""
         # Get metrics from thread manager and perspective orchestrator
         thread_metrics = await self.thread_manager.get_thread_metrics(last_n)

@@ -27,7 +27,7 @@ def register_admin_tools(mcp):
             "system_health": {
                 "active_sessions": session_stats["active_sessions"],
                 "capacity_utilization": session_stats["capacity_used"],
-                "circuit_breaker_issues": any(
+                "circuit_breaker_issues": Any(
                     cb["state"] != "CLOSED"
                     for cb in orchestrator_metrics.get("circuit_breakers", {}).values()
                 ),
