@@ -152,38 +152,52 @@ class SessionManager:
             if self._is_expired(session):
                 expired_sessions.append(session_id)
 
-        # Atomically remove expired sessions
+        # Atomically remove expired sessions with guaranteed cleanup
         for session_id in expired_sessions:
             removed_session = self.sessions.pop(session_id, None)
             if removed_session:
-                # Cleanup resources for successfully removed sessions
+                # Always attempt cleanup, even if errors occur
+                # The cleanup method now handles errors internally
                 try:
                     await self._cleanup_session_resources(session_id)
-                except (ImportError, AttributeError) as e:
-                    # Module or attribute not available - non-critical
+                except SessionCleanupError as e:
+                    # Cleanup had errors but was attempted
                     from .security import sanitize_error_message
 
                     logger.warning(
-                        f"Failed to cleanup resources for expired session {session_id}: {sanitize_error_message(str(e))}"
+                        f"Session {session_id} cleanup completed with errors: {sanitize_error_message(str(e))}"
                     )
                 except Exception as e:
-                    # Unexpected errors - log but don't fail
+                    # Unexpected error - this shouldn't happen with new cleanup
                     from .security import sanitize_error_message
 
                     logger.error(
-                        f"Unexpected error cleaning up session {session_id}: {sanitize_error_message(str(e))}",
+                        f"Unexpected error during session {session_id} cleanup: {sanitize_error_message(str(e))}",
                         exc_info=True,
                     )
+                finally:
+                    # Ensure session is marked as cleaned up even if errors occurred
+                    # This prevents resource accumulation
+                    logger.debug(f"Session {session_id} removed from active sessions")
 
         if expired_sessions:
             logger.info(f"Cleaned up {len(expired_sessions)} expired sessions")
 
     async def _cleanup_session_resources(self, session_id: str) -> None:
-        """Clean up external resources for a session (rate limiter, etc.)"""
+        """Clean up external resources for a session (rate limiter, etc.)
+
+        This method ensures resources are cleaned up even if errors occur.
+        All cleanup steps are attempted, and errors are logged but don't
+        prevent other cleanup steps from executing.
+        """
+        cleanup_errors = []
+
+        # Cleanup rate limiter resources
         try:
             from . import rate_limiter
 
-            rate_limiter.cleanup_session(session_id)
+            if hasattr(rate_limiter, "cleanup_session"):
+                rate_limiter.cleanup_session(session_id)
         except ImportError:
             # Rate limiter not available, skip cleanup
             pass
@@ -191,14 +205,25 @@ class SessionManager:
             # cleanup_session method not available
             logger.warning(f"Rate limiter missing cleanup_session method: {e}")
         except Exception as e:
-            # Unexpected errors - log but continue
+            # Log error but continue with other cleanup
             from .security import sanitize_error_message
 
+            error_msg = f"Rate limiter cleanup failed: {sanitize_error_message(str(e))}"
             logger.error(
-                f"Unexpected error in rate limiter cleanup for session {session_id}: {sanitize_error_message(str(e))}",
-                exc_info=True,
+                f"Error in rate limiter cleanup for session {session_id}: {error_msg}"
             )
-            raise SessionCleanupError(f"Failed to cleanup rate limiter: {e}") from e
+            cleanup_errors.append(error_msg)
+
+        # Future: Add other resource cleanup here (e.g., cache, temp files)
+        # Each cleanup step should be in its own try/except block
+
+        # If there were critical errors, raise them after all cleanup attempts
+        if cleanup_errors:
+            # Still raise the error so caller knows cleanup had issues,
+            # but all cleanup steps were attempted
+            raise SessionCleanupError(
+                f"Session cleanup had {len(cleanup_errors)} error(s): {'; '.join(cleanup_errors)}"
+            )
 
     async def get_session_atomic(
         self, session_id: str

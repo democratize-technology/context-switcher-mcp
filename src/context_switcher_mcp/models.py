@@ -108,28 +108,33 @@ class ContextSwitcherSession:
     _lock_initialized: bool = field(
         default=False, init=False, repr=False
     )  # Track if lock is initialized
-    _initialization_lock: Optional[Any] = field(
-        default=None, init=False, repr=False
-    )  # Class-level lock for initialization
 
     def __post_init__(self):
-        """Initialize async components that can't be set in dataclass fields"""
+        """Initialize async components that can't be set in dataclass fields
+
+        This method is guaranteed to be called only once per instance during
+        initialization, so we can safely set up locks here without race conditions.
+        """
         import asyncio
-        import threading
 
-        # Use a thread-safe initialization to prevent race conditions
-        # This ensures that even if multiple threads call __post_init__ simultaneously,
-        # the locks are initialized exactly once
-        if not self._lock_initialized:
-            # Use threading.Lock for the initialization phase since __post_init__ is synchronous
-            if not hasattr(ContextSwitcherSession, "_class_init_lock"):
-                ContextSwitcherSession._class_init_lock = threading.Lock()
+        # Initialize locks immediately without checking _lock_initialized
+        # Since __post_init__ is called exactly once by the dataclass mechanism,
+        # we don't need complex synchronization here
+        try:
+            # Try to get the current event loop
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # If loop is running, we can create asyncio locks
+                self._access_lock = asyncio.Lock()
+            else:
+                # If no loop or not running, we'll create the lock lazily
+                # when first needed in an async context
+                self._access_lock = None
+        except RuntimeError:
+            # No event loop exists yet, will create lock lazily
+            self._access_lock = None
 
-            with ContextSwitcherSession._class_init_lock:
-                if not self._lock_initialized:
-                    self._access_lock = asyncio.Lock()
-                    self._initialization_lock = asyncio.Lock()
-                    self._lock_initialized = True
+        self._lock_initialized = True
 
     def add_thread(self, thread: Thread) -> None:
         """Add a perspective thread to the session"""
@@ -141,20 +146,13 @@ class ContextSwitcherSession:
 
     async def record_access(self, tool_name: str) -> None:
         """Record session access for behavioral analysis (thread-safe async version)"""
-        # Ensure lock is initialized - use the initialization lock if needed
-        if not self._lock_initialized:
-            # This should rarely happen since __post_init__ sets it up,
-            # but we handle it safely using the initialization lock
-            import asyncio
-            
-            async with self._initialization_lock if self._initialization_lock else asyncio.Lock():
-                if not self._lock_initialized:
-                    import asyncio
+        import asyncio
 
-                    self._access_lock = asyncio.Lock()
-                    if not self._initialization_lock:
-                        self._initialization_lock = asyncio.Lock()
-                    self._lock_initialized = True
+        # Handle lazy lock creation if needed
+        if self._access_lock is None:
+            # Create lock in async context if it wasn't created in __post_init__
+            # This is safe because asyncio.Lock() creation is thread-safe
+            self._access_lock = asyncio.Lock()
 
         async with self._access_lock:
             self.access_count += 1

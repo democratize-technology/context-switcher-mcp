@@ -35,108 +35,54 @@ class CircuitBreakerStore:
             config_dir.mkdir(exist_ok=True)
             storage_path = config_dir / "circuit_breakers.json"
         else:
-            # Validate and sanitize the provided path
+            # Simplified path validation using whitelist approach
             storage_path = Path(storage_path)
 
-            # Expand user and resolve to absolute path FIRST
-            # This ensures we check the actual resolved path, not the input
+            # First resolve the path to handle symlinks and relative paths
             storage_path = storage_path.expanduser().resolve(strict=False)
 
-            # NOW check for path traversal patterns in the resolved path
-            # This prevents bypasses through symbolic links or other tricks
-            path_str = str(storage_path)
+            # Define allowed base directories (whitelist)
+            import tempfile
 
-            # Check the resolved path doesn't contain traversal patterns
-            # Note: After resolution, ".." should not appear in a valid path
-            if ".." in path_str:
-                raise ValueError(
-                    f"Invalid storage path after resolution: {storage_path}"
-                )
+            allowed_bases = [
+                Path.home() / ".context_switcher",  # Default config directory
+                Path.home() / ".config",  # Standard config directory
+                Path.home() / ".local",  # Local data directory
+                Path(tempfile.gettempdir()),  # System temp directory
+            ]
 
-            # Ensure the path is within a safe directory (home or temp)
-            home_dir = Path.home().resolve()
-
-            # Additional security: ensure path components don't start with dots (hidden files)
-            # except for the config directory itself
-            for part in storage_path.parts:
-                if part.startswith(".") and part not in [
-                    ".context_switcher",
-                    ".config",
-                    ".local",
-                ]:
-                    raise ValueError(
-                        f"Storage path contains suspicious hidden directory: {part}"
-                    )
-
-            # Check if path is within allowed directories
-            is_in_safe_directory = False
-            allowed_dirs = []
-
-            # Check home directory
+            # Add /tmp for Unix systems
             try:
-                storage_path.relative_to(home_dir)
-                is_in_safe_directory = True
-                allowed_dirs.append(str(home_dir))
-            except ValueError:
-                pass
+                allowed_bases.append(Path("/tmp").resolve())
+            except (OSError, RuntimeError):
+                pass  # /tmp may not exist on all systems
 
-            # Check system temp directory
-            if not is_in_safe_directory:
-                import tempfile
-
-                temp_root = Path(tempfile.gettempdir()).resolve()
+            # Check if path is within any allowed base directory
+            is_allowed = False
+            for base in allowed_bases:
                 try:
-                    storage_path.relative_to(temp_root)
-                    is_in_safe_directory = True
-                    allowed_dirs.append(str(temp_root))
-                except ValueError:
-                    pass
-
-            # Check /tmp for compatibility
-            if not is_in_safe_directory:
-                try:
-                    tmp_path = Path("/tmp").resolve()
-                    storage_path.relative_to(tmp_path)
-                    is_in_safe_directory = True
-                    allowed_dirs.append(str(tmp_path))
+                    base_resolved = base.resolve()
+                    storage_path.relative_to(base_resolved)
+                    is_allowed = True
+                    break
                 except (ValueError, OSError):
-                    pass
+                    continue
 
-            if not is_in_safe_directory:
+            if not is_allowed:
                 raise ValueError(
-                    f"Storage path must be within home directory or temp directory. "
-                    f"Resolved path: {storage_path}, Allowed: {', '.join(allowed_dirs)}"
+                    f"Storage path must be within allowed directories: "
+                    f"{', '.join(str(b) for b in allowed_bases)}"
                 )
 
-            # Ensure filename ends with .json
+            # Ensure it's a JSON file
             if storage_path.suffix != ".json":
                 raise ValueError("Storage path must be a .json file")
 
-            # Final security check: Ensure the path is not a symlink pointing outside safe dirs
-            if storage_path.exists() and storage_path.is_symlink():
-                real_path = storage_path.resolve()
-                # Re-validate the real path
-                is_real_path_safe = False
-                try:
-                    real_path.relative_to(home_dir)
-                    is_real_path_safe = True
-                except ValueError:
-                    try:
-                        import tempfile
-
-                        real_path.relative_to(Path(tempfile.gettempdir()).resolve())
-                        is_real_path_safe = True
-                    except ValueError:
-                        try:
-                            real_path.relative_to(Path("/tmp").resolve())
-                            is_real_path_safe = True
-                        except (ValueError, OSError):
-                            pass
-
-                if not is_real_path_safe:
-                    raise ValueError(
-                        f"Symlink points outside safe directories: {real_path}"
-                    )
+            # Reject any remaining path traversal attempts
+            if ".." in str(storage_path):
+                raise ValueError(
+                    f"Path traversal detected in resolved path: {storage_path}"
+                )
 
         self.storage_path = Path(storage_path)
         self._lock: Optional[asyncio.Lock] = None
@@ -318,15 +264,36 @@ class CircuitBreakerStore:
             return {}
 
     async def _save_all_states(self, states: Dict[str, Dict[str, Any]]) -> None:
-        """Save all circuit breaker states to storage"""
+        """Save all circuit breaker states to storage using atomic write"""
         try:
             content = json.dumps(states, indent=2, default=str)
 
-            # Use asyncio to write file to avoid blocking
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(
-                None, self.storage_path.write_text, content, "utf-8"
+            # Use atomic write: write to temp file then rename
+            # This prevents partial writes from corrupting the state
+            import tempfile
+
+            temp_fd, temp_path = tempfile.mkstemp(
+                dir=self.storage_path.parent, prefix=".circuit_breaker_", suffix=".tmp"
             )
+
+            try:
+                # Write to temp file
+                loop = asyncio.get_event_loop()
+                await loop.run_in_executor(
+                    None, lambda: Path(temp_path).write_text(content, "utf-8")
+                )
+
+                # Atomic rename (on POSIX systems, rename is atomic)
+                await loop.run_in_executor(
+                    None, lambda: Path(temp_path).replace(self.storage_path)
+                )
+
+            finally:
+                # Clean up temp file if it still exists
+                try:
+                    Path(temp_path).unlink(missing_ok=True)
+                except Exception:
+                    pass  # Best effort cleanup
 
         except (OSError, IOError) as e:
             logger.error(f"Failed to save circuit breaker states: {e}")
