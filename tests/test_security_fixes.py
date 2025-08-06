@@ -295,13 +295,12 @@ class TestAsyncLockInitialization:
 
     @pytest.mark.asyncio
     async def test_concurrent_access_to_uninitialized_session(self):
-        """Test that concurrent access to session with uninitialized lock works"""
+        """Test that concurrent access to session works with centralized lock manager"""
         session = ContextSwitcherSession(
             session_id="test", created_at=datetime.now(timezone.utc)
         )
 
-        # Simulate __post_init__ not being called (clear the lock)
-        session._access_lock = None
+        # No need to simulate uninitialized lock - handled by SessionLockManager
 
         # Create multiple concurrent access attempts
         async def access_session(tool_name: str):
@@ -314,19 +313,21 @@ class TestAsyncLockInitialization:
 
         # All accesses should succeed and be properly counted
         assert session.access_count == 10
-        # Verify lock was created during access
-        assert session._access_lock is not None
+        # Verify lock exists in the lock manager
+        from context_switcher_mcp.session_lock_manager import get_session_lock_manager
+
+        lock_manager = get_session_lock_manager()
+        assert lock_manager.get_lock(session.session_id) is not None
 
     @pytest.mark.asyncio
     async def test_session_with_initialized_lock(self):
-        """Test that session with properly initialized lock works correctly"""
+        """Test that session works correctly with centralized lock manager"""
         session = ContextSwitcherSession(
             session_id="test", created_at=datetime.now(timezone.utc)
         )
 
-        # Verify lock is initialized after __post_init__
-        assert session._lock_initialized is True
-        assert session._access_lock is not None
+        # Lock is managed centrally, not in session
+        # Just verify session works correctly
 
         # Test concurrent access
         async def access_session(tool_name: str):
@@ -525,11 +526,10 @@ class TestConcurrentLockInitialization:
                 )
                 sessions.append(session)
 
-                # Verify critical attributes are initialized
-                assert session._lock_initialized
-                # _initialization_lock should always be created for thread safety
-                assert session._initialization_lock is not None
-                # _access_lock may be None if no event loop (will be created lazily)
+                # Verify session is properly created
+                assert session.session_id == f"concurrent_{index}"
+                assert session.version == 0
+                # Lock management is now centralized, no internal state to check
             except Exception as e:
                 errors.append(e)
 
@@ -548,11 +548,10 @@ class TestConcurrentLockInitialization:
         assert len(errors) == 0, f"Errors occurred: {errors}"
         assert len(sessions) == 20
 
-        # Verify all sessions have proper initialization
-        for session in sessions:
-            assert session._lock_initialized
-            # The initialization lock should always be present
-            assert session._initialization_lock is not None
+        # Verify all sessions are properly initialized
+        for i, session in enumerate(sessions):
+            assert session.session_id.startswith("concurrent_")
+            assert session.version == 0
 
     @pytest.mark.asyncio
     async def test_concurrent_record_access(self):
@@ -641,8 +640,9 @@ class TestIntegrationScenarios:
 
         # Verify session has proper security setup
         assert session.client_binding is not None
-        assert session._lock_initialized
-        assert session._access_lock is not None
+        # Lock management is now centralized
+        # Lock will be created when first used by record_access
+        assert session.session_id is not None
 
         # Test concurrent access (tests lock fix)
         tasks = [session.record_access(f"tool_{i}") for i in range(10)]

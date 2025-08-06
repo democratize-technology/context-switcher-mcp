@@ -96,13 +96,15 @@ class TestSessionLockInitialization:
     """Test race condition fix in ContextSwitcherSession"""
 
     def test_lock_initialized_in_post_init(self):
-        """Test that locks are properly initialized in __post_init__"""
+        """Test that sessions work without internal lock state"""
         session = ContextSwitcherSession(
             session_id="test-123", created_at=datetime.now(timezone.utc)
         )
 
-        assert session._lock_initialized is True
-        # Lock may be None if no event loop is running, which is fine
+        # Sessions no longer maintain internal lock state
+        # Lock management is handled by SessionLockManager
+        assert session.session_id == "test-123"
+        assert session.version == 0
 
     @pytest.mark.asyncio
     async def test_record_access_handles_lazy_lock_creation(self):
@@ -111,13 +113,11 @@ class TestSessionLockInitialization:
             session_id="test-456", created_at=datetime.now(timezone.utc)
         )
 
-        # Clear the lock to simulate lazy creation scenario
-        session._access_lock = None
-
-        # This should create the lock and work properly
+        # Lock is now managed centrally by SessionLockManager
+        # This should work properly through the lock manager
         await session.record_access("test_tool")
 
-        assert session._access_lock is not None
+        # Verify the session was updated
         assert session.access_count == 1
         assert session.version == 1
 
@@ -141,7 +141,7 @@ class TestSessionLockInitialization:
         assert session.version == 100
 
     def test_multiple_instances_independent_locks(self):
-        """Test that multiple session instances have independent locks"""
+        """Test that multiple session instances work independently"""
         session1 = ContextSwitcherSession(
             session_id="session-1", created_at=datetime.now(timezone.utc)
         )
@@ -149,13 +149,13 @@ class TestSessionLockInitialization:
             session_id="session-2", created_at=datetime.now(timezone.utc)
         )
 
-        # Both should be initialized
-        assert session1._lock_initialized is True
-        assert session2._lock_initialized is True
+        # Sessions are independent (locks managed centrally)
+        assert session1.session_id != session2.session_id
+        assert session1 is not session2
 
-        # Locks should be independent (or both None if no event loop)
-        if session1._access_lock is not None and session2._access_lock is not None:
-            assert session1._access_lock is not session2._access_lock
+        # Each session tracks its own state
+        assert session1.version == 0
+        assert session2.version == 0
 
 
 class TestSessionManagerResourceCleanup:
@@ -344,12 +344,13 @@ class TestIntegration:
             session = ContextSwitcherSession(
                 session_id=f"thread-{threading.current_thread().ident}", created_at=None
             )
-            return session._lock_initialized
+            # Sessions are always properly initialized now
+            return session.session_id is not None
 
         # Test concurrent session creation
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
             futures = [executor.submit(create_session) for _ in range(100)]
             results = [f.result() for f in concurrent.futures.as_completed(futures)]
 
-            # All should be initialized
+            # All should have valid session IDs
             assert all(results)
