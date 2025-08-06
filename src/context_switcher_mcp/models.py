@@ -6,6 +6,7 @@ from enum import Enum
 from typing import Dict, List, Optional, Any
 import hashlib
 import secrets
+import threading
 
 
 class ModelBackend(str, Enum):
@@ -109,6 +110,12 @@ class ContextSwitcherSession:
         default=False, init=False, repr=False
     )  # Track if lock is initialized
 
+    # CRITICAL: Class-level lock for thread-safe initialization
+    # This prevents race conditions during async lock creation
+    _initialization_lock: threading.Lock = field(
+        default_factory=lambda: threading.Lock(), init=False, repr=False, compare=False
+    )
+
     def __post_init__(self):
         """Initialize async components that can't be set in dataclass fields
 
@@ -116,6 +123,11 @@ class ContextSwitcherSession:
         initialization, so we can safely set up locks here without race conditions.
         """
         import asyncio
+
+        # Initialize the threading lock for double-checked locking
+        # This is a regular threading.Lock, not an asyncio.Lock
+        if not hasattr(self, "_initialization_lock"):
+            self._initialization_lock = threading.Lock()
 
         # Initialize locks immediately without checking _lock_initialized
         # Since __post_init__ is called exactly once by the dataclass mechanism,
@@ -148,11 +160,15 @@ class ContextSwitcherSession:
         """Record session access for behavioral analysis (thread-safe async version)"""
         import asyncio
 
-        # Handle lazy lock creation if needed
+        # CRITICAL: Use double-checked locking pattern to prevent race conditions
+        # First check without lock (fast path for already initialized)
         if self._access_lock is None:
-            # Create lock in async context if it wasn't created in __post_init__
-            # This is safe because asyncio.Lock() creation is thread-safe
-            self._access_lock = asyncio.Lock()
+            # Acquire thread lock for initialization
+            with self._initialization_lock:
+                # Double-check inside the lock (another thread may have initialized)
+                if self._access_lock is None:
+                    # Now safe to create the asyncio lock
+                    self._access_lock = asyncio.Lock()
 
         async with self._access_lock:
             self.access_count += 1

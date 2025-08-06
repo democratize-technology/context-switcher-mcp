@@ -45,11 +45,22 @@ def _load_or_generate_secret_key() -> str:
         except (json.JSONDecodeError, IOError) as e:
             logger.warning(f"Failed to load secret key from file: {e}")
 
-    # Generate new key and save it
+    # Generate new key and save it with atomic operations
     new_key = secrets.token_urlsafe(32)
     config_dir.mkdir(exist_ok=True, parents=True)
 
+    # CRITICAL: Set secure permissions on parent directory first
     try:
+        # Ensure config directory has secure permissions
+        config_dir.chmod(0o700)  # Owner read/write/execute only
+    except (OSError, AttributeError):
+        # May fail on non-POSIX systems, continue anyway
+        pass
+
+    try:
+        import tempfile
+        import platform
+
         # Save with rotation support structure
         data = {
             "current_key": new_key,
@@ -57,11 +68,48 @@ def _load_or_generate_secret_key() -> str:
             "created_at": datetime.utcnow().isoformat(),
             "rotation_count": 0,
         }
-        with open(secret_file, "w") as f:
-            json.dump(data, f, indent=2)
-        # Set restrictive permissions (owner read/write only)
-        secret_file.chmod(0o600)
-        logger.info("Generated and saved new secret key")
+
+        # CRITICAL: Use atomic write with secure permissions from the start
+        # Create temp file with restrictive permissions
+        if platform.system() != "Windows":
+            # On POSIX systems, create with secure permissions from the start
+            temp_fd, temp_path = tempfile.mkstemp(
+                dir=config_dir, prefix=".secret_key_", suffix=".tmp"
+            )
+            # Set secure permissions immediately after creation
+            os.chmod(temp_path, 0o600)
+            try:
+                # Write to temp file using file descriptor
+                with os.fdopen(temp_fd, "w") as f:
+                    json.dump(data, f, indent=2)
+
+                # Atomic rename (on POSIX, rename is atomic)
+                Path(temp_path).replace(secret_file)
+                logger.info("Generated and saved new secret key (secure atomic write)")
+            finally:
+                # Clean up temp file if it still exists
+                try:
+                    Path(temp_path).unlink(missing_ok=True)
+                except Exception:
+                    pass
+        else:
+            # On Windows, do our best with available tools
+            temp_path = secret_file.with_suffix(".tmp")
+            with open(temp_path, "w") as f:
+                json.dump(data, f, indent=2)
+
+            # Try to set permissions (may not work on Windows)
+            try:
+                import stat
+
+                os.chmod(temp_path, stat.S_IRUSR | stat.S_IWUSR)  # 0o600
+            except Exception:
+                pass
+
+            # Replace atomically (as atomic as Windows allows)
+            temp_path.replace(secret_file)
+            logger.info("Generated and saved new secret key (Windows)")
+
     except IOError as e:
         logger.warning(f"Failed to save secret key to file: {e}")
 
@@ -102,19 +150,61 @@ class SecretKeyManager:
 
         self.current_key = new_key
 
-        # Save the rotated keys
-        secret_file = Path.home() / ".context_switcher" / "secret_key.json"
+        # Save the rotated keys with atomic write
+        config_dir = Path.home() / ".context_switcher"
+        secret_file = config_dir / "secret_key.json"
+
         try:
+            import tempfile
+            import platform
+
             data = {
                 "current_key": new_key,
                 "previous_keys": self.previous_keys,
                 "rotated_at": datetime.utcnow().isoformat(),
                 "rotation_count": len(self.previous_keys),
             }
-            with open(secret_file, "w") as f:
-                json.dump(data, f, indent=2)
-            secret_file.chmod(0o600)
-            logger.info("Successfully rotated secret key")
+
+            # Use same atomic write pattern as initial key generation
+            if platform.system() != "Windows":
+                # On POSIX systems, create with secure permissions from the start
+                temp_fd, temp_path = tempfile.mkstemp(
+                    dir=config_dir, prefix=".secret_key_", suffix=".tmp"
+                )
+                # Set secure permissions immediately after creation
+                os.chmod(temp_path, 0o600)
+                try:
+                    # Write to temp file using file descriptor
+                    with os.fdopen(temp_fd, "w") as f:
+                        json.dump(data, f, indent=2)
+
+                    # Atomic rename (on POSIX, rename is atomic)
+                    Path(temp_path).replace(secret_file)
+                    logger.info("Successfully rotated secret key (secure atomic write)")
+                finally:
+                    # Clean up temp file if it still exists
+                    try:
+                        Path(temp_path).unlink(missing_ok=True)
+                    except Exception:
+                        pass
+            else:
+                # On Windows, do our best with available tools
+                temp_path = secret_file.with_suffix(".tmp")
+                with open(temp_path, "w") as f:
+                    json.dump(data, f, indent=2)
+
+                # Try to set permissions (may not work on Windows)
+                try:
+                    import stat
+
+                    os.chmod(temp_path, stat.S_IRUSR | stat.S_IWUSR)  # 0o600
+                except Exception:
+                    pass
+
+                # Replace atomically (as atomic as Windows allows)
+                temp_path.replace(secret_file)
+                logger.info("Successfully rotated secret key (Windows)")
+
         except IOError as e:
             logger.error(f"Failed to save rotated key: {e}")
 

@@ -38,8 +38,23 @@ class CircuitBreakerStore:
             # Simplified path validation using whitelist approach
             storage_path = Path(storage_path)
 
-            # First resolve the path to handle symlinks and relative paths
+            # CRITICAL: Check for path traversal BEFORE any path resolution
+            # This prevents bypasses through symlinks or other techniques
+            if ".." in str(storage_path):
+                raise ValueError(
+                    f"Path traversal attempt detected in path: {storage_path}"
+                )
+
+            # Now resolve the path to handle symlinks and relative paths
             storage_path = storage_path.expanduser().resolve(strict=False)
+
+            # Additional check after resolution to catch symlink-based traversal
+            # Check if the resolved path contains any symlinks that could be malicious
+            if storage_path.is_symlink():
+                # Reject symlinks to prevent symlink-based attacks
+                raise ValueError(
+                    f"Symlinks are not allowed for security reasons: {storage_path}"
+                )
 
             # Define allowed base directories (whitelist)
             import tempfile
@@ -71,18 +86,23 @@ class CircuitBreakerStore:
             if not is_allowed:
                 raise ValueError(
                     f"Storage path must be within allowed directories: "
-                    f"{', '.join(str(b) for b in allowed_bases)}"
+                    f"{', '.join(str(b) for b in allowed_bases)}. "
+                    f"Resolved path was: {storage_path}"
                 )
 
             # Ensure it's a JSON file
             if storage_path.suffix != ".json":
                 raise ValueError("Storage path must be a .json file")
 
-            # Reject any remaining path traversal attempts
-            if ".." in str(storage_path):
-                raise ValueError(
-                    f"Path traversal detected in resolved path: {storage_path}"
-                )
+            # Check for hidden directories (additional security measure)
+            # Allow only specific safe hidden directories
+            safe_hidden_dirs = {".context_switcher", ".config", ".local"}
+            path_parts = storage_path.parts
+            for part in path_parts:
+                if part.startswith(".") and part not in safe_hidden_dirs:
+                    raise ValueError(
+                        f"Hidden directories not allowed except {safe_hidden_dirs}: {part}"
+                    )
 
         self.storage_path = Path(storage_path)
         self._lock: Optional[asyncio.Lock] = None

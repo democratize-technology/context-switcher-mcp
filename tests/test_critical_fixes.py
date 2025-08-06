@@ -45,10 +45,9 @@ class TestCircuitBreakerPathValidation:
         with pytest.raises(ValueError, match="must be within allowed directories"):
             CircuitBreakerStore("/etc/passwd.json")
 
-        # Test path with traversal that resolves outside allowed dirs
-        # The path /tmp/../etc/passwd.json resolves to /etc/passwd.json after resolution
-        # which is outside allowed directories
-        with pytest.raises(ValueError, match="must be within allowed directories"):
+        # Test path with traversal - blocked before resolution for security
+        # The path /tmp/../etc/passwd.json contains ".." and is blocked immediately
+        with pytest.raises(ValueError, match="Path traversal attempt detected"):
             CircuitBreakerStore("/tmp/../etc/passwd.json")
 
     def test_non_json_file_rejected(self):

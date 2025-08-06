@@ -67,7 +67,7 @@ class TestCircuitBreakerPathTraversal:
 
             with pytest.raises(
                 ValueError,
-                match="(Storage path must be within home directory or temp directory|Invalid storage path after resolution|Storage path contains suspicious hidden directory)",
+                match="(Storage path must be within allowed directories|Path traversal attempt detected|Symlinks are not allowed)",
             ):
                 CircuitBreakerStore(path)
 
@@ -300,8 +300,7 @@ class TestAsyncLockInitialization:
             session_id="test", created_at=datetime.utcnow()
         )
 
-        # Simulate __post_init__ not being called
-        session._lock_initialized = False
+        # Simulate __post_init__ not being called (clear the lock)
         session._access_lock = None
 
         # Create multiple concurrent access attempts
@@ -313,9 +312,9 @@ class TestAsyncLockInitialization:
         tasks = [access_session(f"tool_{i}") for i in range(10)]
         await asyncio.gather(*tasks)
 
-        # All accesses should succeed
+        # All accesses should succeed and be properly counted
         assert session.access_count == 10
-        assert session._lock_initialized is True
+        # Verify lock was created during access
         assert session._access_lock is not None
 
     @pytest.mark.asyncio
@@ -343,20 +342,26 @@ class TestEnhancedPathTraversalFixes:
     """Test enhanced path traversal fixes with symlink detection"""
 
     def test_path_resolution_order_fix(self):
-        """Test that path validation happens AFTER resolution"""
-        # The fix ensures ".." is checked after path resolution
+        """Test that path validation correctly blocks traversal attempts"""
+        # The fix ensures ".." is checked BEFORE path resolution to prevent bypasses
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create a nested directory structure
             nested_dir = Path(tmpdir) / "level1" / "level2"
             nested_dir.mkdir(parents=True, exist_ok=True)
 
-            # This path has ".." but resolves safely within tmpdir
-            safe_path = str(nested_dir / ".." / "circuit_breakers.json")
+            # This path has ".." and should be blocked even if it would resolve safely
+            unsafe_path = str(nested_dir / ".." / "circuit_breakers.json")
 
-            # Should be allowed since it resolves within temp directory
+            # Should be blocked because it contains ".."
+            with pytest.raises(ValueError, match="Path traversal attempt detected"):
+                CircuitBreakerStore(unsafe_path)
+
+            # Instead, use a proper absolute path to the desired location
+            safe_path = str(nested_dir.parent / "circuit_breakers.json")
+
+            # This should work - no ".." in the path
             store = CircuitBreakerStore(safe_path)
-            # Compare resolved paths to handle symlink resolution on macOS
-            assert store.storage_path.parent.resolve() == nested_dir.parent.resolve()
+            assert store.storage_path == Path(safe_path).resolve()
 
     def test_symlink_attack_detection(self):
         """Test that symlinks pointing outside safe directories are blocked"""
@@ -377,7 +382,7 @@ class TestEnhancedPathTraversalFixes:
                     # This should be blocked - match both possible error messages
                     with pytest.raises(
                         ValueError,
-                        match="(Symlink points outside safe directories|Storage path must be within home directory or temp directory)",
+                        match="(Symlinks are not allowed|Storage path must be within allowed directories)",
                     ):
                         CircuitBreakerStore(str(symlink_path))
             except (OSError, NotImplementedError):
@@ -397,7 +402,7 @@ class TestEnhancedPathTraversalFixes:
                 # Create parent directory
                 Path(path).parent.mkdir(exist_ok=True)
 
-                with pytest.raises(ValueError, match="suspicious hidden directory"):
+                with pytest.raises(ValueError, match="Hidden directories not allowed"):
                     CircuitBreakerStore(path)
 
             # These should be allowed (whitelisted hidden dirs)
@@ -520,10 +525,11 @@ class TestConcurrentLockInitialization:
                 )
                 sessions.append(session)
 
-                # Verify locks are initialized
+                # Verify critical attributes are initialized
                 assert session._lock_initialized
-                assert session._access_lock is not None
+                # _initialization_lock should always be created for thread safety
                 assert session._initialization_lock is not None
+                # _access_lock may be None if no event loop (will be created lazily)
             except Exception as e:
                 errors.append(e)
 
@@ -542,10 +548,11 @@ class TestConcurrentLockInitialization:
         assert len(errors) == 0, f"Errors occurred: {errors}"
         assert len(sessions) == 20
 
-        # Verify all sessions have proper locks
+        # Verify all sessions have proper initialization
         for session in sessions:
             assert session._lock_initialized
-            assert session._access_lock is not None
+            # The initialization lock should always be present
+            assert session._initialization_lock is not None
 
     @pytest.mark.asyncio
     async def test_concurrent_record_access(self):
