@@ -114,7 +114,7 @@ You have access to Chain of Thought tools to structure your reasoning:
 Remember: You are analyzing from the {thread.name} perspective.
 Focus on aspects most relevant to this perspective."""
 
-        # Prepare messages
+        # Prepare messages - MUST start with user message for Bedrock
         messages = []
 
         # Only add conversation history if it exists and has content
@@ -126,23 +126,27 @@ Focus on aspects most relevant to this perspective."""
                         {"role": msg["role"], "content": [{"text": msg["content"]}]}
                     )
 
-        # If no messages yet or last message is not from user, add the analysis prompt
-        # This ensures conversation always starts with a user message
-        if not messages or messages[-1]["role"] != "user":
-            messages.append(
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "text": f"""Analyze the following from your {thread.name} perspective:
+        # Bedrock requires conversation to start with user message
+        # If messages is empty or doesn't start with user, add the prompt as first message
+        if not messages or messages[0]["role"] != "user":
+            # Insert user message at the beginning
+            user_message = {
+                "role": "user",
+                "content": [
+                    {
+                        "text": f"""Analyze the following from your {thread.name} perspective:
 
 {prompt}
 
 Use chain_of_thought_step to structure your reasoning, then provide your analysis."""
-                        }
-                    ],
-                }
-            )
+                    }
+                ],
+            }
+            # If messages exist but don't start with user, prepend the user message
+            if messages:
+                messages.insert(0, user_message)
+            else:
+                messages.append(user_message)
 
         # Prepare Bedrock request with CoT tools
         request = {
