@@ -4,9 +4,9 @@ import asyncio
 import logging
 from typing import Dict, Optional
 
-from .models import Thread, ModelBackend
+from .models import Thread
 from .config import get_config
-from .backend_interface import get_backend_interface
+from .backend_factory import BackendFactory
 from .aorp import create_error_response
 from .exceptions import (
     OrchestrationError,
@@ -47,13 +47,6 @@ class ThreadLifecycleManager:
 
         self.circuit_breaker_manager = circuit_breaker_manager
 
-        # Backend interface mapping
-        self.backends = {
-            ModelBackend.BEDROCK: self._call_unified_backend,
-            ModelBackend.LITELLM: self._call_unified_backend,
-            ModelBackend.OLLAMA: self._call_unified_backend,
-        }
-
     async def execute_thread(self, thread: Thread) -> str:
         """Execute a single thread with full lifecycle management
 
@@ -76,9 +69,11 @@ class ThreadLifecycleManager:
         if self.circuit_breaker_manager:
             await self.circuit_breaker_manager.ensure_states_loaded()
 
-        backend_fn = self.backends.get(thread.model_backend)
-        if not backend_fn:
-            raise ValueError(f"Unknown model backend: {thread.model_backend}")
+        # Get backend from factory
+        try:
+            backend = BackendFactory.get_backend(thread.model_backend)
+        except Exception as e:
+            raise ValueError(f"Backend not available: {thread.model_backend} - {e}")
 
         # Check circuit breaker if manager is available
         if self.circuit_breaker_manager:
@@ -102,7 +97,7 @@ class ThreadLifecycleManager:
         last_error = None
         for attempt in range(self.max_retries):
             try:
-                response = await backend_fn(thread)
+                response = await backend.call_model(thread)
                 # Record success in circuit breaker if manager is available
                 if self.circuit_breaker_manager:
                     await self.circuit_breaker_manager.record_success(
@@ -208,21 +203,6 @@ class ThreadLifecycleManager:
             "model not found",
         ]
         return any(term in error_str for term in non_retryable_terms)
-
-    async def _call_unified_backend(self, thread: Thread) -> str:
-        """Call backend using unified interface"""
-        try:
-            backend_interface = get_backend_interface(thread.model_backend.value)
-            return await backend_interface.call_model(thread)
-        except ModelBackendError:
-            # The backend interface already formats errors appropriately
-            raise
-        except Exception as e:
-            # Unexpected errors - wrap
-            logger.error(
-                f"Unexpected error in unified backend call: {e}", exc_info=True
-            )
-            raise OrchestrationError(f"Backend call failed unexpectedly: {e}") from e
 
     async def execute_threads_parallel(
         self, threads: Dict[str, Thread], message: Optional[str] = None

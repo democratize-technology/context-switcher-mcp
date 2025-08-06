@@ -6,7 +6,7 @@ import time
 from typing import Any, AsyncGenerator, Dict
 
 from .models import Thread
-from .backend_interface import get_backend_interface
+from .backend_factory import BackendFactory
 from .exceptions import ModelBackendError
 
 logger = logging.getLogger(__name__)
@@ -113,8 +113,8 @@ class StreamingCoordinator:
     async def _stream_from_thread(self, thread: Thread, thread_name: str):
         """Stream response from a single thread using unified backend"""
         try:
-            backend_interface = get_backend_interface(thread.model_backend.value)
-            async for event in backend_interface.call_model_stream(thread):
+            backend = BackendFactory.get_backend(thread.model_backend)
+            async for event in backend.call_model_stream(thread):
                 event["timestamp"] = time.time()
                 event["thread_name"] = thread_name
                 yield event

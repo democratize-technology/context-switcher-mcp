@@ -16,6 +16,7 @@ except ImportError:
 
 from .exceptions import OrchestrationError
 from .models import Thread
+from .config import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -46,17 +47,21 @@ class CoTProcessingError(ChainOfThoughtError):
 class PerspectiveReasoningOrchestrator:
     """Orchestrates Chain of Thought reasoning for perspective analysis"""
 
-    def __init__(self, cot_timeout: float = 30.0):
+    def __init__(self, cot_timeout: Optional[float] = None):
         """Initialize the reasoning orchestrator
 
         Args:
-            cot_timeout: Maximum time in seconds for CoT processing (default: 30s)
+            cot_timeout: Maximum time in seconds for CoT processing (uses config default if None)
         """
         if not COT_AVAILABLE:
             logger.warning(
                 "chain-of-thought-tool not available. Install with: pip install chain-of-thought-tool"
             )
-        self.cot_timeout = cot_timeout
+        config = get_config()
+        self.cot_timeout = cot_timeout or config.reasoning.cot_timeout_seconds
+        self.max_iterations = config.reasoning.max_iterations
+        self.summary_timeout = config.reasoning.summary_timeout_seconds
+        self.default_temperature = config.reasoning.default_temperature
         self._cot_available = COT_AVAILABLE
         self._processors: Dict[str, AsyncChainOfThoughtProcessor] = {}
 
@@ -166,7 +171,7 @@ Use chain_of_thought_step to structure your reasoning, then provide your analysi
             "system": [{"text": enhanced_prompt}],
             "toolConfig": {"tools": self.get_cot_tools()},
             "inferenceConfig": {
-                "temperature": 0.7,  # Default temperature for CoT reasoning
+                "temperature": self.default_temperature,
                 "maxTokens": 4096,  # Default max tokens
             },
         }
@@ -177,7 +182,7 @@ Use chain_of_thought_step to structure your reasoning, then provide your analysi
                 processor.process_tool_loop(
                     bedrock_client=bedrock_client,
                     initial_request=request,
-                    max_iterations=20,  # Allow sufficient reasoning steps
+                    max_iterations=self.max_iterations,
                 ),
                 timeout=self.cot_timeout,
             )
@@ -196,7 +201,7 @@ Use chain_of_thought_step to structure your reasoning, then provide your analysi
             try:
                 reasoning_summary = await asyncio.wait_for(
                     processor.get_reasoning_summary(),
-                    timeout=5.0,  # Quick timeout for summary
+                    timeout=self.summary_timeout,
                 )
             except asyncio.TimeoutError:
                 logger.warning("Timeout getting reasoning summary")

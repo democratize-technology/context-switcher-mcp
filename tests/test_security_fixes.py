@@ -12,7 +12,7 @@ import tempfile  # noqa: E402
 import threading  # noqa: E402
 from datetime import datetime, timezone  # noqa: E402
 from pathlib import Path  # noqa: E402
-from unittest.mock import MagicMock, patch  # noqa: E402
+from unittest.mock import MagicMock, patch, AsyncMock  # noqa: E402
 
 import pytest  # noqa: E402
 
@@ -229,22 +229,25 @@ class TestCircuitBreakerRaceCondition:
             model_name="test-model",
         )
 
-        # Mock backend to raise connection error
-        async def mock_backend_call(t):
-            raise ModelConnectionError("Connection failed")
+        # Mock backend factory to raise connection error
+        from context_switcher_mcp.backend_factory import BackendFactory
 
-        orchestrator.backends[ModelBackend.BEDROCK] = mock_backend_call
+        mock_backend = AsyncMock()
+        mock_backend.call_model.side_effect = ModelConnectionError("Connection failed")
 
-        # Get circuit breaker
-        circuit_breaker = orchestrator.circuit_breakers[ModelBackend.BEDROCK]
-        initial_failures = circuit_breaker.failure_count
+        with patch.object(BackendFactory, "get_backend", return_value=mock_backend):
+            # Get circuit breaker
+            circuit_breaker = orchestrator.circuit_breakers[ModelBackend.BEDROCK]
+            initial_failures = circuit_breaker.failure_count
 
-        # Call should fail and record failures
-        response = await orchestrator.thread_manager.get_single_thread_response(thread)
+            # Call should fail and record failures
+            response = await orchestrator.thread_manager.get_single_thread_response(
+                thread
+            )
 
-        # Verify failure was recorded
-        assert circuit_breaker.failure_count > initial_failures
-        assert "AORP_ERROR" in response
+            # Verify failure was recorded
+            assert circuit_breaker.failure_count > initial_failures
+            assert "AORP_ERROR" in response
 
     @pytest.mark.asyncio
     async def test_circuit_breaker_does_not_record_non_transient_failures(self):
@@ -266,28 +269,30 @@ class TestCircuitBreakerRaceCondition:
 
             # Mock backend to raise authentication error (non-transient)
             from context_switcher_mcp.exceptions import ModelAuthenticationError
+            from context_switcher_mcp.backend_factory import BackendFactory
 
-            async def mock_backend_call(t):
-                raise ModelAuthenticationError("Invalid api_key provided")
+            mock_backend = AsyncMock()
+            mock_backend.call_model.side_effect = ModelAuthenticationError(
+                "Invalid api_key provided"
+            )
 
-            orchestrator.backends[ModelBackend.BEDROCK] = mock_backend_call
+            with patch.object(BackendFactory, "get_backend", return_value=mock_backend):
+                # Get circuit breaker and reset it for clean test
+                circuit_breaker = orchestrator.circuit_breakers[ModelBackend.BEDROCK]
+                circuit_breaker.failure_count = 0
+                circuit_breaker.state = "CLOSED"
+                circuit_breaker.last_failure_time = None
+                initial_failures = circuit_breaker.failure_count
 
-            # Get circuit breaker and reset it for clean test
-            circuit_breaker = orchestrator.circuit_breakers[ModelBackend.BEDROCK]
-            circuit_breaker.failure_count = 0
-            circuit_breaker.state = "CLOSED"
-            circuit_breaker.last_failure_time = None
-            initial_failures = circuit_breaker.failure_count
+                # Call should fail but NOT record failure
+                try:
+                    await orchestrator.thread_manager.get_single_thread_response(thread)
+                except ModelAuthenticationError:
+                    # Expected - authentication errors are not retried
+                    pass
 
-            # Call should fail but NOT record failure
-            try:
-                await orchestrator.thread_manager.get_single_thread_response(thread)
-            except ModelAuthenticationError:
-                # Expected - authentication errors are not retried
-                pass
-
-            # Verify failure was NOT recorded (non-transient error)
-            assert circuit_breaker.failure_count == initial_failures
+                # Verify failure was NOT recorded (non-transient error)
+                assert circuit_breaker.failure_count == initial_failures
 
 
 class TestAsyncLockInitialization:

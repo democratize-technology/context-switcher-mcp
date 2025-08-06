@@ -223,9 +223,9 @@ class TestResponseFormatter:
             "user": "User experience will be improved",
         }
 
-        # Mock the backend interface
+        # Mock the backend factory
         with patch(
-            "context_switcher_mcp.response_formatter.get_backend_interface"
+            "context_switcher_mcp.response_formatter.BackendFactory.get_backend"
         ) as mock_get_backend:
             mock_backend = AsyncMock()
             mock_backend.call_model.return_value = (
@@ -285,7 +285,7 @@ class TestResponseFormatter:
         responses = {"technical": "Technical analysis"}
 
         with patch(
-            "context_switcher_mcp.response_formatter.get_backend_interface"
+            "context_switcher_mcp.response_formatter.BackendFactory.get_backend"
         ) as mock_get_backend:
             mock_backend = AsyncMock()
             mock_backend.call_model.side_effect = ModelBackendError(
@@ -308,7 +308,7 @@ class TestResponseFormatter:
         responses = {"technical": "Technical analysis"}
 
         with patch(
-            "context_switcher_mcp.response_formatter.get_backend_interface"
+            "context_switcher_mcp.response_formatter.BackendFactory.get_backend"
         ) as mock_get_backend:
             mock_get_backend.side_effect = Exception("Unexpected error")
 
@@ -361,7 +361,7 @@ class TestResponseFormatterIntegration:
 
         # Mock the synthesis backend
         with patch(
-            "context_switcher_mcp.response_formatter.get_backend_interface"
+            "context_switcher_mcp.response_formatter.BackendFactory.get_backend"
         ) as mock_get_backend:
             mock_backend = AsyncMock()
             mock_backend.call_model.return_value = (

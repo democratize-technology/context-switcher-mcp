@@ -66,6 +66,16 @@ class RetryConfig:
 
 
 @dataclass
+class ReasoningConfig:
+    """Configuration for Chain of Thought reasoning"""
+
+    max_iterations: int = 20
+    cot_timeout_seconds: float = 30.0
+    summary_timeout_seconds: float = 5.0
+    default_temperature: float = 0.7
+
+
+@dataclass
 class ServerConfig:
     """MCP server configuration"""
 
@@ -125,6 +135,13 @@ class ContextSwitcherConfig:
             initial_delay=float(os.getenv("CS_RETRY_DELAY", "1.0")),
             backoff_factor=float(os.getenv("CS_BACKOFF_FACTOR", "2.0")),
             max_delay=float(os.getenv("CS_MAX_RETRY_DELAY", "60.0")),
+        )
+
+        self.reasoning = ReasoningConfig(
+            max_iterations=int(os.getenv("CS_REASONING_MAX_ITERATIONS", "20")),
+            cot_timeout_seconds=float(os.getenv("CS_COT_TIMEOUT", "30.0")),
+            summary_timeout_seconds=float(os.getenv("CS_SUMMARY_TIMEOUT", "5.0")),
+            default_temperature=float(os.getenv("CS_REASONING_TEMPERATURE", "0.7")),
         )
 
         self.server = ServerConfig(

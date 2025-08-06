@@ -4,7 +4,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from .aorp import create_error_response
-from .backend_interface import get_backend_interface
+from .backend_factory import BackendFactory
 from .compression import compress_perspectives
 from .constants import NO_RESPONSE
 from .exceptions import ModelBackendError
@@ -102,8 +102,8 @@ class ResponseFormatter:
             )
             synthesis_thread.add_message("user", synthesis_prompt)
 
-            backend_interface = get_backend_interface(synthesis_backend.value)
-            synthesis_response = await backend_interface.call_model(synthesis_thread)
+            backend = BackendFactory.get_backend(synthesis_backend)
+            synthesis_response = await backend.call_model(synthesis_thread)
 
             return self.format_success_response(
                 synthesis_response,

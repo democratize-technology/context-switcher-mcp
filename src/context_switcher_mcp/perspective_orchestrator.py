@@ -427,5 +427,15 @@ class PerspectiveOrchestrator:
 
     @property
     def backends(self):
-        """Access to backends"""
-        return self.thread_manager.thread_lifecycle_manager.backends
+        """Access to available backends - returns a dict-like interface for compatibility"""
+        from .backend_factory import BackendFactory
+
+        # Return a dict-like object that provides backend availability
+        class BackendDict:
+            def __contains__(self, backend):
+                return BackendFactory.is_backend_available(backend)
+
+            def __getitem__(self, backend):
+                return BackendFactory.get_backend(backend)
+
+        return BackendDict()

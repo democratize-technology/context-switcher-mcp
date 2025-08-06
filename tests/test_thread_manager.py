@@ -63,9 +63,9 @@ class TestThreadManager:
     @pytest.mark.asyncio
     async def test_broadcast_message_success(self, thread_manager, mock_threads):
         """Test successful broadcast to multiple threads"""
-        # Mock the backend interface in the lifecycle manager
+        # Mock the backend factory in the lifecycle manager
         with patch(
-            "context_switcher_mcp.thread_lifecycle_manager.get_backend_interface"
+            "context_switcher_mcp.thread_lifecycle_manager.BackendFactory.get_backend"
         ) as mock_get_backend:
             mock_backend = AsyncMock()
             mock_backend.call_model.side_effect = [
@@ -345,9 +345,9 @@ class TestThreadManagerIntegration:
             thread.add_message = MagicMock()
             threads[name] = thread
 
-        # Mock the backend interface in the lifecycle manager
+        # Mock the backend factory in the lifecycle manager
         with patch(
-            "context_switcher_mcp.thread_lifecycle_manager.get_backend_interface"
+            "context_switcher_mcp.thread_lifecycle_manager.BackendFactory.get_backend"
         ) as mock_get_backend:
             mock_backend = AsyncMock()
             mock_backend.call_model.side_effect = [

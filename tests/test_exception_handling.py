@@ -2,7 +2,7 @@
 
 import pytest
 import asyncio
-from unittest.mock import patch
+from unittest.mock import patch, AsyncMock
 from datetime import datetime
 
 from src.context_switcher_mcp.exceptions import (
@@ -117,17 +117,17 @@ class TestOrchestratorExceptionHandling:
             model_name="claude-3",
         )
 
-        # Mock the backend function directly in the thread manager
-        async def mock_backend_call(thread):
-            raise RuntimeError("Unexpected backend error")
+        # Mock the backend factory to raise an unexpected error
+        from src.context_switcher_mcp.backend_factory import BackendFactory
 
-        # Replace the backend function in the thread lifecycle manager
-        mock_orchestrator.thread_manager.thread_lifecycle_manager.backends[
-            ModelBackend.BEDROCK
-        ] = mock_backend_call
+        mock_backend = AsyncMock()
+        mock_backend.call_model.side_effect = RuntimeError("Unexpected backend error")
 
-        with pytest.raises(OrchestrationError) as exc_info:
-            await mock_orchestrator.thread_manager.get_single_thread_response(thread)
+        with patch.object(BackendFactory, "get_backend", return_value=mock_backend):
+            with pytest.raises(OrchestrationError) as exc_info:
+                await mock_orchestrator.thread_manager.get_single_thread_response(
+                    thread
+                )
 
         assert "Unexpected backend error" in str(exc_info.value)
         assert exc_info.value.__cause__ is not None
