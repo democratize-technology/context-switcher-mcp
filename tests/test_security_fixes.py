@@ -240,7 +240,7 @@ class TestCircuitBreakerRaceCondition:
         initial_failures = circuit_breaker.failure_count
 
         # Call should fail and record failures
-        response = await orchestrator.thread_manager._get_thread_response(thread)
+        response = await orchestrator.thread_manager.get_single_thread_response(thread)
 
         # Verify failure was recorded
         assert circuit_breaker.failure_count > initial_failures
@@ -251,7 +251,7 @@ class TestCircuitBreakerRaceCondition:
         """Test that circuit breaker doesn't record non-transient failures"""
         # Mock circuit breaker state loading to prevent restoration
         with patch(
-            "context_switcher_mcp.thread_manager.load_circuit_breaker_state"
+            "context_switcher_mcp.circuit_breaker_manager.load_circuit_breaker_state"
         ) as mock_load:
             mock_load.return_value = None  # No saved state
             orchestrator = ThreadOrchestrator(max_retries=2, retry_delay=0.01)
@@ -281,7 +281,7 @@ class TestCircuitBreakerRaceCondition:
 
             # Call should fail but NOT record failure
             try:
-                await orchestrator.thread_manager._get_thread_response(thread)
+                await orchestrator.thread_manager.get_single_thread_response(thread)
             except ModelAuthenticationError:
                 # Expected - authentication errors are not retried
                 pass

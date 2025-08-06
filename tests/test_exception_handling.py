@@ -78,21 +78,21 @@ class TestOrchestratorExceptionHandling:
         """Create a mock orchestrator with proper dependencies"""
         from src.context_switcher_mcp.orchestrator import ThreadOrchestrator
 
-        with patch("context_switcher_mcp.thread_manager.get_config"):
-            orchestrator = ThreadOrchestrator()
-            return orchestrator
+        # Create orchestrator without special mocking - let it use real config
+        orchestrator = ThreadOrchestrator()
+        return orchestrator
 
     @pytest.mark.asyncio
     async def test_circuit_breaker_state_error(self, mock_orchestrator):
         """Test that CircuitBreakerStateError is raised on storage failures"""
         from src.context_switcher_mcp.models import ModelBackend
-        from src.context_switcher_mcp.thread_manager import CircuitBreakerState
+        from src.context_switcher_mcp.circuit_breaker_manager import CircuitBreakerState
 
         breaker = CircuitBreakerState(ModelBackend.BEDROCK)
 
         # Mock save_circuit_breaker_state to raise OSError
         with patch(
-            "context_switcher_mcp.thread_manager.save_circuit_breaker_state",
+            "context_switcher_mcp.circuit_breaker_manager.save_circuit_breaker_state",
             side_effect=OSError("Disk full"),
         ):
             # The current implementation logs the error but doesn't raise it
@@ -119,13 +119,13 @@ class TestOrchestratorExceptionHandling:
         async def mock_backend_call(thread):
             raise RuntimeError("Unexpected backend error")
 
-        # Replace the backend function in the thread manager
-        mock_orchestrator.thread_manager.backends[
+        # Replace the backend function in the thread lifecycle manager
+        mock_orchestrator.thread_manager.thread_lifecycle_manager.backends[
             ModelBackend.BEDROCK
         ] = mock_backend_call
 
         with pytest.raises(OrchestrationError) as exc_info:
-            await mock_orchestrator.thread_manager._get_thread_response(thread)
+            await mock_orchestrator.thread_manager.get_single_thread_response(thread)
 
         assert "Unexpected backend error" in str(exc_info.value)
         assert exc_info.value.__cause__ is not None

@@ -99,7 +99,7 @@ class TestThreadOrchestrator:
 
         # Test recording failures
         with patch(
-            "src.context_switcher_mcp.thread_manager.save_circuit_breaker_state"
+            "src.context_switcher_mcp.circuit_breaker_manager.save_circuit_breaker_state"
         ):
             for _ in range(5):  # Failure threshold is 5
                 await cb.record_failure()

@@ -4,16 +4,13 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
 
-from context_switcher_mcp.thread_manager import (
-    ThreadManager,
+from context_switcher_mcp.thread_manager import ThreadManager
+from context_switcher_mcp.metrics_manager import (
     ThreadMetrics,
     ThreadOrchestrationMetrics,
-    CircuitBreakerState,
 )
+from context_switcher_mcp.circuit_breaker_manager import CircuitBreakerState
 from context_switcher_mcp.models import Thread, ModelBackend
-from context_switcher_mcp.exceptions import (
-    ModelConnectionError,
-)
 
 
 @pytest.fixture
@@ -55,17 +52,20 @@ class TestThreadManager:
         """Test ThreadManager initialization"""
         manager = ThreadManager(max_retries=5, retry_delay=0.5)
 
-        assert manager.max_retries == 5
-        assert manager.retry_delay == 0.5
-        assert len(manager.circuit_breakers) == len(ModelBackend)
-        assert not manager._circuit_breaker_states_loaded
+        # Properties are now in composed components
+        assert manager.thread_lifecycle_manager.max_retries == 5
+        assert manager.thread_lifecycle_manager.retry_delay == 0.5
+        assert len(manager.circuit_breaker_manager.circuit_breakers) == len(
+            ModelBackend
+        )
+        assert not manager.circuit_breaker_manager._states_loaded
 
     @pytest.mark.asyncio
     async def test_broadcast_message_success(self, thread_manager, mock_threads):
         """Test successful broadcast to multiple threads"""
-        # Mock the backend interface
+        # Mock the backend interface in the lifecycle manager
         with patch(
-            "context_switcher_mcp.thread_manager.get_backend_interface"
+            "context_switcher_mcp.thread_lifecycle_manager.get_backend_interface"
         ) as mock_get_backend:
             mock_backend = AsyncMock()
             mock_backend.call_model.side_effect = [
@@ -76,7 +76,9 @@ class TestThreadManager:
             mock_get_backend.return_value = mock_backend
 
             # Mock circuit breaker state loading
-            with patch.object(thread_manager, "_load_circuit_breaker_states"):
+            with patch.object(
+                thread_manager.circuit_breaker_manager, "ensure_states_loaded"
+            ):
                 result = await thread_manager.broadcast_message(
                     mock_threads, "test message"
                 )
@@ -94,15 +96,16 @@ class TestThreadManager:
     @pytest.mark.asyncio
     async def test_broadcast_message_with_errors(self, thread_manager, mock_threads):
         """Test broadcast handling thread errors"""
-        # Mock one successful response and one error
+        # Mock the lifecycle manager execute_threads_parallel method
         with patch.object(
-            thread_manager, "_get_thread_response_with_metrics"
+            thread_manager.thread_lifecycle_manager, "execute_threads_parallel"
         ) as mock_response:
-            mock_response.side_effect = [
-                "Success response",
-                ModelConnectionError("Connection failed"),
-                "Another success",
-            ]
+            # Return results dictionary with error
+            mock_response.return_value = {
+                "thread1": "Success response",
+                "thread2": "ERROR: Connection failed",
+                "thread3": "Another success",
+            }
 
             result = await thread_manager.broadcast_message(
                 mock_threads, "test message"
@@ -116,26 +119,34 @@ class TestThreadManager:
     @pytest.mark.asyncio
     async def test_broadcast_message_stream(self, thread_manager, mock_threads):
         """Test streaming broadcast functionality"""
-        # Mock the backend interface streaming
-        with patch(
-            "context_switcher_mcp.thread_manager.get_backend_interface"
-        ) as mock_get_backend:
-            mock_backend = AsyncMock()
 
-            # Mock streaming responses
-            async def mock_stream_response(thread):
+        # Mock the streaming coordinator
+        async def mock_stream_events(threads, message, session_id="unknown"):
+            for name in ["thread1", "thread2", "thread3"]:
+                yield {
+                    "type": "start",
+                    "thread_name": name,
+                    "content": "",
+                    "timestamp": 1000,
+                }
                 yield {
                     "type": "chunk",
-                    "content": f"Response from {thread.name}",
+                    "thread_name": name,
+                    "content": f"Response from {name}",
+                    "timestamp": 1001,
                 }
                 yield {
                     "type": "complete",
+                    "thread_name": name,
                     "content": "",
+                    "timestamp": 1002,
                 }
 
-            mock_backend.call_model_stream.side_effect = mock_stream_response
-            mock_get_backend.return_value = mock_backend
-
+        with patch.object(
+            thread_manager.streaming_coordinator,
+            "broadcast_stream",
+            side_effect=mock_stream_events,
+        ):
             events = []
             async for event in thread_manager.broadcast_message_stream(
                 mock_threads, "test message"
@@ -168,7 +179,7 @@ class TestThreadManager:
             successful_threads=1,
             failed_threads=1,
         )
-        thread_manager.metrics_history.append(metrics)
+        thread_manager.metrics_manager.metrics_history.append(metrics)
 
         result = await thread_manager.get_thread_metrics()
 
@@ -211,7 +222,7 @@ class TestThreadManager:
         breaker.state = "HALF_OPEN"
 
         with patch(
-            "context_switcher_mcp.thread_manager.save_circuit_breaker_state"
+            "context_switcher_mcp.circuit_breaker_manager.save_circuit_breaker_state"
         ) as mock_save:
             mock_save.return_value = None
             await breaker.record_success()
@@ -227,7 +238,7 @@ class TestThreadManager:
         breaker = CircuitBreakerState(backend=ModelBackend.BEDROCK, failure_threshold=2)
 
         with patch(
-            "context_switcher_mcp.thread_manager.save_circuit_breaker_state"
+            "context_switcher_mcp.circuit_breaker_manager.save_circuit_breaker_state"
         ) as mock_save:
             mock_save.return_value = None
             await breaker.record_failure()
@@ -245,7 +256,9 @@ class TestThreadManager:
     def test_get_circuit_breaker_status(self, thread_manager):
         """Test getting circuit breaker status"""
         # Set up a breaker with some state
-        breaker = thread_manager.circuit_breakers[ModelBackend.BEDROCK]
+        breaker = thread_manager.circuit_breaker_manager.circuit_breakers[
+            ModelBackend.BEDROCK
+        ]
         breaker.failure_count = 3
         breaker.state = "OPEN"
         breaker.last_failure_time = datetime(2023, 1, 1, 12, 0, 0)
@@ -260,7 +273,7 @@ class TestThreadManager:
     def test_reset_circuit_breakers(self, thread_manager):
         """Test resetting all circuit breakers"""
         # Set up breakers with failure states
-        for breaker in thread_manager.circuit_breakers.values():
+        for breaker in thread_manager.circuit_breaker_manager.circuit_breakers.values():
             breaker.failure_count = 5
             breaker.state = "OPEN"
             breaker.last_failure_time = datetime.utcnow()
@@ -268,7 +281,10 @@ class TestThreadManager:
         reset_status = thread_manager.reset_circuit_breakers()
 
         # All breakers should be reset
-        for backend, breaker in thread_manager.circuit_breakers.items():
+        for (
+            backend,
+            breaker,
+        ) in thread_manager.circuit_breaker_manager.circuit_breakers.items():
             assert breaker.state == "CLOSED"
             assert breaker.failure_count == 0
             assert breaker.last_failure_time is None
@@ -329,9 +345,9 @@ class TestThreadManagerIntegration:
             thread.add_message = MagicMock()
             threads[name] = thread
 
-        # Mock the backend interface
+        # Mock the backend interface in the lifecycle manager
         with patch(
-            "context_switcher_mcp.thread_manager.get_backend_interface"
+            "context_switcher_mcp.thread_lifecycle_manager.get_backend_interface"
         ) as mock_get_backend:
             mock_backend = AsyncMock()
             mock_backend.call_model.side_effect = [
@@ -341,7 +357,9 @@ class TestThreadManagerIntegration:
             mock_get_backend.return_value = mock_backend
 
             # Mock circuit breaker state loading
-            with patch.object(manager, "_load_circuit_breaker_states") as mock_load:
+            with patch.object(
+                manager.circuit_breaker_manager, "ensure_states_loaded"
+            ) as mock_load:
                 mock_load.return_value = None
 
                 result = await manager.broadcast_message(

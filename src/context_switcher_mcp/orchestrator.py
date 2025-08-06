@@ -31,11 +31,14 @@ class ThreadOrchestrator:
         )
         self.response_formatter = ResponseFormatter()
 
-        # Delegate properties to thread manager for backward compatibility
-        self.circuit_breakers = self.thread_manager.circuit_breakers
-        self.backends = self.thread_manager.backends
-        self.metrics_history = self.thread_manager.metrics_history
-        self.metrics_lock = self.thread_manager.metrics_lock
+        # Delegate properties to thread manager components for backward compatibility
+        self.circuit_breakers = (
+            self.thread_manager.circuit_breaker_manager.circuit_breakers
+        )
+        # Expose backends for backward compatibility - mapped from lifecycle manager
+        self.backends = self.thread_manager.thread_lifecycle_manager.backends
+        self.metrics_history = self.thread_manager.metrics_manager.metrics_history
+        self.metrics_lock = self.thread_manager.metrics_manager.metrics_lock
 
     async def broadcast_message(
         self,
