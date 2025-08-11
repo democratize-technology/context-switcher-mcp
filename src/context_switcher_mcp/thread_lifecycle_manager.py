@@ -2,7 +2,8 @@
 
 import asyncio
 import logging
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple, Any
+from dataclasses import dataclass
 
 from .models import Thread
 from .config import get_config
@@ -19,6 +20,127 @@ from .exceptions import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ExecutionContext:
+    """Context for thread execution with all necessary information"""
+
+    thread: Thread
+    backend: Any
+    max_retries: int
+    retry_delay: float
+    circuit_breaker_manager: Any = None
+
+
+class ErrorClassifier:
+    """Classifies errors as retryable or non-retryable"""
+
+    @staticmethod
+    def is_non_retryable_error(error_str: str) -> bool:
+        """Check if error is non-retryable based on error message"""
+        non_retryable_terms = [
+            "api_key",
+            "credentials",
+            "not found",
+            "invalid",
+            "unauthorized",
+            "forbidden",
+            "model not found",
+        ]
+        return any(term in error_str.lower() for term in non_retryable_terms)
+
+    @staticmethod
+    def classify_exception(exception: Exception) -> Tuple[bool, bool]:
+        """Classify exception as (is_retryable, should_record_in_circuit_breaker)"""
+        if isinstance(exception, (ModelAuthenticationError, ModelValidationError)):
+            return False, False  # Non-retryable, don't record
+        elif isinstance(
+            exception, (ModelConnectionError, ModelTimeoutError, ModelRateLimitError)
+        ):
+            return True, True  # Retryable, record failure
+        elif isinstance(exception, ModelBackendError):
+            return True, True  # Generally retryable, record failure
+        else:
+            return False, False  # Unexpected errors are non-retryable
+
+
+class CircuitBreakerHandler:
+    """Handles circuit breaker operations"""
+
+    def __init__(self, circuit_breaker_manager):
+        self.circuit_breaker_manager = circuit_breaker_manager
+
+    async def ensure_ready(self) -> None:
+        """Ensure circuit breaker states are loaded"""
+        if self.circuit_breaker_manager:
+            await self.circuit_breaker_manager.ensure_states_loaded()
+
+    def should_allow_request(self, backend_type) -> bool:
+        """Check if request should be allowed through circuit breaker"""
+        if not self.circuit_breaker_manager:
+            return True
+        return self.circuit_breaker_manager.should_allow_request(backend_type)
+
+    async def record_success(self, backend_type) -> None:
+        """Record successful request"""
+        if self.circuit_breaker_manager:
+            await self.circuit_breaker_manager.record_success(backend_type)
+
+    async def record_failure(self, backend_type) -> None:
+        """Record failed request"""
+        if self.circuit_breaker_manager:
+            await self.circuit_breaker_manager.record_failure(backend_type)
+
+    def create_circuit_breaker_error_response(self, backend_type) -> str:
+        """Create error response for circuit breaker open state"""
+        error_response = create_error_response(
+            error_message=f"Circuit breaker is OPEN for {backend_type.value} backend due to repeated failures",
+            error_type="circuit_breaker_open",
+            context={"backend": backend_type.value},
+            recoverable=True,
+        )
+        return f"AORP_ERROR: {error_response}"
+
+
+class ErrorResponseBuilder:
+    """Builds appropriate error responses"""
+
+    @staticmethod
+    def create_retry_exhausted_response(
+        context: ExecutionContext, last_error: Exception
+    ) -> str:
+        """Create response for retry exhaustion"""
+        from .security import sanitize_error_message
+
+        error_response = create_error_response(
+            error_message=f"Failed after {context.max_retries} attempts: {sanitize_error_message(str(last_error))}",
+            error_type="retry_exhausted",
+            context={
+                "attempts": context.max_retries,
+                "thread": context.thread.name,
+                "backend": context.thread.model_backend.value,
+            },
+            recoverable=True,
+        )
+        return f"AORP_ERROR: {error_response}"
+
+    @staticmethod
+    def create_non_retryable_error_response(
+        context: ExecutionContext, error: Exception
+    ) -> str:
+        """Create response for non-retryable errors"""
+
+        error_response = create_error_response(
+            error_message=str(error),
+            error_type="configuration_error",
+            context={
+                "thread": context.thread.name,
+                "backend": context.thread.model_backend.value,
+            },
+            recoverable=False,
+        )
+        return f"AORP_ERROR: {error_response}"
 
 
 class ThreadLifecycleManager:
@@ -65,144 +187,112 @@ class ThreadLifecycleManager:
 
     async def _get_thread_response(self, thread: Thread) -> str:
         """Get response from a single thread with retry logic and circuit breaker"""
-        # Ensure circuit breaker states are loaded if manager is available
-        if self.circuit_breaker_manager:
-            await self.circuit_breaker_manager.ensure_states_loaded()
+        # Setup execution context and handlers
+        context = ExecutionContext(
+            thread=thread,
+            backend=self._get_backend(thread),
+            max_retries=self.max_retries,
+            retry_delay=self.retry_delay,
+        )
 
-        # Get backend from factory
+        circuit_breaker = CircuitBreakerHandler(self.circuit_breaker_manager)
+        await circuit_breaker.ensure_ready()
+
+        # Check circuit breaker before attempting
+        if not circuit_breaker.should_allow_request(thread.model_backend):
+            logger.warning(
+                f"Circuit breaker OPEN for {thread.model_backend.value}, failing fast"
+            )
+            return circuit_breaker.create_circuit_breaker_error_response(
+                thread.model_backend
+            )
+
+        # Execute with retry strategy
+        return await self._execute_with_retry(context, circuit_breaker)
+
+    def _get_backend(self, thread: Thread) -> Any:
+        """Get backend from factory with error handling"""
         try:
-            backend = BackendFactory.get_backend(thread.model_backend)
+            return BackendFactory.get_backend(thread.model_backend)
         except Exception as e:
             raise ValueError(f"Backend not available: {thread.model_backend} - {e}")
 
-        # Check circuit breaker if manager is available
-        if self.circuit_breaker_manager:
-            if not self.circuit_breaker_manager.should_allow_request(
-                thread.model_backend
-            ):
-                logger.warning(
-                    f"Circuit breaker OPEN for {thread.model_backend.value}, failing fast"
-                )
-                error_response = create_error_response(
-                    error_message=f"Circuit breaker is OPEN for {thread.model_backend.value} backend due to repeated failures",
-                    error_type="circuit_breaker_open",
-                    context={
-                        "backend": thread.model_backend.value,
-                    },
-                    recoverable=True,
-                )
-                return f"AORP_ERROR: {error_response}"
-
-        # Try with exponential backoff
+    async def _execute_with_retry(
+        self, context: ExecutionContext, circuit_breaker: CircuitBreakerHandler
+    ) -> str:
+        """Execute thread with retry logic"""
         last_error = None
-        for attempt in range(self.max_retries):
+
+        for attempt in range(context.max_retries):
             try:
-                response = await backend.call_model(thread)
-                # Record success in circuit breaker if manager is available
-                if self.circuit_breaker_manager:
-                    await self.circuit_breaker_manager.record_success(
-                        thread.model_backend
-                    )
+                response = await context.backend.call_model(context.thread)
+                await circuit_breaker.record_success(context.thread.model_backend)
                 return response
 
-            except (ModelConnectionError, ModelTimeoutError, ModelRateLimitError) as e:
-                # Retryable errors
-                last_error = e
-
-                # Record failure in circuit breaker for transient errors
-                if self.circuit_breaker_manager:
-                    await self.circuit_breaker_manager.record_failure(
-                        thread.model_backend
-                    )
-
-            except (ModelAuthenticationError, ModelValidationError) as e:
-                # Non-retryable errors - don't record in circuit breaker
-                logger.warning(f"Non-retryable error from backend: {e}")
-                raise
-
-            except ModelBackendError as e:
-                # Other model errors - check if retryable
-                last_error = e
-
             except Exception as e:
-                # Unexpected errors - wrap and treat as non-retryable
-                logger.error(
-                    f"Unexpected error calling backend for thread {thread.name}: {e}",
-                    exc_info=True,
-                )
-                raise OrchestrationError(f"Unexpected backend error: {e}") from e
+                last_error = e
+                is_retryable, should_record = ErrorClassifier.classify_exception(e)
 
-            if last_error:
-                error_str = str(last_error).lower()
+                # Handle non-retryable errors immediately
+                if not is_retryable:
+                    if isinstance(e, (ModelAuthenticationError, ModelValidationError)):
+                        logger.warning(f"Non-retryable error from backend: {e}")
+                        raise
+                    else:
+                        logger.error(
+                            f"Unexpected error calling backend for thread {context.thread.name}: {e}",
+                            exc_info=True,
+                        )
+                        raise OrchestrationError(
+                            f"Unexpected backend error: {e}"
+                        ) from e
 
-                # Record failure in circuit breaker for retryable errors
-                if self.circuit_breaker_manager and not self._is_non_retryable_error(
-                    error_str
-                ):
-                    await self.circuit_breaker_manager.record_failure(
-                        thread.model_backend
-                    )
+                # Record failure in circuit breaker if needed
+                if should_record:
+                    await circuit_breaker.record_failure(context.thread.model_backend)
 
-                # Don't retry on non-transient errors
-                if self._is_non_retryable_error(error_str):
-                    from .security import sanitize_error_message
-
-                    logger.error(
-                        f"Non-retryable error for {thread.name}: {sanitize_error_message(str(last_error))}"
-                    )
-                    error_response = create_error_response(
-                        error_message=str(last_error),
-                        error_type="configuration_error",
-                        context={
-                            "thread": thread.name,
-                            "backend": thread.model_backend.value,
-                        },
-                        recoverable=False,
-                    )
-                    return f"AORP_ERROR: {error_response}"
-
-                # Retry on transient errors
-                if attempt < self.max_retries - 1:
-                    delay = self.retry_delay * (2**attempt)
-                    logger.warning(
-                        f"Attempt {attempt + 1} failed for {thread.name}: {last_error}. "
-                        f"Retrying in {delay}s..."
-                    )
-                    await asyncio.sleep(delay)
+                # Handle retry logic
+                if await self._should_retry_error(context, e, attempt):
+                    continue
                 else:
-                    from .security import sanitize_error_message
-
-                    logger.error(
-                        f"All {self.max_retries} attempts failed for {thread.name}: {sanitize_error_message(str(last_error))}"
+                    return ErrorResponseBuilder.create_non_retryable_error_response(
+                        context, e
                     )
 
-        # If all retries failed, return AORP error response
+        # All retries exhausted
         from .security import sanitize_error_message
 
-        error_response = create_error_response(
-            error_message=f"Failed after {self.max_retries} attempts: {sanitize_error_message(str(last_error))}",
-            error_type="retry_exhausted",
-            context={
-                "attempts": self.max_retries,
-                "thread": thread.name,
-                "backend": thread.model_backend.value,
-            },
-            recoverable=True,
+        logger.error(
+            f"All {context.max_retries} attempts failed for {context.thread.name}: {sanitize_error_message(str(last_error))}"
         )
-        return f"AORP_ERROR: {error_response}"
+        return ErrorResponseBuilder.create_retry_exhausted_response(context, last_error)
 
-    def _is_non_retryable_error(self, error_str: str) -> bool:
-        """Check if error is non-retryable based on error message"""
-        non_retryable_terms = [
-            "api_key",
-            "credentials",
-            "not found",
-            "invalid",
-            "unauthorized",
-            "forbidden",
-            "model not found",
-        ]
-        return any(term in error_str for term in non_retryable_terms)
+    async def _should_retry_error(
+        self, context: ExecutionContext, error: Exception, attempt: int
+    ) -> bool:
+        """Determine if error should be retried and handle delay"""
+        error_str = str(error).lower()
+
+        # Don't retry on non-transient errors
+        if ErrorClassifier.is_non_retryable_error(error_str):
+            from .security import sanitize_error_message
+
+            logger.error(
+                f"Non-retryable error for {context.thread.name}: {sanitize_error_message(str(error))}"
+            )
+            return False
+
+        # If this is the last attempt, don't retry
+        if attempt >= context.max_retries - 1:
+            return False
+
+        # Apply exponential backoff delay
+        delay = context.retry_delay * (2**attempt)
+        logger.warning(
+            f"Attempt {attempt + 1} failed for {context.thread.name}: {error}. Retrying in {delay}s..."
+        )
+        await asyncio.sleep(delay)
+        return True
 
     async def execute_threads_parallel(
         self, threads: Dict[str, Thread], message: Optional[str] = None
@@ -249,3 +339,7 @@ class ThreadLifecycleManager:
                 result[name] = response
 
         return result
+
+    def _is_non_retryable_error(self, error_str: str) -> bool:
+        """Check if error is non-retryable based on error message"""
+        return ErrorClassifier.is_non_retryable_error(error_str)
