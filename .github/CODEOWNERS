@@ -1,0 +1,30 @@
+# Global owners - require review from project maintainers
+* @democratizetech
+
+# Core source code - require review from maintainers
+/src/ @democratizetech
+
+# Configuration files - require review from maintainers
+/pyproject.toml @democratizetech
+/mypy.ini @democratizetech
+/.pre-commit-config.yaml @democratizetech
+
+# Security-related files - require review from security team
+/SECURITY.md @democratizetech
+/src/context_switcher_mcp/security/ @democratizetech
+/tests/test_security*.py @democratizetech
+
+# GitHub workflows and automation - require review from maintainers
+/.github/ @democratizetech
+
+# Documentation - require review from maintainers
+/README.md @democratizetech
+/CONTRIBUTING.md @democratizetech
+/CHANGELOG.md @democratizetech
+/docs/ @democratizetech
+
+# Test files - require review from maintainers
+/tests/ @democratizetech
+
+# License and legal files - require review from maintainers
+/LICENSE @democratizetech
