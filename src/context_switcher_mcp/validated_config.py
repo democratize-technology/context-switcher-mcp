@@ -15,7 +15,7 @@ Features:
 """
 
 import json
-import logging
+from .logging_base import get_logger
 import re
 from enum import Enum
 from pathlib import Path
@@ -31,7 +31,7 @@ from pydantic import (
 )
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class LogLevel(str, Enum):

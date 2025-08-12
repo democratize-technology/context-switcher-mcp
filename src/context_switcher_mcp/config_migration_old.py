@@ -12,7 +12,7 @@ Features:
 - Uses dependency injection to avoid circular dependencies
 """
 
-import logging
+from .logging_base import get_logger
 import warnings
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -35,7 +35,7 @@ except ImportError as e:
         UserWarning,
     )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Migration error is now imported from config_base
@@ -532,7 +532,7 @@ def generate_migration_report() -> str:
 
 if __name__ == "__main__":
     # Generate and print migration report
-    from .logging_config import get_logger
+    from .logging_base import get_logger
 
     logger = get_logger(__name__)
 

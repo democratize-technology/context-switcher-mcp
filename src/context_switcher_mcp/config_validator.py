@@ -18,7 +18,7 @@ from .config_migration import (
     generate_migration_report,
 )
 from .config import ContextSwitcherConfig as LegacyConfig
-from .logging_config import get_logger
+from .logging_base import get_logger
 
 logger = get_logger(__name__)
 

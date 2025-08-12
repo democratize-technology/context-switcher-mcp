@@ -7,14 +7,14 @@ and config_migration modules.
 """
 
 import os
-import logging
+from .logging_base import get_logger
 from typing import Any, Dict, List
 from dataclasses import dataclass
 
 from .types import ModelBackend, ConfigurationData
 from .protocols import ConfigurationProvider, ConfigurationMigrator
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ConfigurationError(Exception):

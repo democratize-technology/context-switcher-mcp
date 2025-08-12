@@ -12,7 +12,7 @@ Features:
 - Uses dependency injection to avoid circular dependencies
 """
 
-import logging
+from .logging_base import get_logger
 import warnings
 from typing import Any, Dict, Optional
 
@@ -43,7 +43,7 @@ except ImportError as e:
         UserWarning,
     )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class CompatibilityAdapter(BaseMigrator):
