@@ -5,7 +5,6 @@ This module provides unified logging configuration that builds upon the existing
 secure logging infrastructure while standardizing patterns across the codebase.
 """
 
-# Circular import removed - get_logger and lazy_log are defined in this file
 import logging
 import os
 import sys
@@ -31,7 +30,6 @@ correlation_id_context: ContextVar[Optional[str]] = ContextVar(
 # Global configuration
 _logging_configured = False
 _loggers_cache: Dict[str, logging.Logger] = {}
-_initializing_logger = False  # Guard against recursion
 
 
 class ContextSwitcherLogFormatter(SecureLogFormatter):
@@ -283,18 +281,8 @@ class LoggingConfig:
         self, name: str, secure: bool = False
     ) -> Union[logging.Logger, SecureLogger]:
         """Get a configured logger instance"""
-        global _initializing_logger
-        
-        # Prevent recursion during logger initialization
-        if _initializing_logger:
-            return logging.getLogger(name)
-        
         if not _logging_configured:
-            _initializing_logger = True
-            try:
-                self.setup_logging()
-            finally:
-                _initializing_logger = False
+            self.setup_logging()
 
         if secure:
             if name not in self._secure_loggers:
@@ -590,10 +578,10 @@ def validate_logging_migration():
                 content = f.read()
             
             # Check for old patterns
-            if "import logging" in content and "from .logging_config import get_logger, lazy_log" not in content:
+            if "import logging" in content and "from .logging_config import get_logger" not in content:
                 issues.append(f"{py_file}: Still using 'import logging' without standardized import")
             
-            if "get_logger(" in content:
+            if "logging.getLogger(" in content:
                 issues.append(f"{py_file}: Still using 'logging.getLogger()' directly")
             
             # Check for string concatenation in log calls

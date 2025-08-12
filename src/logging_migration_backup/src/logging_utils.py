@@ -6,15 +6,14 @@ to standardize logging across the application.
 """
 
 import functools
-import logging
 import time
 import uuid
 from contextlib import contextmanager
 from typing import Any, Callable, Dict, Optional, Union, TypeVar
 from dataclasses import dataclass
-from .logging_base import get_logger
+import logging
 
-from .logging_base import (
+from .logging_config import (
     get_logger,
     set_correlation_id,
     get_correlation_id,
@@ -101,7 +100,7 @@ class OperationLogger:
 
         # Log performance metrics if enabled
         if is_performance_logging_enabled():
-            perf_logger = get_logger("performance")
+            perf_logger = logging.getLogger("performance")
             perf_logger.debug(
                 f"Performance: {self.operation_name} completed in {duration:.2f}s",
                 extra={"performance_metrics": metrics.__dict__},
@@ -281,7 +280,7 @@ def performance_timer(
     """Decorator for performance timing with configurable thresholds"""
 
     def decorator(func: F) -> F:
-        perf_logger = logger or get_logger("performance")
+        perf_logger = logger or logging.getLogger("performance")
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -544,7 +543,7 @@ def log_performance_metric(
     logger: Optional[logging.Logger] = None,
 ):
     """Log performance metrics"""
-    perf_logger = logger or get_logger("performance")
+    perf_logger = logger or logging.getLogger("performance")
 
     if not is_performance_logging_enabled():
         return
