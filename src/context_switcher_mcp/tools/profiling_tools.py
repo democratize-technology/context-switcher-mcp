@@ -1,6 +1,6 @@
 """MCP tools for LLM profiling and performance monitoring"""
 
-import logging
+from ..logging_config import get_logger
 from typing import Dict, Any, Optional
 from mcp.server.fastmcp import FastMCP
 
@@ -10,7 +10,7 @@ from ..llm_profiler import get_global_profiler
 from ..performance_dashboard import get_performance_dashboard
 from ..validation import validate_session_id
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Request models for profiling tools

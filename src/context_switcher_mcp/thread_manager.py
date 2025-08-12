@@ -1,6 +1,6 @@
 """Refactored Thread management with extracted components"""
 
-import logging
+from .logging_base import get_logger
 from typing import Any, Dict
 
 from .circuit_breaker_manager import CircuitBreakerManager
@@ -10,7 +10,7 @@ from .models import Thread
 from .streaming_coordinator import StreamingCoordinator
 from .thread_lifecycle_manager import ThreadLifecycleManager
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ThreadManager:

@@ -5,7 +5,7 @@ based on collected LLM profiling data.
 """
 
 import asyncio
-import logging
+from .logging_base import get_logger
 import time
 from typing import Dict, Any, List, Optional, Tuple
 from dataclasses import dataclass
@@ -15,7 +15,7 @@ import statistics
 
 from .llm_profiler import get_global_profiler, LLMCallMetrics
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass

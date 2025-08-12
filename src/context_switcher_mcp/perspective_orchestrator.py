@@ -29,7 +29,7 @@ from .error_helpers import (
 from .error_logging import log_error_with_context
 from .error_context import error_context
 from .security import sanitize_error_message
-from .logging_config import get_logger
+from .logging_base import get_logger
 from .logging_utils import performance_timer
 
 logger = get_logger(__name__)

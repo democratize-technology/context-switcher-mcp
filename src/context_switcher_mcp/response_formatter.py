@@ -1,6 +1,6 @@
 """Response formatting service for AORP-compliant responses"""
 
-import logging
+from .logging_base import get_logger
 from typing import Any, Dict, Optional
 
 from .aorp import create_error_response
@@ -10,7 +10,7 @@ from .constants import NO_RESPONSE
 from .exceptions import ModelBackendError
 from .models import Thread, ModelBackend
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ResponseFormatter:

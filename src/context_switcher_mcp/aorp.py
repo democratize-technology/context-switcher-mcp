@@ -5,9 +5,9 @@ Transforms MCP responses from data dumps into AI workflow enablers
 
 from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional
-import logging
+from .logging_base import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Constants for quality assessment
 MIN_CONFIDENCE_THRESHOLD = 0.3

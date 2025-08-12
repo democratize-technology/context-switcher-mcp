@@ -1,13 +1,13 @@
 """Validation utilities for Context-Switcher MCP Server"""
 
-import logging
+from .logging_base import get_logger
 from typing import Tuple
 
 from .client_binding import validate_session_access
 from .config import get_config
 from .security import sanitize_error_message
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 config = get_config()
 

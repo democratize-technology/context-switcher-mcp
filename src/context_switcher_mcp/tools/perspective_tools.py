@@ -1,6 +1,6 @@
 """Perspective management tools for Context-Switcher MCP Server"""
 
-import logging
+from ..logging_config import get_logger
 from typing import Dict, Any, Optional
 from mcp.server.fastmcp import FastMCP
 from uuid import uuid4
@@ -20,7 +20,7 @@ from ..exceptions import (
     ModelBackendError,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class AddPerspectiveRequest(BaseModel):

@@ -3,6 +3,7 @@
 import asyncio
 import functools
 import logging
+from .logging_base import get_logger
 import time
 from typing import Any, Callable, List, Optional, Type, TypeVar
 
@@ -15,7 +16,7 @@ from .exceptions import (
 )
 from .security import sanitize_error_message
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 F = TypeVar("F", bound=Callable[..., Any])
 

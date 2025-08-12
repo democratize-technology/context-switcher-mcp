@@ -1,7 +1,7 @@
 """Error handling helper functions to reduce code duplication and standardize error patterns"""
 
 import functools
-import logging
+from .logging_base import get_logger
 from typing import Any, Callable, Dict, Optional, Type, TypeVar
 
 from .aorp import create_error_response
@@ -23,7 +23,7 @@ from .exceptions import (
 from .error_logging import log_error_with_context
 from .error_classification import classify_error, get_error_handling_strategy
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 F = TypeVar("F", bound=Callable[..., Any])
 
 

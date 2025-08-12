@@ -1,6 +1,6 @@
 """Factory for creating backend instances without duplication"""
 
-import logging
+from .logging_base import get_logger
 from typing import Dict, Optional
 
 from .models import ModelBackend, Thread
@@ -8,7 +8,7 @@ from .backend_interface import ModelBackendInterface, BedrockBackend
 from .exceptions import ConfigurationError, ModelBackendError
 from .profiling_wrapper import create_profiling_wrapper
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class LiteLLMBackend(ModelBackendInterface):

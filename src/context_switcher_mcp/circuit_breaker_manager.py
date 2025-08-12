@@ -1,6 +1,6 @@
 """Circuit breaker pattern implementation for resilient backend failure handling"""
 
-import logging
+from .logging_base import get_logger
 from typing import Any, Dict
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -12,7 +12,7 @@ from .circuit_breaker_store import (
     load_circuit_breaker_state,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -30,9 +30,9 @@ class CircuitBreakerState:
         """Initialize with config defaults if not provided"""
         config = get_config()
         if self.failure_threshold is None:
-            self.failure_threshold = config.circuit_breaker.failure_threshold
+            self.failure_threshold = config.models.circuit_breaker_failure_threshold
         if self.timeout_seconds is None:
-            self.timeout_seconds = config.circuit_breaker.timeout_seconds
+            self.timeout_seconds = config.models.circuit_breaker_timeout_seconds
 
     def should_allow_request(self) -> bool:
         """Check if requests should be allowed through circuit breaker"""

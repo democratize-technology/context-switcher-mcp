@@ -3,9 +3,9 @@
 import asyncio
 import threading
 from typing import Dict, Optional
-import logging
+from .logging_base import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class _AsyncLockContext:

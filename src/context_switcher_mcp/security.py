@@ -1,6 +1,6 @@
 """Security utilities for input sanitization and validation"""
 
-import logging
+from .logging_base import get_logger
 from typing import Optional
 
 # Import from focused modules
@@ -15,7 +15,7 @@ from .input_sanitizer import sanitize_for_llm, sanitize_error_message
 from .model_validators import validate_model_id
 from .security_events import log_security_event
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Re-export key classes and functions for backward compatibility

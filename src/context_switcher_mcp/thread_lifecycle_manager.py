@@ -1,7 +1,7 @@
 """Core thread lifecycle and execution management"""
 
 import asyncio
-import logging
+from .logging_base import get_logger
 from typing import Dict, Optional, Tuple, Any
 from dataclasses import dataclass
 
@@ -19,7 +19,7 @@ from .exceptions import (
     ModelValidationError,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -161,10 +161,10 @@ class ThreadLifecycleManager:
         """
         config = get_config()
         self.max_retries = (
-            max_retries if max_retries is not None else config.retry.max_retries
+            max_retries if max_retries is not None else config.models.max_retries
         )
         self.retry_delay = (
-            retry_delay if retry_delay is not None else config.retry.initial_delay
+            retry_delay if retry_delay is not None else config.models.retry_delay_seconds
         )
 
         self.circuit_breaker_manager = circuit_breaker_manager

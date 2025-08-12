@@ -1,6 +1,6 @@
 """Helper functions for analysis operations"""
 
-import logging
+from ..logging_config import get_logger
 from typing import Dict, Any, Tuple
 from datetime import datetime
 
@@ -14,7 +14,7 @@ from ..security import (
 )
 from ..validation import validate_session_id
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 async def validate_analysis_request(

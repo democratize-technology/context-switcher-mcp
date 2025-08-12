@@ -2,7 +2,7 @@
 
 import json
 import asyncio
-import logging
+from .logging_base import get_logger
 from typing import Dict, Optional, Any
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,7 +14,7 @@ from .exceptions import (
 )
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class CircuitBreakerStore:

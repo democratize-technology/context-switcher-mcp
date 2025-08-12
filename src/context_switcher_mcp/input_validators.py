@@ -1,7 +1,7 @@
 """Input validation classes for comprehensive content validation"""
 
 import time
-import logging
+from .logging_base import get_logger
 from typing import List, Tuple, Optional
 from dataclasses import dataclass
 from collections import defaultdict, deque
@@ -14,7 +14,7 @@ from .security_patterns import (
 )
 from .input_sanitizer import sanitize_for_llm
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass

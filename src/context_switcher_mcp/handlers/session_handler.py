@@ -1,6 +1,6 @@
 """Session management handler for Context-Switcher MCP Server"""
 
-import logging
+from ..logging_config import get_logger
 import secrets
 from typing import Dict, Any, List, Optional
 
@@ -14,7 +14,7 @@ from ..helpers.session_helpers import (
 from ..models import ModelBackend
 from ..security import sanitize_error_message
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Remove unused imports and constants - moved to session_helpers
 

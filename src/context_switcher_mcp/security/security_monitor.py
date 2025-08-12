@@ -50,7 +50,6 @@ class SecurityMetrics:
     def _update_hourly_metric(self, metric_type: str):
         """Update hourly metrics"""
         now = datetime.now(timezone.utc)
-        current_hour = now.hour
 
         # Shift array if day has changed
         if (now - self.last_updated).days > 0:
@@ -181,7 +180,6 @@ class SecurityMonitor:
 
     def _analyze_threat_indicators(self, event: Dict[str, any]):
         """Analyze event for threat indicators"""
-        event_type = event["event_type"]
         details = event["details"]
         threat_level = event["threat_level"]
 
@@ -190,7 +188,6 @@ class SecurityMonitor:
 
         # Session-based indicators
         if event["session_id"]:
-            session_key = f"session:{event['session_id']}"
             indicators.append(("session", event["session_id"], threat_level))
 
         # Content-based indicators

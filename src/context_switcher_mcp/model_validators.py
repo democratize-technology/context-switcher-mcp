@@ -1,11 +1,11 @@
 """Model validation utilities for validating model IDs and configurations"""
 
-import logging
+from .logging_base import get_logger
 from typing import Tuple
 
 from .security_patterns import SecurityPatternMatcher
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ModelIdValidator:

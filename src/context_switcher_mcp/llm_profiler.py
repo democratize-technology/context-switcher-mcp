@@ -5,7 +5,7 @@ Tracks timing, token usage, costs, memory usage, and provides optimization insig
 """
 
 import asyncio
-import logging
+from .logging_base import get_logger
 import time
 import psutil
 from typing import Dict, Any, Optional, List
@@ -18,7 +18,7 @@ import uuid
 from .circular_buffer import CircularBuffer
 from .config import get_config
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ProfilingLevel(Enum):

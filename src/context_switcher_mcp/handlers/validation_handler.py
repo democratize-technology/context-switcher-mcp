@@ -1,6 +1,6 @@
 """Validation handler for Context-Switcher MCP Server"""
 
-import logging
+from ..logging_config import get_logger
 from typing import Dict, Any
 
 from ..error_helpers import validation_error, rate_limit_error
@@ -11,7 +11,7 @@ from ..security import (
 )
 from ..validation import validate_topic
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Initialize rate limiter
 rate_limiter = SessionRateLimiter()

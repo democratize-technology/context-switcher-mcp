@@ -3,9 +3,9 @@
 from typing import Any, Dict, List, Optional, Set
 from dataclasses import dataclass
 from enum import Enum
-import logging
+from .logging_base import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ProblemDomain(Enum):

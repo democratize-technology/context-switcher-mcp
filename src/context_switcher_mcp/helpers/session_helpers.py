@@ -1,6 +1,6 @@
 """Helper functions for session creation and management"""
 
-import logging
+from ..logging_config import get_logger
 from typing import Dict, Any, List, Optional
 from uuid import uuid4
 
@@ -10,7 +10,7 @@ from ..client_binding import log_security_event_with_binding
 from ..security import validate_user_content
 from ..templates import PERSPECTIVE_TEMPLATES
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 config = get_config()
 

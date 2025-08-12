@@ -11,7 +11,7 @@ from .exceptions import (
 )
 from .error_context import suppress_and_log
 from .error_logging import log_error_with_context
-from .logging_config import get_logger
+from .logging_base import get_logger
 
 logger = get_logger(__name__)
 

@@ -1,7 +1,7 @@
 """Streaming coordination for real-time response handling"""
 
 import asyncio
-import logging
+from .logging_base import get_logger
 import time
 from typing import Any, AsyncGenerator, Dict, Optional, Tuple, List
 
@@ -13,7 +13,7 @@ from .error_logging import log_error_with_context
 from .error_context import error_context
 from .security import sanitize_error_message
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class StreamingCoordinator:

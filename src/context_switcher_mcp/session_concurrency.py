@@ -1,11 +1,11 @@
 """Concurrency control for session access management"""
 
 import asyncio
-import logging
+from .logging_base import get_logger
 from typing import Any, Callable, Dict, Optional
 from datetime import datetime, timezone
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SessionConcurrency:

@@ -4,7 +4,7 @@ This module provides transparent profiling integration with existing backend int
 It wraps backend calls with profiling logic while maintaining full compatibility.
 """
 
-import logging
+from .logging_base import get_logger
 import time
 from typing import Dict, Any, AsyncGenerator
 from functools import wraps
@@ -13,7 +13,7 @@ from .backend_interface import ModelBackendInterface, ModelCallConfig
 from .llm_profiler import get_global_profiler, LLMCallMetrics
 from .models import Thread
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ProfilingBackendWrapper(ModelBackendInterface):

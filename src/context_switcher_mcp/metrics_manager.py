@@ -1,7 +1,7 @@
 """Metrics management for thread orchestration operations"""
 
 import asyncio
-import logging
+from .logging_base import get_logger
 import time
 from typing import Any, Dict, Optional
 from dataclasses import dataclass, field
@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from .circular_buffer import CircularBuffer
 from .config import get_config
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -70,7 +70,7 @@ class MetricsManager:
 
         # Metrics storage with circular buffer to prevent memory leaks
         self.metrics_history = CircularBuffer[ThreadOrchestrationMetrics](
-            config.metrics.max_history_size
+            config.monitoring.metrics.max_history_size
         )
         self.metrics_lock = asyncio.Lock()  # Protect metrics operations
 

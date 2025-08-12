@@ -6,13 +6,13 @@ loose coupling between modules and supports testability. All dependencies
 are registered here and resolved through protocols.
 """
 
-import logging
+from .logging_base import get_logger
 from typing import TypeVar, Type, Dict, Any, Optional, Callable, cast
 from threading import Lock
 
 from .protocols import ContainerProtocol
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 T = TypeVar("T")
 

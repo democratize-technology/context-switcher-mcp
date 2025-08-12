@@ -1,7 +1,7 @@
 """Chain of Thought integration for structured perspective reasoning"""
 
 import asyncio
-import logging
+from .logging_base import get_logger
 from typing import Any, Dict, Optional, Tuple
 
 try:
@@ -18,7 +18,7 @@ from .exceptions import OrchestrationError
 from .models import Thread
 from .config import get_config
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ChainOfThoughtError(OrchestrationError):
@@ -58,10 +58,11 @@ class PerspectiveReasoningOrchestrator:
                 "chain-of-thought-tool not available. Install with: pip install chain-of-thought-tool"
             )
         config = get_config()
-        self.cot_timeout = cot_timeout or config.reasoning.cot_timeout_seconds
-        self.max_iterations = config.reasoning.max_iterations
-        self.summary_timeout = config.reasoning.summary_timeout_seconds
-        self.default_temperature = config.reasoning.default_temperature
+        # Use defaults since reasoning config was consolidated
+        self.cot_timeout = cot_timeout or 120.0  # 2 minutes default
+        self.max_iterations = 5  # reasonable default for reasoning iterations
+        self.summary_timeout = 60.0  # 1 minute for summary generation
+        self.default_temperature = config.models.default_temperature
         self._cot_available = COT_AVAILABLE
         self._processors: Dict[str, AsyncChainOfThoughtProcessor] = {}
 

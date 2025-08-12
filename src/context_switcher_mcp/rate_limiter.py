@@ -1,12 +1,12 @@
 """Rate limiting for session operations"""
 
 import time
-import logging
+from .logging_base import get_logger
 from typing import Any, Dict
 from dataclasses import dataclass
 from threading import Lock
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass

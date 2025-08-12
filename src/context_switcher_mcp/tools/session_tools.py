@@ -1,6 +1,6 @@
 """Session management tools for Context-Switcher MCP Server"""
 
-import logging
+from ..logging_config import get_logger
 from typing import Dict, Any
 from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, Field
@@ -9,7 +9,7 @@ from ..error_helpers import session_not_found_error
 from ..templates import PERSPECTIVE_TEMPLATES
 from ..validation import validate_session_id
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def register_session_tools(mcp: FastMCP) -> None:

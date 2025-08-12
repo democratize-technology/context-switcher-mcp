@@ -1,10 +1,10 @@
 """Content sanitization utilities for LLM input processing"""
 
 import re
-import logging
+from .logging_base import get_logger
 from typing import Tuple, List
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ContentSanitizer:
