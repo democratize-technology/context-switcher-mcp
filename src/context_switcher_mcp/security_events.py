@@ -1,10 +1,10 @@
 """Security event logging and monitoring utilities"""
 
 import time
-import logging
+from .logging_base import get_logger
 from typing import Any, Dict, Optional
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SecurityEventLogger:

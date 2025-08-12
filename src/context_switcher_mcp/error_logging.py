@@ -1,6 +1,7 @@
 """Structured error logging utilities for consistent error reporting"""
 
 import logging
+from .logging_base import get_logger
 import time
 import uuid
 from typing import Any, Dict, List, Optional
@@ -31,7 +32,7 @@ class StructuredErrorLogger:
             include_performance_metrics: Whether to track performance impact of errors
             correlation_id_generator: Function to generate correlation IDs
         """
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger or get_logger(__name__)
         self.include_stack_trace = include_stack_trace
         self.include_performance_metrics = include_performance_metrics
         self.correlation_id_generator = correlation_id_generator or (

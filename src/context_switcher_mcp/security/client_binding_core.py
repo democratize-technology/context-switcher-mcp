@@ -8,7 +8,7 @@ event tracking.
 
 import hashlib
 import secrets
-import logging
+from ..logging_base import get_logger
 from datetime import datetime, timezone
 from typing import Dict, Optional, Any, Tuple
 
@@ -20,7 +20,7 @@ from .client_validation_service import (
 )
 from .security_event_tracker import SecurityEventTracker, security_event_tracker
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ClientBindingManager:

@@ -2,12 +2,12 @@
 
 import os
 import re
-import logging
+from ..logging_base import get_logger
 from pathlib import Path
 from typing import Tuple, Optional, List
 from urllib.parse import urlparse
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class PathValidator:

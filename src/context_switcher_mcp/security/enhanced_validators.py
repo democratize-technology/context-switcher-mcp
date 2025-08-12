@@ -1,14 +1,14 @@
 """Enhanced input validation for additional security measures"""
 
 import re
-import logging
+from ..logging_base import get_logger
 import html
 import json
 from typing import Tuple, List, Dict, Any, Optional
 from dataclasses import dataclass
 from urllib.parse import unquote
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass

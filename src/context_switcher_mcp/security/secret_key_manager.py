@@ -15,9 +15,9 @@ import stat
 from datetime import datetime, timezone
 from typing import List, Optional
 from pathlib import Path
-import logging
+from ..logging_base import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def load_or_generate_secret_key() -> str:

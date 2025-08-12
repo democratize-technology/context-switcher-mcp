@@ -3,6 +3,7 @@
 import asyncio
 import contextlib
 import logging
+from .logging_base import get_logger
 import time
 import uuid
 from typing import Any, AsyncGenerator, Callable, Dict, Generator, List, Optional, Type
@@ -14,7 +15,7 @@ from .exceptions import (
 from .input_sanitizer import sanitize_error_message
 from .security_context_sanitizer import sanitize_exception_context
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @contextlib.asynccontextmanager

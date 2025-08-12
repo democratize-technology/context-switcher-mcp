@@ -5,12 +5,12 @@ This module provides comprehensive client validation including suspicious
 access pattern detection, behavioral analysis, and security rule enforcement.
 """
 
-import logging
+from ..logging_base import get_logger
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, List
 from ..models import ContextSwitcherSession
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Security configuration constants
 MAX_VALIDATION_FAILURES = 3

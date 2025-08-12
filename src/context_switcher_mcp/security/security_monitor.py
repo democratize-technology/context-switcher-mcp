@@ -1,13 +1,13 @@
 """Security monitoring and metrics collection"""
 
-import logging
+from ..logging_base import get_logger
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime, timezone
 from threading import Lock
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass

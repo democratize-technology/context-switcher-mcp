@@ -1,6 +1,7 @@
 """Secure logging utilities to prevent log injection and information leakage"""
 
 import logging
+from ..logging_base import get_logger
 import re
 import json
 import hashlib
@@ -8,7 +9,7 @@ from typing import Any, Dict, Optional
 from datetime import datetime, timezone
 
 # Configure secure logger
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SecureLogFormatter(logging.Formatter):
@@ -83,8 +84,8 @@ class SecureLogger:
     """Secure logging wrapper with additional security features"""
 
     def __init__(self, name: str):
-        self.logger = logging.getLogger(name)
-        self.security_logger = logging.getLogger(f"{name}.security")
+        self.logger = get_logger(name)
+        self.security_logger = get_logger(f"{name}.security")
 
         # Set up secure formatter if not already configured
         if not self.logger.handlers:
@@ -306,7 +307,7 @@ def setup_secure_logging() -> None:
     root_logger.setLevel(logging.INFO)
 
     # Create separate security logger with higher visibility
-    security_logger = logging.getLogger("security")
+    security_logger = get_logger("security")
     security_handler = logging.StreamHandler()
     security_formatter = SecureLogFormatter(
         "SECURITY - %(asctime)s - %(levelname)s - %(message)s"

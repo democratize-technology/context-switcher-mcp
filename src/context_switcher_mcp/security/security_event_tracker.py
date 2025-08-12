@@ -6,11 +6,12 @@ and monitoring capabilities for the client binding security system.
 """
 
 import logging
+from ..logging_base import get_logger
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 from ..models import ContextSwitcherSession
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SecurityEventTracker:
@@ -35,7 +36,7 @@ class SecurityEventTracker:
         Args:
             logger_name: Name of the logger to use for security events
         """
-        self.security_logger = logging.getLogger(logger_name)
+        self.security_logger = get_logger(logger_name)
         self.event_categories = {
             "authentication": logging.WARNING,
             "authorization": logging.WARNING,
