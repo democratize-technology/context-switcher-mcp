@@ -94,7 +94,7 @@ from .protocols import ConfigurationProvider
 def create_config_with_migration() -> ContextSwitcherConfig:
     """Create configuration with migration support using dependency injection"""
     config = ContextSwitcherConfig()
-    
+
     # Use dependency injection for migration
     try:
         container = get_container()
@@ -103,7 +103,7 @@ def create_config_with_migration() -> ContextSwitcherConfig:
             # Apply migration logic
     except Exception as e:
         logger.debug(f"No configuration migrator available: {e}")
-    
+
     return config
 ```
 
@@ -122,7 +122,7 @@ from .protocols import ConfigurationProvider, ConfigurationMigrator
 
 class CompatibilityAdapter(BaseMigrator):
     """Uses dependency injection to avoid circular dependencies"""
-    
+
     def create_legacy_compatible_provider(self, migrated_config):
         return ConfigurationFactory.create_from_dict(migrated_config)
 ```
@@ -134,17 +134,17 @@ class CompatibilityAdapter(BaseMigrator):
 def setup_configuration_dependencies():
     """Setup configuration dependencies in the DI container"""
     container = get_container()
-    
+
     # Register configuration provider factory
     def config_factory() -> ConfigurationProvider:
         return ContextSwitcherConfig()
-    
+
     container.register_singleton_factory(ConfigurationProvider, config_factory)
-    
+
     # Register migrator if available
     def migrator_factory() -> ConfigurationMigrator:
         return CompatibilityAdapter()
-    
+
     container.register_singleton_factory(ConfigurationMigrator, migrator_factory)
 ```
 
@@ -204,7 +204,7 @@ def test_session_manager():
     # Create mock config
     mock_config = Mock(spec=ConfigurationProvider)
     mock_config.get_session_config.return_value = ConfigurationData(max_active_sessions=10)
-    
+
     # Test with injected dependency
     with DependencyOverride(ConfigurationProvider, mock_config):
         session_manager = SessionManager()
@@ -220,15 +220,15 @@ def test_session_manager():
    # Standard library imports
    import os
    import logging
-   
+
    # Third-party imports
    from pydantic import BaseModel
-   
+
    # Local imports - foundation first
    from .types import ModelBackend
    from .protocols import ConfigurationProvider
    from .container import get_container
-   
+
    # Local imports - implementation
    from .config_base import BaseConfigurationProvider
    ```
@@ -240,7 +240,7 @@ def test_session_manager():
        container = get_container()
        config = container.get(ConfigurationProvider)
        return SomeService(config)
-   
+
    # ❌ Avoid - Direct imports that may cause cycles
    def create_service():
        from .config import get_config
@@ -254,7 +254,7 @@ def test_session_manager():
        @abstractmethod
        def do_something(self) -> str:
            pass
-   
+
    # ✅ Implement protocol
    class ConcreteService(ServiceProtocol):
        def do_something(self) -> str:
@@ -325,7 +325,7 @@ This refactoring represents a significant improvement in code quality and sets t
 
 ---
 
-**Generated**: 2025-08-11  
-**Author**: Claude Code  
-**Status**: ✅ Complete  
+**Generated**: 2025-08-11
+**Author**: Claude Code
+**Status**: ✅ Complete
 **Verified**: Dependency analyzer confirms 0 circular dependencies

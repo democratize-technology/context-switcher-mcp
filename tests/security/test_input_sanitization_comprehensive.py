@@ -163,9 +163,9 @@ class TestEnhancedInputValidation:
 
         for identifier in malicious_identifiers:
             is_valid, error_msg = validator.validate_identifier(identifier)
-            assert not is_valid, (
-                f"Malicious identifier should be rejected: {identifier}"
-            )
+            assert (
+                not is_valid
+            ), f"Malicious identifier should be rejected: {identifier}"
 
     def test_html_sanitization(self):
         """Test HTML content sanitization"""
@@ -209,15 +209,16 @@ class TestConfigurationValidation:
         ]
 
         for name, value in malicious_env_vars:
-            is_valid, error_msg = (
-                ConfigurationInputValidator.validate_environment_variable(name, value)
-            )
+            (
+                is_valid,
+                error_msg,
+            ) = ConfigurationInputValidator.validate_environment_variable(name, value)
             if name in ["LD_PRELOAD", "PATH"]:
                 assert not is_valid, f"Reserved env var should be rejected: {name}"
             elif "rm -rf" in value or "DROP TABLE" in value:
-                assert not is_valid, (
-                    f"Dangerous env var value should be rejected: {value}"
-                )
+                assert (
+                    not is_valid
+                ), f"Dangerous env var value should be rejected: {value}"
 
     def test_config_value_validation(self):
         """Test configuration value validation"""
@@ -303,9 +304,10 @@ class TestSecurityFuzzing:
         for payload in prompt_injection_payloads:
             result = validate_user_content(payload, "prompt", 1000)
             # Should either be blocked or flagged as high risk
-            assert not result.is_valid or result.risk_level in ["high", "critical"], (
-                f"Prompt injection should be detected: {payload[:50]}..."
-            )
+            assert not result.is_valid or result.risk_level in [
+                "high",
+                "critical",
+            ], f"Prompt injection should be detected: {payload[:50]}..."
 
     def test_malformed_input_fuzzing(self):
         """Fuzz test with malformed inputs"""

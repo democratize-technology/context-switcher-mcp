@@ -67,9 +67,9 @@ def test_confidence_calculator():
 
     dist_builder = QualityDistributionBuilder()
     distribution = dist_builder.build_distribution(active_metrics)
-    assert ResponseQuality.GOOD.value in distribution, (
-        "QualityDistributionBuilder failed"
-    )
+    assert (
+        ResponseQuality.GOOD.value in distribution
+    ), "QualityDistributionBuilder failed"
 
     print("✓ ConfidenceCalibrator refactoring working correctly")
 
@@ -85,9 +85,9 @@ def test_circuit_breaker_store():
 
     # Test default path
     store1 = CircuitBreakerStore()
-    assert str(store1.storage_path).endswith("circuit_breakers.json"), (
-        "Default path incorrect"
-    )
+    assert str(store1.storage_path).endswith(
+        "circuit_breakers.json"
+    ), "Default path incorrect"
 
     # Test custom valid path
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -118,12 +118,12 @@ def test_basic_imports():
     assert thread_metrics.success == True, "ThreadMetrics creation failed"
 
     # Test that methods exist
-    assert hasattr(metrics_mgr, "_calculate_thread_summary"), (
-        "Missing refactored method"
-    )
-    assert hasattr(metrics_mgr, "_calculate_backend_performance"), (
-        "Missing refactored method"
-    )
+    assert hasattr(
+        metrics_mgr, "_calculate_thread_summary"
+    ), "Missing refactored method"
+    assert hasattr(
+        metrics_mgr, "_calculate_backend_performance"
+    ), "Missing refactored method"
 
     print("✓ All refactored classes import and instantiate correctly")
 

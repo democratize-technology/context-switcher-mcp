@@ -113,13 +113,13 @@ def handle_session_errors(
                 # Add helpful hints based on error type
                 if provide_hints:
                     if "not found" in str(e).lower():
-                        context["hint"] = (
-                            "Try calling start_context_analysis to create a new session"
-                        )
+                        context[
+                            "hint"
+                        ] = "Try calling start_context_analysis to create a new session"
                     elif "expired" in str(e).lower():
-                        context["hint"] = (
-                            "Session has expired, please start a new analysis"
-                        )
+                        context[
+                            "hint"
+                        ] = "Session has expired, please start a new analysis"
 
                 logger.log(
                     log_level,
@@ -138,13 +138,13 @@ def handle_session_errors(
                 # Add helpful hints based on error type
                 if provide_hints:
                     if "not found" in str(e).lower():
-                        context["hint"] = (
-                            "Try calling start_context_analysis to create a new session"
-                        )
+                        context[
+                            "hint"
+                        ] = "Try calling start_context_analysis to create a new session"
                     elif "expired" in str(e).lower():
-                        context["hint"] = (
-                            "Session has expired, please start a new analysis"
-                        )
+                        context[
+                            "hint"
+                        ] = "Session has expired, please start a new analysis"
 
                 logger.log(
                     log_level,

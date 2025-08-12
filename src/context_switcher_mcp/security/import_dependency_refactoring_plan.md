@@ -94,12 +94,12 @@ from .types import ThreadData, SessionData, ModelBackend
 
 class SessionManagerProtocol(ABC):
     """Protocol for session management"""
-    
+
     @abstractmethod
     async def add_session(self, session: SessionData) -> bool:
         """Add a new session"""
         pass
-    
+
     @abstractmethod
     async def get_session(self, session_id: str) -> Optional[SessionData]:
         """Get session by ID"""
@@ -107,7 +107,7 @@ class SessionManagerProtocol(ABC):
 
 class ThreadManagerProtocol(ABC):
     """Protocol for thread management"""
-    
+
     @abstractmethod
     async def broadcast_message(self, threads: Dict[str, ThreadData], message: str) -> Dict[str, str]:
         """Broadcast message to threads"""
@@ -115,12 +115,12 @@ class ThreadManagerProtocol(ABC):
 
 class ConfigProtocol(ABC):
     """Protocol for configuration access"""
-    
+
     @abstractmethod
     def get_session_config(self) -> Dict[str, Any]:
         """Get session configuration"""
         pass
-    
+
     @abstractmethod
     def get_backend_config(self, backend: ModelBackend) -> Dict[str, Any]:
         """Get backend configuration"""
@@ -137,29 +137,29 @@ T = TypeVar('T')
 
 class DependencyContainer:
     """Simple dependency injection container"""
-    
+
     def __init__(self):
         self._instances: Dict[Type, Any] = {}
         self._factories: Dict[Type, callable] = {}
-    
+
     def register_instance(self, interface: Type[T], instance: T) -> None:
         """Register a singleton instance"""
         self._instances[interface] = instance
-    
+
     def register_factory(self, interface: Type[T], factory: callable) -> None:
         """Register a factory function"""
         self._factories[interface] = factory
-    
+
     def get(self, interface: Type[T]) -> T:
         """Get instance of interface"""
         if interface in self._instances:
             return self._instances[interface]
-        
+
         if interface in self._factories:
             instance = self._factories[interface]()
             self._instances[interface] = instance
             return instance
-        
+
         raise ValueError(f"No registration found for {interface}")
 
 # Global container instance
@@ -178,17 +178,17 @@ from .types import ModelBackend
 
 class ConfigurationProvider(ABC):
     """Base interface for configuration providers"""
-    
+
     @abstractmethod
     def get_session_config(self) -> Dict[str, Any]:
         """Get session configuration"""
         pass
-    
+
     @abstractmethod
     def get_backend_config(self, backend: ModelBackend) -> Dict[str, Any]:
         """Get backend-specific configuration"""
         pass
-    
+
     @abstractmethod
     def validate(self) -> bool:
         """Validate configuration"""
@@ -196,12 +196,12 @@ class ConfigurationProvider(ABC):
 
 class ConfigurationMigrator(ABC):
     """Interface for configuration migration"""
-    
+
     @abstractmethod
     def migrate_config(self, old_config: Dict[str, Any]) -> Dict[str, Any]:
         """Migrate old configuration to new format"""
         pass
-    
+
     @abstractmethod
     def is_migration_needed(self, config: Dict[str, Any]) -> bool:
         """Check if migration is needed"""
@@ -232,16 +232,16 @@ class SessionConfig:
     default_ttl_hours: int = 1
     cleanup_interval_seconds: int = 300
 
-@dataclass 
+@dataclass
 class ContextSwitcherConfig(ConfigurationProvider):
     """Main configuration class implementing provider interface"""
-    
+
     session: SessionConfig
-    
+
     def __init__(self):
         self.session = SessionConfig()
         self._backend_configs = {}
-    
+
     def get_session_config(self) -> Dict[str, Any]:
         """Get session configuration"""
         return {
@@ -249,11 +249,11 @@ class ContextSwitcherConfig(ConfigurationProvider):
             'default_ttl_hours': self.session.default_ttl_hours,
             'cleanup_interval_seconds': self.session.cleanup_interval_seconds
         }
-    
+
     def get_backend_config(self, backend: ModelBackend) -> Dict[str, Any]:
         """Get backend-specific configuration"""
         return self._backend_configs.get(backend, {})
-    
+
     def validate(self) -> bool:
         """Validate configuration"""
         return (
@@ -267,9 +267,9 @@ def create_config_with_migration() -> ContextSwitcherConfig:
     """Create configuration with migration support"""
     from .container import container
     from .config_base import ConfigurationMigrator
-    
+
     config = ContextSwitcherConfig()
-    
+
     # Use dependency injection to get migrator if available
     try:
         migrator = container.get(ConfigurationMigrator)
@@ -277,7 +277,7 @@ def create_config_with_migration() -> ContextSwitcherConfig:
     except ValueError:
         # No migrator registered, use default config
         pass
-    
+
     return config
 
 # Global config instance
@@ -309,18 +309,18 @@ logger = logging.getLogger(__name__)
 
 class CompatibilityAdapter(ConfigurationMigrator):
     """Adapter for migrating legacy configuration"""
-    
+
     def migrate_config(self, old_config: Dict[str, Any]) -> Dict[str, Any]:
         """Migrate old configuration to new format"""
         # Migration logic here
         migrated = {}
-        
+
         # Migrate session config
         if 'session' in old_config:
             migrated['session'] = old_config['session']
-        
+
         return migrated
-    
+
     def is_migration_needed(self, config: Dict[str, Any]) -> bool:
         """Check if migration is needed"""
         # Check for legacy format indicators
@@ -335,7 +335,7 @@ def create_validated_config_with_fallback() -> ValidatedContextSwitcherConfig:
         # Import here to avoid circular dependency
         from .container import container
         from .config_base import ConfigurationProvider
-        
+
         legacy_provider = container.get(ConfigurationProvider)
         # Convert legacy to validated format
         return _convert_legacy_to_validated(legacy_provider)
@@ -362,11 +362,11 @@ import secrets
 
 from .types import ModelBackend, ThreadData, SessionData
 
-@dataclass 
+@dataclass
 class Thread:
     """Thread with behavior methods"""
     data: ThreadData
-    
+
     def add_message(self, role: str, content: str) -> None:
         """Add a message to the conversation history"""
         message = {
@@ -384,21 +384,21 @@ class ContextSwitcherSession:
     client_binding: Optional['ClientBinding'] = None
     analyses: List[Dict[str, Any]] = field(default_factory=list)
     security_events: List[Dict[str, Any]] = field(default_factory=list)
-    
+
     def add_thread(self, thread: Thread) -> None:
         """Add a perspective thread to the session"""
         self.threads[thread.data.name] = thread
-    
+
     def get_thread(self, name: str) -> Optional[Thread]:
         """Get a thread by name"""
         return self.threads.get(name)
-    
+
     async def record_access(self, tool_name: str) -> None:
         """Record session access for behavioral analysis"""
         # Use dependency injection for lock manager
         from .container import container
         from .protocols import SessionManagerProtocol
-        
+
         try:
             session_manager = container.get(SessionManagerProtocol)
             # Delegate to session manager
@@ -446,10 +446,10 @@ logger = logging.getLogger(__name__)
 
 class SessionManager(SessionManagerProtocol):
     """Session manager with injected dependencies"""
-    
+
     def __init__(self, config_provider: Optional[ConfigProtocol] = None):
         self.sessions: Dict[str, ContextSwitcherSession] = {}
-        
+
         # Use dependency injection for configuration
         if config_provider is None:
             try:
@@ -458,17 +458,17 @@ class SessionManager(SessionManagerProtocol):
                 # Fallback to default config
                 from .config import get_config
                 config_provider = get_config()
-        
+
         self.config_provider = config_provider
         session_config = config_provider.get_session_config()
-        
+
         self.max_sessions = session_config.get('max_active_sessions', 50)
         self.session_ttl = timedelta(hours=session_config.get('default_ttl_hours', 1))
         self.cleanup_interval = timedelta(seconds=session_config.get('cleanup_interval_seconds', 300))
-        
+
         self._lock = asyncio.Lock()
         self._cleanup_task: Optional[asyncio.Task] = None
-    
+
     # ... rest of implementation remains similar but uses injected dependencies
 ```
 
@@ -497,7 +497,7 @@ def setup_dependencies():
     """Setup dependency injection container"""
     config = get_config()
     container.register_instance(ConfigProtocol, config)
-    
+
     from .session_manager import SessionManager
     session_manager = SessionManager(config)
     container.register_instance(SessionManagerProtocol, session_manager)
@@ -514,7 +514,7 @@ session_manager = container.get(SessionManagerProtocol)
 
 #### Step 1: Create Foundation (Day 1)
 1. Create `types.py` module
-2. Create `protocols.py` module  
+2. Create `protocols.py` module
 3. Create `container.py` module
 4. Create `config_base.py` module
 
@@ -570,7 +570,7 @@ def test_session_manager():
     # Create mock config
     mock_config = Mock(spec=ConfigProtocol)
     mock_config.get_session_config.return_value = {'max_active_sessions': 10}
-    
+
     # Test with injected dependency
     session_manager = SessionManager(mock_config)
     assert session_manager.max_sessions == 10
@@ -583,7 +583,7 @@ def test_complete_session_flow():
     # Setup test container
     test_container = DependencyContainer()
     test_container.register_instance(ConfigProtocol, test_config)
-    
+
     # Test with real dependencies
     session_manager = test_container.get(SessionManagerProtocol)
     # ... test operations

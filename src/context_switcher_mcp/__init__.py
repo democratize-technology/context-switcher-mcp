@@ -20,7 +20,6 @@ from .tools.perspective_tools import register_perspective_tools
 from .tools.admin_tools import register_admin_tools
 from .tools.profiling_tools import register_profiling_tools
 from .logging_config import setup_logging, get_logger
-from .logging_utils import log_operation, correlation_context
 
 __all__ = ["main", "mcp"]
 

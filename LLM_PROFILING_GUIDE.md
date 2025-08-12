@@ -168,7 +168,7 @@ Generate comprehensive performance report for stakeholders
 - Records timing, tokens, and costs
 - Maintains compatibility with existing code
 
-#### PerformanceDashboard  
+#### PerformanceDashboard
 - **Analysis and reporting engine**
 - Generates comprehensive insights
 - Provides optimization recommendations
@@ -192,18 +192,18 @@ class LLMCallMetrics:
     thread_name: str
     backend: str
     model_name: str
-    
+
     # Timing metrics
     start_time: float
     end_time: Optional[float]
-    network_latency: Optional[float]  
+    network_latency: Optional[float]
     processing_time: Optional[float]
-    
+
     # Token & cost metrics
     input_tokens: Optional[int]
-    output_tokens: Optional[int] 
+    output_tokens: Optional[int]
     estimated_cost_usd: Optional[float]
-    
+
     # Performance metrics
     success: bool
     error_type: Optional[str]
@@ -260,7 +260,7 @@ for rec in recommendations["recommendations"]:
 ```python
 # Analyze specific session
 session_data = await get_session_profiling_analysis({
-    "session_id": "my-session-id"  
+    "session_id": "my-session-id"
 })
 
 print(f"Session calls: {session_data['summary']['total_calls']}")
@@ -276,7 +276,7 @@ for event in session_data["timeline"]:
 
 ### Profiling Overhead
 - **Standard profiling**: <0.5% performance impact
-- **With memory tracking**: <2% performance impact  
+- **With memory tracking**: <2% performance impact
 - **Sampling reduces overhead**: 10% sampling = 0.1% of overhead
 - **Zero impact when disabled**
 
@@ -312,7 +312,7 @@ for event in session_data["timeline"]:
 - Implement context pruning for large prompts
 - Monitor backend cost efficiency
 
-### 5. **Performance Optimization**  
+### 5. **Performance Optimization**
 - Identify slow operations with latency analysis
 - Use streaming for better perceived performance
 - Monitor circuit breaker effectiveness
@@ -388,7 +388,7 @@ CS_LOG_LEVEL=DEBUG
 
 ### Planned Features
 - **Real-time alerting**: Slack/email notifications
-- **Advanced analytics**: ML-powered anomaly detection  
+- **Advanced analytics**: ML-powered anomaly detection
 - **Cost forecasting**: Predictive budget modeling
 - **Multi-tenant support**: Organization-level tracking
 - **Export formats**: CSV, Excel, PDF reports

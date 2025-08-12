@@ -262,7 +262,7 @@ from context_switcher_mcp.security import record_security_event
 
 # Record security events
 record_security_event(
-    "validation_failure", 
+    "validation_failure",
     {"input": user_input[:100], "pattern": "xss_attempt"},
     threat_level="high"
 )
@@ -394,7 +394,7 @@ The security hardening successfully closes all identified input sanitization gap
 
 ---
 
-**Report Generated**: August 12, 2025  
-**Security Framework Version**: 2.0  
-**Assessment Coverage**: 100% of identified vulnerabilities  
+**Report Generated**: August 12, 2025
+**Security Framework Version**: 2.0
+**Assessment Coverage**: 100% of identified vulnerabilities
 **Recommended Action**: Deploy to production with security monitoring enabled

@@ -155,7 +155,7 @@ CS_PROFILING_SAMPLING_RATE=0.1
     "ollama_host": "http://localhost:11434"
   },
   "server": {
-    "host": "localhost", 
+    "host": "localhost",
     "port": 3023,
     "log_level": "INFO"
   }
@@ -234,7 +234,7 @@ Configuration validation failed:
 ### Fallback Behavior
 The system provides graceful fallback:
 1. **Try validated configuration** with comprehensive error checking
-2. **Fall back to legacy configuration** with basic error handling  
+2. **Fall back to legacy configuration** with basic error handling
 3. **Provide clear error messages** for both validation and runtime errors
 4. **Log configuration source** (validated vs legacy) for debugging
 

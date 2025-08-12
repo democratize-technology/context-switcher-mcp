@@ -359,23 +359,23 @@ class StructuredErrorLogger:
     def debug(self, msg, *args, **kwargs):
         """Delegate debug logging to underlying logger."""
         return self.logger.debug(msg, *args, **kwargs)
-    
+
     def info(self, msg, *args, **kwargs):
         """Delegate info logging to underlying logger."""
         return self.logger.info(msg, *args, **kwargs)
-    
+
     def warning(self, msg, *args, **kwargs):
         """Delegate warning logging to underlying logger."""
         return self.logger.warning(msg, *args, **kwargs)
-    
+
     def error(self, msg, *args, **kwargs):
         """Delegate error logging to underlying logger."""
         return self.logger.error(msg, *args, **kwargs)
-    
+
     def critical(self, msg, *args, **kwargs):
         """Delegate critical logging to underlying logger."""
         return self.logger.critical(msg, *args, **kwargs)
-    
+
     def log(self, level, msg, *args, **kwargs):
         """Delegate generic logging to underlying logger."""
         return self.logger.log(level, msg, *args, **kwargs)

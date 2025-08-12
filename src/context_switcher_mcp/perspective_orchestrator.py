@@ -335,9 +335,9 @@ class PerspectiveOrchestrator:
                     session_id=session_id,
                     additional_context={"thread_name": name, "topic": topic},
                 )
-                responses[name] = (
-                    f"ERROR: CoT processing failed - {sanitize_error_message(str(e))}"
-                )
+                responses[
+                    name
+                ] = f"ERROR: CoT processing failed - {sanitize_error_message(str(e))}"
             except Exception as e:
                 # Unexpected errors - wrap and log
                 specific_error = wrap_generic_exception(

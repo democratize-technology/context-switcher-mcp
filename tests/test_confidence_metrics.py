@@ -589,10 +589,10 @@ class TestAnalyzeSynthesisQuality:
         Multiple perspectives agree on the core implementation approach.
         The technical analysis reveals performance optimizations.
         Business perspective highlights revenue impact.
-        
+
         However, there are tensions between speed and security.
         The trade-off emerges clearly from user perspective.
-        
+
         Key insights discover unexpected scalability concerns.
         """
 

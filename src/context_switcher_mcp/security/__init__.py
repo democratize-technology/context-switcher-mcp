@@ -44,26 +44,45 @@ from .security_monitor import (
 try:
     import sys
     import os
+
     parent_dir = os.path.dirname(os.path.dirname(__file__))
     sys.path.insert(0, parent_dir)
-    from security import validate_user_content, sanitize_error_message, log_security_event, validate_analysis_prompt, validate_perspective_data, detect_advanced_prompt_injection, sanitize_for_llm
+    from security import (
+        validate_user_content,
+        sanitize_error_message,
+        log_security_event,
+        validate_analysis_prompt,
+        validate_perspective_data,
+        detect_advanced_prompt_injection,
+        sanitize_for_llm,
+    )
+
     sys.path.pop(0)
 except ImportError:
     # Fallback - define minimal versions
-    def validate_user_content(content, content_type, max_length=10000, client_id="default"):
+    def validate_user_content(
+        content, content_type, max_length=10000, client_id="default"
+    ):
         return {"valid": True, "sanitized_content": content}
+
     def sanitize_error_message(message):
         return message
+
     def log_security_event(event_type, details, client_id="default"):
         pass
+
     def validate_analysis_prompt(prompt, session_context=None):
         return {"is_valid": True, "issues": [], "risk_level": "low"}
+
     def validate_perspective_data(name, description, custom_prompt=None):
         return {"is_valid": True, "issues": [], "risk_level": "low"}
+
     def detect_advanced_prompt_injection(content):
         return {"is_valid": True, "issues": [], "risk_level": "low"}
+
     def sanitize_for_llm(content):
         return content
+
 
 __all__ = [
     # Secret key management
@@ -97,7 +116,7 @@ __all__ = [
     "get_security_health",
     # Legacy functions
     "validate_user_content",
-    "sanitize_error_message", 
+    "sanitize_error_message",
     "log_security_event",
     "validate_analysis_prompt",
     "validate_perspective_data",

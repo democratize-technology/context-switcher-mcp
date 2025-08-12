@@ -86,9 +86,9 @@ class ConfigurationValidator:
         results["validation_summary"]["production_ready"] = prod_result["ready"]
 
         # Generate overall assessment
-        results["validation_summary"]["overall_success"] = (
-            self._calculate_overall_success(results)
-        )
+        results["validation_summary"][
+            "overall_success"
+        ] = self._calculate_overall_success(results)
         results["recommendations"] = self._generate_recommendations(results)
 
         self.validation_results = results
@@ -126,9 +126,9 @@ class ConfigurationValidator:
                 result["config_type"] = "legacy_fallback"
                 logger.info("Fell back to legacy configuration system")
             except Exception as legacy_error:
-                result["error"] = (
-                    f"Both validated and legacy failed. Validated: {e}. Legacy: {legacy_error}"
-                )
+                result[
+                    "error"
+                ] = f"Both validated and legacy failed. Validated: {e}. Legacy: {legacy_error}"
                 result["config_type"] = "failed"
 
         except Exception as e:
