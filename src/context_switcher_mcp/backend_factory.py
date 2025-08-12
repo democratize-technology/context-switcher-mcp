@@ -108,7 +108,6 @@ class BackendFactory:
         Raises:
             ConfigurationError: If backend is not supported
         """
-        # Check if we already have this backend
         if backend_type not in cls._instances:
             cls._instances[backend_type] = cls._create_backend(backend_type)
 
@@ -131,7 +130,6 @@ class BackendFactory:
             Backend instance or None if not available
         """
         try:
-            # Create base backend
             base_backend = None
             if backend_type == ModelBackend.BEDROCK:
                 base_backend = BedrockBackend()

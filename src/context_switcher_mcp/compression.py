@@ -119,32 +119,26 @@ def prepare_synthesis_input(
     Returns:
         Tuple of (formatted text, compression stats)
     """
-    # Calculate per-perspective limit
     num_perspectives = len(perspectives)
     if num_perspectives == 0:
         return "", {"perspectives": 0, "total_chars": 0, "estimated_tokens": 0}
 
-    # Reserve some space for formatting
     available_chars = max_total_chars - (num_perspectives * 50)  # ~50 chars per header
     chars_per_perspective = available_chars // num_perspectives
 
-    # Track original sizes
     original_chars = sum(len(content) for content in perspectives.values())
     original_tokens = sum(
         estimate_token_count(content) for content in perspectives.values()
     )
 
-    # Compress each perspective
     compressed = compress_perspectives(perspectives, chars_per_perspective)
 
-    # Format for synthesis
     sections = []
     for name, content in compressed.items():
         sections.append(f"### {name.upper()} PERSPECTIVE\n{content}")
 
     result = "\n\n".join(sections)
 
-    # Calculate compression stats
     final_chars = len(result)
     final_tokens = estimate_token_count(result)
 
