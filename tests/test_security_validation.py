@@ -75,9 +75,9 @@ class TestPromptInjectionDetection:
                 "high",
                 "critical",
             ], f"Risk level should be high/critical for: {malicious_input}"
-            assert (
-                len(result.blocked_patterns) > 0
-            ), f"Should have detected patterns in: {malicious_input}"
+            assert len(result.blocked_patterns) > 0, (
+                f"Should have detected patterns in: {malicious_input}"
+            )
 
     def test_advanced_injection_detection(self):
         """Test advanced prompt injection detection"""
@@ -108,9 +108,9 @@ class TestPromptInjectionDetection:
 
         for manipulation in role_manipulation:
             result = validate_user_content(manipulation, "analysis_prompt")
-            assert (
-                result.is_valid is False
-            ), f"Should block role manipulation: {manipulation}"
+            assert result.is_valid is False, (
+                f"Should block role manipulation: {manipulation}"
+            )
             assert result.risk_level in ["high", "critical"]
 
 
@@ -219,9 +219,9 @@ class TestAnalysisPromptValidation:
             result = validate_analysis_prompt(
                 attempt, session_context="current_session"
             )
-            assert (
-                result.is_valid is False
-            ), f"Should block session manipulation: {attempt}"
+            assert result.is_valid is False, (
+                f"Should block session manipulation: {attempt}"
+            )
             assert "session manipulation" in " ".join(result.issues).lower()
 
     def test_meta_analysis_detected(self):

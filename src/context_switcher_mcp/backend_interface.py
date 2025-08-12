@@ -16,7 +16,11 @@ from .exceptions import (
     ModelAuthenticationError,
     ModelValidationError,
     ConfigurationError,
+    NetworkTimeoutError,
+    NetworkConnectivityError,
 )
+from .error_decorators import log_errors_with_context
+from .error_context import error_context
 
 
 @dataclass
@@ -51,6 +55,7 @@ class ModelBackendInterface(ABC):
         pass
 
     @abstractmethod
+    @log_errors_with_context(include_performance=True)
     async def call_model(self, thread: Thread) -> str:
         """Make a model call and return response"""
         pass
@@ -139,67 +144,148 @@ class BedrockBackend(ModelBackendInterface):
         return thread.model_name or self.config.model.bedrock_model_id
 
     async def call_model(self, thread: Thread) -> str:
-        try:
-            import boto3
+        async with error_context(
+            operation_name="bedrock_model_call",
+            user_context={"thread_name": thread.name, "model_backend": "bedrock"},
+        ) as ctx:
+            try:
+                import boto3
+            except ImportError as e:
+                raise ConfigurationError(
+                    "boto3 library not installed for Bedrock backend"
+                ) from e
 
-            client = boto3.client("bedrock-runtime", region_name="us-east-1")
-            model_config = self.get_model_config(thread)
+            try:
+                client = boto3.client("bedrock-runtime", region_name="us-east-1")
+                model_config = self.get_model_config(thread)
+                ctx["model_name"] = model_config.model_name
 
-            messages = []
-            for msg in thread.conversation_history:
-                messages.append(
-                    {
-                        "role": msg["role"],
-                        "content": [{"text": msg["content"]}],
-                    }
+                # Validate model ID with security context
+                from .security import validate_model_id
+
+                is_valid, error_msg = validate_model_id(model_config.model_name)
+                if not is_valid:
+                    raise ModelValidationError(
+                        f"Invalid model ID: {error_msg}",
+                        validation_context={
+                            "model_name": model_config.model_name,
+                            "validation_error": error_msg,
+                        },
+                    )
+
+                # Prepare messages
+                messages = []
+                for msg in thread.conversation_history:
+                    messages.append(
+                        {
+                            "role": msg["role"],
+                            "content": [{"text": msg["content"]}],
+                        }
+                    )
+
+                ctx["message_count"] = len(messages)
+
+                # Make the API call
+                response = client.converse(
+                    modelId=model_config.model_name,
+                    messages=messages,
+                    system=[{"text": thread.system_prompt}],
+                    inferenceConfig={
+                        "maxTokens": model_config.max_tokens,
+                        "temperature": model_config.temperature,
+                    },
                 )
 
-            from .security import validate_model_id
+                result = response["output"]["message"]["content"][0]["text"]
+                ctx["response_length"] = len(result)
+                return result
 
-            is_valid, error_msg = validate_model_id(model_config.model_name)
-            if not is_valid:
-                raise ValueError(f"Invalid model ID: {error_msg}")
+            except ValueError as e:
+                # Model validation error (already converted above)
+                if "Invalid model ID" in str(e):
+                    raise  # Re-raise ModelValidationError with context
+                else:
+                    raise ModelValidationError(str(e)) from e
 
-            response = client.converse(
-                modelId=model_config.model_name,
-                messages=messages,
-                system=[{"text": thread.system_prompt}],
-                inferenceConfig={
-                    "maxTokens": model_config.max_tokens,
-                    "temperature": model_config.temperature,
-                },
-            )
+            except Exception as e:
+                # Enhanced error classification with network context
+                error_str = str(e).lower()
 
-            return response["output"]["message"]["content"][0]["text"]
+                # Network-related errors
+                if any(term in error_str for term in ["connection", "dns", "resolve"]):
+                    raise NetworkConnectivityError(
+                        f"Network connectivity error: {str(e)}",
+                        network_context={
+                            "backend": "bedrock",
+                            "region": "us-east-1",
+                            "error_type": "connectivity",
+                        },
+                    ) from e
+                elif any(term in error_str for term in ["timeout", "timed out"]):
+                    raise NetworkTimeoutError(
+                        f"Network timeout error: {str(e)}",
+                        network_context={
+                            "backend": "bedrock",
+                            "timeout_type": "network",
+                            "model": model_config.model_name,
+                        },
+                    ) from e
 
-        except ImportError as e:
-            raise ConfigurationError(
-                "boto3 library not installed for Bedrock backend"
-            ) from e
-        except ValueError as e:
-            # Model validation error
-            raise ModelValidationError(str(e)) from e
-        except Exception as e:
-            # Map to specific exception types based on error
-            error_type, error_message = self._get_error_type_and_message(e)
+                # Authentication/Authorization errors
+                elif any(
+                    term in error_str
+                    for term in [
+                        "api_key",
+                        "key",
+                        "unauthorized",
+                        "forbidden",
+                        "credentials",
+                    ]
+                ):
+                    raise ModelAuthenticationError(
+                        "AWS credentials invalid or insufficient permissions",
+                        security_context={
+                            "backend": "bedrock",
+                            "auth_error_type": "credentials",
+                        },
+                    ) from e
 
-            if error_type == "credentials_error":
-                raise ModelAuthenticationError(error_message) from e
-            elif error_type == "connection_error":
-                raise ModelConnectionError(error_message) from e
-            elif error_type == "model_not_found":
-                raise ModelValidationError(error_message) from e
-            elif "throttling" in str(e).lower() or "rate" in str(e).lower():
-                raise ModelRateLimitError("Rate limit exceeded") from e
-            elif "timeout" in str(e).lower():
-                raise ModelTimeoutError("Request timed out") from e
-            else:
-                # Generic model backend error
-                raise ModelBackendError(
-                    self._format_error_response(
-                        error_message, error_type, {"model_id": thread.model_name}
-                    )
-                ) from e
+                # Rate limiting
+                elif any(
+                    term in error_str
+                    for term in ["throttling", "throttled", "rate", "quota"]
+                ):
+                    raise ModelRateLimitError(
+                        "Bedrock API rate limit exceeded",
+                        network_context={
+                            "backend": "bedrock",
+                            "rate_limit_type": "api",
+                        },
+                    ) from e
+
+                # Model-specific errors
+                elif any(
+                    term in error_str for term in ["model", "not found", "invalid"]
+                ):
+                    raise ModelValidationError(
+                        f"Model error: {str(e)}",
+                        validation_context={
+                            "backend": "bedrock",
+                            "model_name": model_config.model_name,
+                            "error_type": "model_not_found",
+                        },
+                    ) from e
+
+                # Generic model backend error with context
+                else:
+                    raise ModelBackendError(
+                        f"Bedrock API call failed: {sanitize_error_message(str(e))}",
+                        performance_context={
+                            "backend": "bedrock",
+                            "operation": "converse_api",
+                            "model": model_config.model_name,
+                        },
+                    ) from e
 
     async def call_model_stream(
         self, thread: Thread

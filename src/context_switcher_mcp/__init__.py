@@ -4,7 +4,6 @@ Context-Switcher MCP Server
 Multi-perspective analysis using thread orchestration
 """
 
-import logging
 from typing import Dict, Any, List, Optional
 
 from mcp.server.fastmcp import FastMCP
@@ -19,12 +18,15 @@ from .tools.session_tools import register_session_tools
 from .tools.analysis_tools import register_analysis_tools
 from .tools.perspective_tools import register_perspective_tools
 from .tools.admin_tools import register_admin_tools
+from .tools.profiling_tools import register_profiling_tools
+from .logging_config import setup_logging, get_logger
+from .logging_utils import log_operation, correlation_context
 
 __all__ = ["main", "mcp"]
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Setup unified logging configuration
+setup_logging()
+logger = get_logger(__name__)
 
 mcp = FastMCP("context-switcher")
 config = get_config()
@@ -61,6 +63,7 @@ register_session_tools(mcp)
 register_analysis_tools(mcp)
 register_perspective_tools(mcp)
 register_admin_tools(mcp)
+register_profiling_tools(mcp)
 
 
 # Session creation tool (main entry point)
@@ -89,6 +92,6 @@ async def start_context_analysis(
     )
 
 
-def main():
+def main() -> None:
     """Main entry point for the MCP server"""
     mcp.run()

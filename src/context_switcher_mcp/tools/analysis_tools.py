@@ -1,8 +1,8 @@
 """Analysis tools for Context-Switcher MCP Server"""
 
-import logging
 from datetime import datetime, timezone
 from typing import Dict, Any
+from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
 from ..aorp import (
@@ -21,8 +21,11 @@ from ..exceptions import (
     SessionNotFoundError,
     OrchestrationError,
 )
+from ..logging_config import get_logger
+from ..logging_utils import mcp_tool_logger, correlation_context, get_request_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
+request_logger = get_request_logger()
 
 # Initialize rate limiter (shared across analysis operations)
 rate_limiter = SessionRateLimiter()
@@ -42,27 +45,33 @@ class SynthesizePerspectivesRequest(BaseModel):
     session_id: str = Field(description="Session ID to synthesize")
 
 
-def register_analysis_tools(mcp):
+def register_analysis_tools(mcp: FastMCP) -> None:
     """Register analysis tools with the MCP server"""
 
     @mcp.tool(
         description="When you need parallel insights NOW - broadcast your question to all perspectives simultaneously. Expect 10-30 seconds for comprehensive analysis. Perspectives can abstain with [NO_RESPONSE] if not relevant"
     )
+    @mcp_tool_logger(tool_name="analyze_from_perspectives")
     async def analyze_from_perspectives(
         request: AnalyzeFromPerspectivesRequest,
     ) -> Dict[str, Any]:
         """Broadcast a prompt to all perspectives and collect their responses"""
-        # Validate the analysis request (rate limits, session, prompt)
-        is_valid, error_response = await validate_analysis_request(
-            request.session_id, request.prompt, rate_limiter
-        )
-        if not is_valid:
-            return error_response
+        with correlation_context() as correlation_id:
+            logger.info(
+                f"Starting multi-perspective analysis for session {request.session_id}"
+            )
 
-        # Get session
-        from .. import session_manager
+            # Validate the analysis request (rate limits, session, prompt)
+            is_valid, error_response = await validate_analysis_request(
+                request.session_id, request.prompt, rate_limiter
+            )
+            if not is_valid:
+                return error_response
 
-        session = await session_manager.get_session(request.session_id)
+            # Get session
+            from .. import session_manager
+
+            session = await session_manager.get_session(request.session_id)
 
         # Initialize orchestrator
         from ..perspective_orchestrator import PerspectiveOrchestrator

@@ -50,18 +50,18 @@ class TestResponseQualityValidation:
                 key_insight = "Analysis failed: session not found"
 
             # Test quality standards
-            assert (
-                len(key_insight) <= 150
-            ), f"Key insight too long: {len(key_insight)} chars"
+            assert len(key_insight) <= 150, (
+                f"Key insight too long: {len(key_insight)} chars"
+            )
             assert any(
                 pattern in key_insight.lower() for pattern in case["expected_patterns"]
             ), f"Key insight missing expected patterns: {case['expected_patterns']}"
-            assert key_insight[
-                0
-            ].isupper(), "Key insight should start with capital letter"
-            assert not key_insight.endswith(
-                "."
-            ), "Key insight should not end with period (action-oriented)"
+            assert key_insight[0].isupper(), (
+                "Key insight should start with capital letter"
+            )
+            assert not key_insight.endswith("."), (
+                "Key insight should not end with period (action-oriented)"
+            )
 
     def test_next_steps_actionability(self):
         """Test that next steps are genuinely actionable"""
@@ -120,15 +120,15 @@ class TestResponseQualityValidation:
 
                 # Should not be vague
                 vague_words = ["consider", "maybe", "possibly", "think about"]
-                assert not any(
-                    vague in step.lower() for vague in vague_words
-                ), f"Step too vague: {step}"
+                assert not any(vague in step.lower() for vague in vague_words), (
+                    f"Step too vague: {step}"
+                )
 
             # Should contain expected actions for scenario
             for expected_action in scenario["expected_actions"]:
-                assert any(
-                    expected_action in step.lower() for step in steps
-                ), f"Missing expected action '{expected_action}' in scenario '{scenario['name']}'"
+                assert any(expected_action in step.lower() for step in steps), (
+                    f"Missing expected action '{expected_action}' in scenario '{scenario['name']}'"
+                )
 
     def test_confidence_score_accuracy(self):
         """Test that confidence scores accurately reflect response quality"""
@@ -182,9 +182,9 @@ class TestResponseQualityValidation:
             )
 
             min_expected, max_expected = scenario["expected_confidence_range"]
-            assert (
-                min_expected <= confidence <= max_expected
-            ), f"Confidence {confidence} not in expected range {scenario['expected_confidence_range']} for scenario '{scenario['name']}'"
+            assert min_expected <= confidence <= max_expected, (
+                f"Confidence {confidence} not in expected range {scenario['expected_confidence_range']} for scenario '{scenario['name']}'"
+            )
 
     def test_workflow_guidance_effectiveness(self):
         """Test that workflow guidance effectively helps AI assistants"""
@@ -221,21 +221,21 @@ class TestResponseQualityValidation:
 
             # Should contain appropriate terms
             for term in test["should_contain"]:
-                assert (
-                    term.lower() in guidance.lower()
-                ), f"Workflow guidance missing '{term}' for {test['response_type']}"
+                assert term.lower() in guidance.lower(), (
+                    f"Workflow guidance missing '{term}' for {test['response_type']}"
+                )
 
             # Should not contain inappropriate terms
             for term in test["should_not_contain"]:
-                assert (
-                    term.lower() not in guidance.lower()
-                ), f"Workflow guidance inappropriately contains '{term}' for {test['response_type']}"
+                assert term.lower() not in guidance.lower(), (
+                    f"Workflow guidance inappropriately contains '{term}' for {test['response_type']}"
+                )
 
             # Should be actionable (contain action verbs)
             action_verbs = ["present", "guide", "offer", "show", "help", "enable"]
-            assert any(
-                verb in guidance.lower() for verb in action_verbs
-            ), f"Workflow guidance not actionable for {test['response_type']}"
+            assert any(verb in guidance.lower() for verb in action_verbs), (
+                f"Workflow guidance not actionable for {test['response_type']}"
+            )
 
     def test_progressive_disclosure_hierarchy(self):
         """Test that information hierarchy supports progressive disclosure"""
@@ -295,21 +295,21 @@ class TestResponseQualityValidation:
 
         # Level 1: Immediate - Should provide instant understanding
         immediate = complex_response["immediate"]
-        assert (
-            len(immediate) <= 4
-        ), "Immediate section should have ≤4 fields for quick scanning"
+        assert len(immediate) <= 4, (
+            "Immediate section should have ≤4 fields for quick scanning"
+        )
         assert "status" in immediate, "Status must be immediately visible"
         assert len(immediate["key_insight"]) <= 100, "Key insight should be scannable"
 
         # Level 2: Actionable - Should provide clear next actions
         actionable = complex_response["actionable"]
         assert len(actionable["next_steps"]) >= 1, "Must provide at least one next step"
-        assert (
-            len(actionable["next_steps"]) <= 5
-        ), "Should not overwhelm with too many steps"
-        assert actionable["recommendations"][
-            "primary"
-        ], "Must have primary recommendation"
+        assert len(actionable["next_steps"]) <= 5, (
+            "Should not overwhelm with too many steps"
+        )
+        assert actionable["recommendations"]["primary"], (
+            "Must have primary recommendation"
+        )
 
         # Level 3: Quality - Should provide assessment without detail overload
         quality = complex_response["quality"]
@@ -381,23 +381,23 @@ class TestResponseQualityValidation:
             for expected_action in scenario["expected_recovery_actions"]:
                 if any(expected_action in step.lower() for step in next_steps):
                     found_actions += 1
-            assert (
-                found_actions > 0
-            ), f"No recovery actions found for {scenario['error_type']}, steps: {next_steps}"
+            assert found_actions > 0, (
+                f"No recovery actions found for {scenario['error_type']}, steps: {next_steps}"
+            )
 
             # Test workflow guidance is appropriate
             workflow_guidance = error_response["actionable"]["workflow_guidance"]
             for keyword in scenario["expected_guidance_keywords"]:
-                assert (
-                    keyword.lower() in workflow_guidance.lower()
-                ), f"Missing guidance keyword '{keyword}' for {scenario['error_type']}"
+                assert keyword.lower() in workflow_guidance.lower(), (
+                    f"Missing guidance keyword '{keyword}' for {scenario['error_type']}"
+                )
 
             # Test urgency is appropriate
             urgency = error_response["quality"]["urgency"]
             if scenario["error_type"] in ["auth_failure", "quota_exceeded"]:
-                assert (
-                    urgency == "critical"
-                ), "Critical errors should have critical urgency"
+                assert urgency == "critical", (
+                    "Critical errors should have critical urgency"
+                )
             else:
                 assert urgency in [
                     "high",
@@ -446,9 +446,9 @@ class TestResponseQualityValidation:
 
             # Test confidence range
             min_conf, max_conf = scenario["expected_confidence_range"]
-            assert (
-                min_conf <= confidence <= max_conf
-            ), f"Synthesis confidence {confidence} not in expected range for {scenario['name']}"
+            assert min_conf <= confidence <= max_conf, (
+                f"Synthesis confidence {confidence} not in expected range for {scenario['name']}"
+            )
 
             # Test next steps appropriateness
             next_steps = generate_synthesis_next_steps(
@@ -456,9 +456,9 @@ class TestResponseQualityValidation:
             )
 
             for expected_keyword in scenario["expected_next_steps"]:
-                assert any(
-                    expected_keyword in step.lower() for step in next_steps
-                ), f"Missing expected next step keyword '{expected_keyword}' for {scenario['name']}"
+                assert any(expected_keyword in step.lower() for step in next_steps), (
+                    f"Missing expected next step keyword '{expected_keyword}' for {scenario['name']}"
+                )
 
     def test_response_completeness_validation(self):
         """Test that AORP responses are complete and well-formed"""

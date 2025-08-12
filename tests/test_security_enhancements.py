@@ -36,9 +36,9 @@ class TestSecureSessionIDGeneration:
         allowed_chars = set(
             "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
         )
-        assert all(
-            c in allowed_chars for c in session_id
-        ), f"Session ID contains invalid characters: {session_id}"
+        assert all(c in allowed_chars for c in session_id), (
+            f"Session ID contains invalid characters: {session_id}"
+        )
 
     def test_session_id_entropy(self):
         """Test that session IDs have high entropy"""
@@ -48,9 +48,9 @@ class TestSecureSessionIDGeneration:
 
         # Count unique characters - should have good distribution
         unique_chars = set(all_chars)
-        assert (
-            len(unique_chars) >= 20
-        ), f"Low character diversity: {len(unique_chars)} unique chars"
+        assert len(unique_chars) >= 20, (
+            f"Low character diversity: {len(unique_chars)} unique chars"
+        )
 
     def test_session_id_not_predictable(self):
         """Test that session IDs are not predictable"""

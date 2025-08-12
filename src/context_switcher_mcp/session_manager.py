@@ -1,7 +1,6 @@
 """Session management with automatic cleanup for Context-Switcher MCP"""
 
 import asyncio
-import logging
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Optional, Any, Tuple
 
@@ -10,8 +9,11 @@ from .config import get_config
 from .exceptions import (
     SessionCleanupError,
 )
+from .error_context import suppress_and_log
+from .error_logging import log_error_with_context
+from .logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SessionManager:
@@ -82,23 +84,14 @@ class SessionManager:
                 if removed_session:
                     logger.info(f"Removed expired session {session_id}")
                     # Cleanup rate limiter outside the critical session operation
-                    try:
+                    async with suppress_and_log(
+                        ImportError,
+                        AttributeError,
+                        Exception,
+                        operation_name="session_cleanup_expired",
+                        log_level=logging.WARNING,
+                    ):
                         await self._cleanup_session_resources(session_id)
-                    except (ImportError, AttributeError) as e:
-                        # Module or attribute not available - non-critical
-                        from .security import sanitize_error_message
-
-                        logger.warning(
-                            f"Failed to cleanup resources for expired session {session_id}: {sanitize_error_message(str(e))}"
-                        )
-                    except Exception as e:
-                        # Unexpected errors - log but don't fail
-                        from .security import sanitize_error_message
-
-                        logger.error(
-                            f"Unexpected error cleaning up session {session_id}: {sanitize_error_message(str(e))}",
-                            exc_info=True,
-                        )
                 return None
 
             return session
@@ -110,23 +103,14 @@ class SessionManager:
             if removed_session:
                 logger.info(f"Removed session {session_id}")
                 # Clean up resources outside the critical section, don't let failures break removal
-                try:
+                async with suppress_and_log(
+                    ImportError,
+                    AttributeError,
+                    Exception,
+                    operation_name="session_cleanup_removed",
+                    log_level=logging.WARNING,
+                ):
                     await self._cleanup_session_resources(session_id)
-                except (ImportError, AttributeError) as e:
-                    # Module or attribute not available - non-critical
-                    from .security import sanitize_error_message
-
-                    logger.warning(
-                        f"Failed to cleanup resources for session {session_id}: {sanitize_error_message(str(e))}"
-                    )
-                except Exception as e:
-                    # Unexpected errors - log but don't fail
-                    from .security import sanitize_error_message
-
-                    logger.error(
-                        f"Unexpected error cleaning up session {session_id}: {sanitize_error_message(str(e))}",
-                        exc_info=True,
-                    )
                 return True
             return False
 
@@ -169,11 +153,14 @@ class SessionManager:
                     )
                 except Exception as e:
                     # Unexpected error - this shouldn't happen with new cleanup
-                    from .security import sanitize_error_message
-
-                    logger.error(
-                        f"Unexpected error during session {session_id} cleanup: {sanitize_error_message(str(e))}",
-                        exc_info=True,
+                    cleanup_error = SessionCleanupError(
+                        f"Unexpected cleanup error: {str(e)}"
+                    )
+                    log_error_with_context(
+                        error=cleanup_error,
+                        operation_name="session_cleanup_batch",
+                        session_id=session_id,
+                        additional_context={"cleanup_type": "batch_expired"},
                     )
                 finally:
                     # Ensure session is marked as cleaned up even if errors occurred
@@ -206,13 +193,16 @@ class SessionManager:
             logger.warning(f"Rate limiter missing cleanup_session method: {e}")
         except Exception as e:
             # Log error but continue with other cleanup
-            from .security import sanitize_error_message
-
-            error_msg = f"Rate limiter cleanup failed: {sanitize_error_message(str(e))}"
-            logger.error(
-                f"Error in rate limiter cleanup for session {session_id}: {error_msg}"
+            cleanup_error = SessionCleanupError(
+                f"Rate limiter cleanup failed: {str(e)}"
             )
-            cleanup_errors.append(error_msg)
+            correlation_id = log_error_with_context(
+                error=cleanup_error,
+                operation_name="rate_limiter_cleanup",
+                session_id=session_id,
+                additional_context={"resource_type": "rate_limiter"},
+            )
+            cleanup_errors.append(f"Rate limiter cleanup failed (ID: {correlation_id})")
 
         # Future: Add other resource cleanup here (e.g., cache, temp files)
         # Each cleanup step should be in its own try/except block
@@ -256,11 +246,16 @@ class SessionManager:
                         )
                     except Exception as e:
                         # Unexpected errors - log but don't fail
-                        from .security import sanitize_error_message
-
-                        logger.error(
-                            f"Unexpected error cleaning up session {session_id}: {sanitize_error_message(str(e))}",
-                            exc_info=True,
+                        cleanup_error = SessionCleanupError(
+                            f"Unexpected cleanup error in get_session: {str(e)}"
+                        )
+                        log_error_with_context(
+                            error=cleanup_error,
+                            operation_name="session_cleanup_get",
+                            session_id=session_id,
+                            additional_context={
+                                "operation": "get_session_with_version"
+                            },
                         )
                 return None, -1
 
@@ -316,11 +311,11 @@ class SessionManager:
                 break
             except Exception as e:
                 # Unexpected errors - log but continue running
-                from .security import sanitize_error_message
-
-                logger.error(
-                    f"Unexpected error in periodic cleanup: {sanitize_error_message(str(e))}",
-                    exc_info=True,
+                cleanup_error = SessionCleanupError(f"Periodic cleanup error: {str(e)}")
+                log_error_with_context(
+                    error=cleanup_error,
+                    operation_name="periodic_session_cleanup",
+                    additional_context={"cleanup_type": "periodic_background"},
                 )
                 # Sleep a bit extra to avoid tight error loops
                 await asyncio.sleep(10)

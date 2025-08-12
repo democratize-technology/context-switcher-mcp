@@ -1,0 +1,544 @@
+{
+  "summary": {
+    "total_modules": 74,
+    "total_dependencies": 176,
+    "average_dependencies_per_module": 2.38,
+    "circular_dependencies_found": 0,
+    "has_circular_dependencies": false
+  },
+  "circular_dependencies": [],
+  "dependency_metrics": {
+    "most_dependent_modules": [
+      [
+        "context_switcher_mcp.perspective_orchestrator",
+        11
+      ],
+      [
+        "context_switcher_mcp.tools.analysis_tools",
+        10
+      ],
+      [
+        "context_switcher_mcp.security",
+        8
+      ],
+      [
+        "context_switcher_mcp.backend_interface",
+        8
+      ],
+      [
+        "context_switcher_mcp.streaming_coordinator",
+        7
+      ],
+      [
+        "context_switcher_mcp.tools.perspective_tools",
+        7
+      ],
+      [
+        "context_switcher_mcp.thread_manager",
+        6
+      ],
+      [
+        "context_switcher_mcp.config",
+        6
+      ],
+      [
+        "context_switcher_mcp.thread_lifecycle_manager",
+        6
+      ],
+      [
+        "context_switcher_mcp.response_formatter",
+        6
+      ]
+    ],
+    "most_depended_upon_modules": [
+      [
+        "context_switcher_mcp.models",
+        18
+      ],
+      [
+        "context_switcher_mcp.security",
+        16
+      ],
+      [
+        "context_switcher_mcp.exceptions",
+        15
+      ],
+      [
+        "context_switcher_mcp.config",
+        9
+      ],
+      [
+        "context_switcher_mcp.aorp",
+        8
+      ],
+      [
+        "context_switcher_mcp",
+        7
+      ],
+      [
+        "context_switcher_mcp.validation",
+        6
+      ],
+      [
+        "context_switcher_mcp.protocols",
+        5
+      ],
+      [
+        "context_switcher_mcp.types",
+        5
+      ],
+      [
+        "context_switcher_mcp.error_logging",
+        4
+      ]
+    ]
+  },
+  "import_patterns": {
+    "conditional_imports": [
+      "context_switcher_mcp.error_helpers",
+      "context_switcher_mcp.thread_lifecycle_manager"
+    ],
+    "function_level_imports": [],
+    "late_imports": [
+      {
+        "module": "context_switcher_mcp.error_helpers",
+        "line": 251,
+        "import": "import inspect"
+      },
+      {
+        "module": "context_switcher_mcp.config",
+        "line": 548,
+        "import": "from .config_migration import CompatibilityAdapter"
+      },
+      {
+        "module": "context_switcher_mcp.models",
+        "line": 124,
+        "import": "from .session_lock_manager import get_session_lock_manager"
+      },
+      {
+        "module": "context_switcher_mcp.config_validator",
+        "line": 103,
+        "import": "import time"
+      },
+      {
+        "module": "context_switcher_mcp.perspective_orchestrator",
+        "line": 288,
+        "import": "import boto3"
+      },
+      {
+        "module": "context_switcher_mcp.profiling_wrapper",
+        "line": 237,
+        "import": "import tiktoken"
+      },
+      {
+        "module": "context_switcher_mcp.validated_config",
+        "line": 609,
+        "import": "import httpx"
+      },
+      {
+        "module": "context_switcher_mcp.circuit_breaker_store",
+        "line": 98,
+        "import": "import tempfile"
+      },
+      {
+        "module": "context_switcher_mcp.backend_factory",
+        "line": 60,
+        "import": "import httpx"
+      },
+      {
+        "module": "context_switcher_mcp.circuit_breaker_manager",
+        "line": 71,
+        "import": "from .security import sanitize_error_message"
+      },
+      {
+        "module": "context_switcher_mcp.session_data",
+        "line": 149,
+        "import": "from .models import Thread, ModelBackend"
+      },
+      {
+        "module": "context_switcher_mcp.config_migration",
+        "line": 226,
+        "import": "from .validated_config import create_default_validated_config"
+      },
+      {
+        "module": "context_switcher_mcp.circular_buffer",
+        "line": 80,
+        "import": "import sys"
+      },
+      {
+        "module": "context_switcher_mcp.error_decorators",
+        "line": 386,
+        "import": "import inspect"
+      },
+      {
+        "module": "context_switcher_mcp.backend_interface",
+        "line": 154,
+        "import": "import boto3"
+      },
+      {
+        "module": "context_switcher_mcp.thread_lifecycle_manager",
+        "line": 114,
+        "import": "from .security import sanitize_error_message"
+      },
+      {
+        "module": "context_switcher_mcp.response_formatter",
+        "line": 170,
+        "import": "import time"
+      },
+      {
+        "module": "context_switcher_mcp.input_validators",
+        "line": 247,
+        "import": "from .input_sanitizer import structure_validator"
+      },
+      {
+        "module": "context_switcher_mcp.validation",
+        "line": 85,
+        "import": "from . import session_manager"
+      },
+      {
+        "module": "context_switcher_mcp.tools.analysis_tools",
+        "line": 63,
+        "import": "from .. import session_manager"
+      },
+      {
+        "module": "context_switcher_mcp.tools.admin_tools",
+        "line": 55,
+        "import": "from .. import session_manager"
+      },
+      {
+        "module": "context_switcher_mcp.tools.perspective_tools",
+        "line": 98,
+        "import": "from .. import session_manager"
+      },
+      {
+        "module": "context_switcher_mcp.tools.session_tools",
+        "line": 76,
+        "import": "from .. import session_manager"
+      },
+      {
+        "module": "context_switcher_mcp.security.enhanced_validators",
+        "line": 106,
+        "import": "import unicodedata"
+      },
+      {
+        "module": "context_switcher_mcp.security.dependency_analyzer",
+        "line": 263,
+        "import": "import_patterns = self._analyze_import_patterns()"
+      },
+      {
+        "module": "context_switcher_mcp.security.security_monitor",
+        "line": 199,
+        "import": "import re"
+      },
+      {
+        "module": "context_switcher_mcp.handlers.session_handler",
+        "line": 72,
+        "import": "from .. import session_manager"
+      }
+    ],
+    "circular_import_attempts": []
+  },
+  "dependency_graph": {
+    "context_switcher_mcp.metrics_manager": [
+      "context_switcher_mcp.config",
+      "context_switcher_mcp.circular_buffer"
+    ],
+    "context_switcher_mcp.error_helpers": [
+      "context_switcher_mcp.error_logging",
+      "context_switcher_mcp.security",
+      "context_switcher_mcp.error_classification",
+      "context_switcher_mcp.aorp",
+      "context_switcher_mcp.exceptions"
+    ],
+    "context_switcher_mcp.config_migration_old": [
+      "context_switcher_mcp.protocols",
+      "context_switcher_mcp.container",
+      "context_switcher_mcp.config_base",
+      "context_switcher_mcp.types",
+      "context_switcher_mcp.validated_config"
+    ],
+    "context_switcher_mcp.model_validators": [
+      "context_switcher_mcp.security_patterns"
+    ],
+    "context_switcher_mcp.llm_profiler": [
+      "context_switcher_mcp.config",
+      "context_switcher_mcp.circular_buffer"
+    ],
+    "context_switcher_mcp.thread_manager": [
+      "context_switcher_mcp.circuit_breaker_manager",
+      "context_switcher_mcp.models",
+      "context_switcher_mcp.thread_lifecycle_manager",
+      "context_switcher_mcp.streaming_coordinator",
+      "context_switcher_mcp.metrics_manager",
+      "context_switcher_mcp.constants"
+    ],
+    "context_switcher_mcp.config": [
+      "context_switcher_mcp.protocols",
+      "context_switcher_mcp.container",
+      "context_switcher_mcp.config_base",
+      "context_switcher_mcp.config_migration",
+      "context_switcher_mcp.types",
+      "context_switcher_mcp.validated_config"
+    ],
+    "context_switcher_mcp.models": [
+      "context_switcher_mcp.session_lock_manager"
+    ],
+    "context_switcher_mcp.session_concurrency": [
+      "context_switcher_mcp.session_lock_manager"
+    ],
+    "context_switcher_mcp.config_validator": [
+      "context_switcher_mcp.config",
+      "context_switcher_mcp.config_migration",
+      "context_switcher_mcp.validated_config"
+    ],
+    "context_switcher_mcp.protocols": [
+      "context_switcher_mcp.types"
+    ],
+    "context_switcher_mcp.perspective_orchestrator": [
+      "context_switcher_mcp.error_helpers",
+      "context_switcher_mcp.reasoning_orchestrator",
+      "context_switcher_mcp.error_logging",
+      "context_switcher_mcp.models",
+      "context_switcher_mcp.error_context",
+      "context_switcher_mcp.security",
+      "context_switcher_mcp.exceptions",
+      "context_switcher_mcp.response_formatter",
+      "context_switcher_mcp.thread_manager",
+      "context_switcher_mcp.backend_factory",
+      "context_switcher_mcp.constants"
+    ],
+    "context_switcher_mcp.client_binding": [
+      "context_switcher_mcp.security.secret_key_manager",
+      "context_switcher_mcp.security.security_event_tracker",
+      "context_switcher_mcp.security.client_validation_service",
+      "context_switcher_mcp.security.client_binding_core"
+    ],
+    "context_switcher_mcp.profiling_wrapper": [
+      "context_switcher_mcp.llm_profiler",
+      "context_switcher_mcp.models",
+      "context_switcher_mcp.backend_interface"
+    ],
+    "context_switcher_mcp.compression": [],
+    "context_switcher_mcp.security": [
+      "context_switcher_mcp.client_validation_service",
+      "context_switcher_mcp.enhanced_validators",
+      "context_switcher_mcp.security_monitor",
+      "context_switcher_mcp.path_validator",
+      "context_switcher_mcp.security_event_tracker",
+      "context_switcher_mcp.client_binding_core",
+      "context_switcher_mcp.secure_logging",
+      "context_switcher_mcp.secret_key_manager"
+    ],
+    "context_switcher_mcp.constants": [],
+    "context_switcher_mcp.validated_config": [],
+    "context_switcher_mcp.circuit_breaker_store": [
+      "context_switcher_mcp.exceptions"
+    ],
+    "context_switcher_mcp.rate_limiter": [],
+    "context_switcher_mcp.backend_factory": [
+      "context_switcher_mcp.profiling_wrapper",
+      "context_switcher_mcp.exceptions",
+      "context_switcher_mcp.models",
+      "context_switcher_mcp.backend_interface"
+    ],
+    "context_switcher_mcp": [],
+    "context_switcher_mcp.circuit_breaker_manager": [
+      "context_switcher_mcp.config",
+      "context_switcher_mcp.security",
+      "context_switcher_mcp.models",
+      "context_switcher_mcp.circuit_breaker_store"
+    ],
+    "context_switcher_mcp.types": [],
+    "context_switcher_mcp.error_context": [
+      "context_switcher_mcp.security",
+      "context_switcher_mcp.exceptions"
+    ],
+    "context_switcher_mcp.config_base": [
+      "context_switcher_mcp.protocols",
+      "context_switcher_mcp.types"
+    ],
+    "context_switcher_mcp.session_data": [
+      "context_switcher_mcp.models"
+    ],
+    "context_switcher_mcp.container": [
+      "context_switcher_mcp.protocols"
+    ],
+    "context_switcher_mcp.reasoning_orchestrator": [
+      "context_switcher_mcp.config",
+      "context_switcher_mcp.models",
+      "context_switcher_mcp.exceptions"
+    ],
+    "context_switcher_mcp.templates": [],
+    "context_switcher_mcp.streaming_coordinator": [
+      "context_switcher_mcp.error_helpers",
+      "context_switcher_mcp.error_logging",
+      "context_switcher_mcp.security",
+      "context_switcher_mcp.models",
+      "context_switcher_mcp.error_context",
+      "context_switcher_mcp.exceptions",
+      "context_switcher_mcp.backend_factory"
+    ],
+    "context_switcher_mcp.session_lock_manager": [],
+    "context_switcher_mcp.config_legacy": [],
+    "context_switcher_mcp.config_migration": [
+      "context_switcher_mcp.protocols",
+      "context_switcher_mcp.container",
+      "context_switcher_mcp.config_base",
+      "context_switcher_mcp.types",
+      "context_switcher_mcp.validated_config"
+    ],
+    "context_switcher_mcp.circular_buffer": [],
+    "context_switcher_mcp.error_decorators": [
+      "context_switcher_mcp.security",
+      "context_switcher_mcp.exceptions"
+    ],
+    "context_switcher_mcp.error_classification": [
+      "context_switcher_mcp.exceptions"
+    ],
+    "context_switcher_mcp.backend_interface": [
+      "context_switcher_mcp.error_logging",
+      "context_switcher_mcp.security",
+      "context_switcher_mcp.models",
+      "context_switcher_mcp.error_decorators",
+      "context_switcher_mcp.error_context",
+      "context_switcher_mcp.config",
+      "context_switcher_mcp.aorp",
+      "context_switcher_mcp.exceptions"
+    ],
+    "context_switcher_mcp.exceptions": [],
+    "context_switcher_mcp.security_events": [],
+    "context_switcher_mcp.confidence_metrics": [],
+    "context_switcher_mcp.thread_lifecycle_manager": [
+      "context_switcher_mcp.security",
+      "context_switcher_mcp.models",
+      "context_switcher_mcp.config",
+      "context_switcher_mcp.aorp",
+      "context_switcher_mcp.exceptions",
+      "context_switcher_mcp.backend_factory"
+    ],
+    "context_switcher_mcp.aorp": [],
+    "context_switcher_mcp.response_formatter": [
+      "context_switcher_mcp.models",
+      "context_switcher_mcp.aorp",
+      "context_switcher_mcp.exceptions",
+      "context_switcher_mcp.compression",
+      "context_switcher_mcp.backend_factory",
+      "context_switcher_mcp.constants"
+    ],
+    "context_switcher_mcp.security_patterns": [],
+    "context_switcher_mcp.perspective_selector": [],
+    "context_switcher_mcp.performance_dashboard": [
+      "context_switcher_mcp.llm_profiler"
+    ],
+    "context_switcher_mcp.session_security": [],
+    "context_switcher_mcp.error_logging": [
+      "context_switcher_mcp.error_classification",
+      "context_switcher_mcp.security",
+      "context_switcher_mcp.exceptions"
+    ],
+    "context_switcher_mcp.__main__": [
+      "context_switcher_mcp"
+    ],
+    "context_switcher_mcp.input_sanitizer": [],
+    "context_switcher_mcp.input_validators": [
+      "context_switcher_mcp.security_events",
+      "context_switcher_mcp.security_patterns",
+      "context_switcher_mcp.input_sanitizer"
+    ],
+    "context_switcher_mcp.validation": [
+      "context_switcher_mcp.config",
+      "context_switcher_mcp.client_binding",
+      "context_switcher_mcp",
+      "context_switcher_mcp.security"
+    ],
+    "context_switcher_mcp.tools.analysis_tools": [
+      "context_switcher_mcp.rate_limiter",
+      "context_switcher_mcp.security",
+      "context_switcher_mcp.models",
+      "context_switcher_mcp.validation",
+      "context_switcher_mcp.aorp",
+      "context_switcher_mcp",
+      "context_switcher_mcp.perspective_orchestrator",
+      "context_switcher_mcp.exceptions",
+      "context_switcher_mcp.response_formatter",
+      "context_switcher_mcp.helpers.analysis_helpers"
+    ],
+    "context_switcher_mcp.tools.admin_tools": [
+      "context_switcher_mcp.client_binding",
+      "context_switcher_mcp"
+    ],
+    "context_switcher_mcp.tools.perspective_tools": [
+      "context_switcher_mcp.security",
+      "context_switcher_mcp.models",
+      "context_switcher_mcp.validation",
+      "context_switcher_mcp.perspective_selector",
+      "context_switcher_mcp.aorp",
+      "context_switcher_mcp",
+      "context_switcher_mcp.exceptions"
+    ],
+    "context_switcher_mcp.tools": [],
+    "context_switcher_mcp.tools.session_tools": [
+      "context_switcher_mcp.validation",
+      "context_switcher_mcp.error_helpers",
+      "context_switcher_mcp",
+      "context_switcher_mcp.templates"
+    ],
+    "context_switcher_mcp.tools.profiling_tools": [
+      "context_switcher_mcp.validation",
+      "context_switcher_mcp.llm_profiler",
+      "context_switcher_mcp.performance_dashboard"
+    ],
+    "context_switcher_mcp.security.enhanced_validators": [],
+    "context_switcher_mcp.security.client_binding_core": [
+      "context_switcher_mcp.security.secret_key_manager",
+      "context_switcher_mcp.security.security_event_tracker",
+      "context_switcher_mcp.security.client_validation_service",
+      "context_switcher_mcp.models"
+    ],
+    "context_switcher_mcp.security.dependency_analyzer": [],
+    "context_switcher_mcp.security.security_event_tracker": [
+      "context_switcher_mcp.models"
+    ],
+    "context_switcher_mcp.security.secure_logging": [],
+    "context_switcher_mcp.security.path_validator": [],
+    "context_switcher_mcp.security.security_monitor": [],
+    "context_switcher_mcp.security.client_validation_service": [
+      "context_switcher_mcp.models"
+    ],
+    "context_switcher_mcp.security.secret_key_manager": [],
+    "context_switcher_mcp.handlers": [],
+    "context_switcher_mcp.handlers.session_handler": [
+      "context_switcher_mcp.security",
+      "context_switcher_mcp.models",
+      "context_switcher_mcp.aorp",
+      "context_switcher_mcp.helpers.session_helpers",
+      "context_switcher_mcp.client_binding",
+      "context_switcher_mcp"
+    ],
+    "context_switcher_mcp.handlers.validation_handler": [
+      "context_switcher_mcp.validation",
+      "context_switcher_mcp.error_helpers",
+      "context_switcher_mcp.security",
+      "context_switcher_mcp.rate_limiter"
+    ],
+    "context_switcher_mcp.helpers.analysis_helpers": [
+      "context_switcher_mcp.rate_limiter",
+      "context_switcher_mcp.security",
+      "context_switcher_mcp.validation",
+      "context_switcher_mcp.aorp",
+      "context_switcher_mcp.constants"
+    ],
+    "context_switcher_mcp.helpers": [],
+    "context_switcher_mcp.helpers.session_helpers": [
+      "context_switcher_mcp.security",
+      "context_switcher_mcp.models",
+      "context_switcher_mcp.config",
+      "context_switcher_mcp.client_binding",
+      "context_switcher_mcp.templates"
+    ]
+  },
+  "recommendations": [
+    "Consider refactoring conditional imports to use dependency injection",
+    "Late imports found - consider reorganizing module dependencies"
+  ]
+}

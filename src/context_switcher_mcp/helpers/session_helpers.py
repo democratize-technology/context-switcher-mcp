@@ -125,7 +125,9 @@ def determine_perspectives_to_use(
                     perspective_name
                 ]
             else:
-                perspectives_to_use[perspective_name] = f"""You are a {perspective_name} expert. Analyze from a {perspective_name} perspective.
+                perspectives_to_use[
+                    perspective_name
+                ] = f"""You are a {perspective_name} expert. Analyze from a {perspective_name} perspective.
 
 **Analysis approach:**
 - Focus on {perspective_name}-specific considerations

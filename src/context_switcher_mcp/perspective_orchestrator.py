@@ -1,23 +1,35 @@
 """Perspective orchestration service for managing multi-perspective analysis"""
 
 import asyncio
-import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, AsyncGenerator
 from dataclasses import dataclass
 
 from .models import Thread
 from .thread_manager import ThreadManager
 from .response_formatter import ResponseFormatter
-from .exceptions import OrchestrationError
+from .exceptions import (
+    OrchestrationError,
+    PerspectiveError,
+    AnalysisError,
+    PerformanceTimeoutError,
+)
 from .constants import NO_RESPONSE
 from .reasoning_orchestrator import (
     PerspectiveReasoningOrchestrator,
     CoTTimeoutError,
     CoTProcessingError,
 )
+from .error_helpers import (
+    wrap_generic_exception,
+)
+from .error_logging import log_error_with_context
+from .error_context import error_context
+from .security import sanitize_error_message
+from .logging_config import get_logger
+from .logging_utils import performance_timer
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -91,6 +103,9 @@ class PerspectiveOrchestrator:
         self.metrics_history = []
         self.metrics_lock = asyncio.Lock()
 
+    @performance_timer(
+        "perspective_broadcast", threshold_seconds=2.0, warn_threshold_seconds=10.0
+    )
     async def broadcast_to_perspectives(
         self,
         threads: Dict[str, Thread],
@@ -99,81 +114,184 @@ class PerspectiveOrchestrator:
         topic: str = None,
     ) -> Dict[str, str]:
         """Broadcast message to all perspective threads and collect responses"""
-        # Initialize metrics
-        metrics = PerspectiveMetrics(
+        async with error_context(
+            operation_name="perspective_broadcast",
+            session_id=session_id,
+            user_context={
+                "thread_count": len(threads),
+                "topic": topic,
+                "enable_cot": self.enable_cot,
+            },
+        ) as ctx:
+            metrics = self._initialize_broadcast_metrics(session_id, len(threads))
+            ctx["metrics_id"] = id(metrics)
+
+            try:
+                # Partition threads by processing strategy
+                cot_threads, standard_threads = self._partition_threads_by_strategy(
+                    threads
+                )
+                ctx["cot_threads"] = len(cot_threads)
+                ctx["standard_threads"] = len(standard_threads)
+
+                # Execute broadcasts in parallel
+                responses = await self._execute_parallel_broadcasts(
+                    cot_threads, standard_threads, message, session_id, topic
+                )
+
+                # Update metrics and finalize
+                self._classify_responses_for_metrics(responses, metrics)
+                await self._finalize_broadcast_metrics(metrics)
+
+                ctx["successful_responses"] = len(
+                    [
+                        r
+                        for r in responses.values()
+                        if r != NO_RESPONSE and not r.startswith("ERROR")
+                    ]
+                )
+
+                return responses
+
+            except (CoTTimeoutError, CoTProcessingError) as e:
+                # Chain of Thought specific errors
+                await self._handle_broadcast_error(e, metrics)
+                raise PerformanceTimeoutError(
+                    f"Perspective broadcast timed out in CoT processing: {sanitize_error_message(str(e))}",
+                    performance_context={
+                        "session_id": session_id,
+                        "thread_count": len(threads),
+                        "cot_enabled": self.enable_cot,
+                    },
+                ) from e
+            except (PerspectiveError, AnalysisError) as e:
+                # Already specific errors, re-raise with context
+                await self._handle_broadcast_error(e, metrics)
+                raise
+            except Exception as e:
+                # Convert generic exceptions to specific types
+                await self._handle_broadcast_error(e, metrics)
+                specific_error = wrap_generic_exception(
+                    e,
+                    "perspective_broadcast",
+                    OrchestrationError,
+                    context={
+                        "session_id": session_id,
+                        "thread_count": len(threads),
+                        "topic": topic,
+                    },
+                )
+                raise specific_error from e
+
+    def _initialize_broadcast_metrics(
+        self, session_id: str, total_threads: int
+    ) -> PerspectiveMetrics:
+        """Initialize metrics for broadcast operation"""
+        return PerspectiveMetrics(
             session_id=session_id,
             operation_type="broadcast",
             start_time=time.time(),
-            total_perspectives=len(threads),
+            total_perspectives=total_threads,
         )
 
-        try:
-            # Check if we should use CoT for any threads
-            use_cot_threads = {}
-            standard_threads = {}
+    def _partition_threads_by_strategy(self, threads: Dict[str, Thread]) -> tuple:
+        """Partition threads into CoT and standard processing groups"""
+        cot_threads = {}
+        standard_threads = {}
 
-            for name, thread in threads.items():
-                if (
-                    self.enable_cot
-                    and self.reasoning_orchestrator
-                    and self.reasoning_orchestrator.is_available
-                    and thread.model_backend.value == "bedrock"
-                ):
-                    use_cot_threads[name] = thread
-                else:
-                    standard_threads[name] = thread
+        for name, thread in threads.items():
+            if self._should_use_cot_for_thread(thread):
+                cot_threads[name] = thread
+            else:
+                standard_threads[name] = thread
 
-            # Process threads in parallel
-            responses = {}
+        return cot_threads, standard_threads
 
-            # Handle CoT threads if any
-            if use_cot_threads:
-                cot_responses = await self._broadcast_with_cot(
-                    use_cot_threads, message, session_id, topic
-                )
-                responses.update(cot_responses)
+    def _should_use_cot_for_thread(self, thread: Thread) -> bool:
+        """Check if thread should use Chain of Thought processing"""
+        return (
+            self.enable_cot
+            and self.reasoning_orchestrator
+            and self.reasoning_orchestrator.is_available
+            and thread.model_backend.value == "bedrock"
+        )
 
-            # Handle standard threads
-            if standard_threads:
-                standard_responses = await self.thread_manager.broadcast_message(
-                    standard_threads, message, session_id
-                )
-                responses.update(standard_responses)
+    async def _execute_parallel_broadcasts(
+        self,
+        cot_threads: Dict[str, Thread],
+        standard_threads: Dict[str, Thread],
+        message: str,
+        session_id: str,
+        topic: str,
+    ) -> Dict[str, str]:
+        """Execute broadcasts to both CoT and standard threads in parallel"""
+        responses = {}
 
-            # Classify responses for metrics
-            for perspective_name, response in responses.items():
-                if isinstance(response, str):
-                    if NO_RESPONSE in response:
-                        metrics.abstained_perspectives += 1
-                    elif response.startswith("ERROR:"):
-                        metrics.failed_perspectives += 1
-                    else:
-                        metrics.successful_perspectives += 1
-                else:
-                    metrics.failed_perspectives += 1
-
-            # Store metrics
-            metrics.end_time = time.time()
-            async with self.metrics_lock:
-                self._store_metrics(metrics)
-
-            # Log perspective summary
-            logger.info(
-                f"Perspective broadcast completed: {metrics.execution_time:.2f}s, "
-                f"Success: {metrics.successful_perspectives}/{metrics.total_perspectives}, "
-                f"Rate: {metrics.success_rate:.1f}%"
+        # Handle CoT threads if any
+        if cot_threads:
+            cot_responses = await self._broadcast_with_cot(
+                cot_threads, message, session_id, topic
             )
+            responses.update(cot_responses)
 
-            return responses
+        # Handle standard threads
+        if standard_threads:
+            standard_responses = await self.thread_manager.broadcast_message(
+                standard_threads, message, session_id
+            )
+            responses.update(standard_responses)
 
-        except Exception as e:
-            metrics.end_time = time.time()
-            metrics.failed_perspectives = metrics.total_perspectives
-            async with self.metrics_lock:
-                self._store_metrics(metrics)
+        return responses
 
-            logger.error(f"Perspective broadcast failed: {e}")
-            raise OrchestrationError(f"Perspective broadcast failed: {e}") from e
+    def _classify_responses_for_metrics(
+        self, responses: Dict[str, str], metrics: PerspectiveMetrics
+    ) -> None:
+        """Classify responses and update metrics accordingly"""
+        for perspective_name, response in responses.items():
+            if not isinstance(response, str):
+                metrics.failed_perspectives += 1
+                continue
+
+            if NO_RESPONSE in response:
+                metrics.abstained_perspectives += 1
+            elif response.startswith("ERROR:"):
+                metrics.failed_perspectives += 1
+            else:
+                metrics.successful_perspectives += 1
+
+    async def _finalize_broadcast_metrics(self, metrics: PerspectiveMetrics) -> None:
+        """Store metrics and log broadcast completion"""
+        metrics.end_time = time.time()
+        async with self.metrics_lock:
+            self._store_metrics(metrics)
+
+        logger.info(
+            f"Perspective broadcast completed: {metrics.execution_time:.2f}s, "
+            f"Success: {metrics.successful_perspectives}/{metrics.total_perspectives}, "
+            f"Rate: {metrics.success_rate:.1f}%"
+        )
+
+    async def _handle_broadcast_error(
+        self, error: Exception, metrics: PerspectiveMetrics
+    ) -> None:
+        """Handle broadcast error and update metrics with structured logging"""
+        metrics.end_time = time.time()
+        metrics.failed_perspectives = metrics.total_perspectives
+        async with self.metrics_lock:
+            self._store_metrics(metrics)
+
+        # Use structured error logging
+        log_error_with_context(
+            error=error,
+            operation_name="perspective_broadcast",
+            session_id=metrics.session_id,
+            additional_context={
+                "operation_type": metrics.operation_type,
+                "total_perspectives": metrics.total_perspectives,
+                "execution_time": metrics.execution_time,
+                "enable_cot": self.enable_cot,
+            },
+        )
 
     async def _broadcast_with_cot(
         self,
@@ -203,15 +321,38 @@ class PerspectiveOrchestrator:
             )
             tasks.append((name, task))
 
-        # Gather results
+        # Gather results with proper error handling
         responses = {}
         for name, task in tasks:
             try:
                 response = await task
                 responses[name] = response
+            except (CoTTimeoutError, CoTProcessingError) as e:
+                # Specific CoT errors - log and create error response
+                log_error_with_context(
+                    error=e,
+                    operation_name="cot_processing",
+                    session_id=session_id,
+                    additional_context={"thread_name": name, "topic": topic},
+                )
+                responses[name] = (
+                    f"ERROR: CoT processing failed - {sanitize_error_message(str(e))}"
+                )
             except Exception as e:
-                logger.error(f"CoT processing failed for {name}: {e}")
-                responses[name] = f"ERROR: {str(e)}"
+                # Unexpected errors - wrap and log
+                specific_error = wrap_generic_exception(
+                    e,
+                    f"cot_processing_{name}",
+                    PerspectiveError,
+                    context={"thread_name": name, "session_id": session_id},
+                )
+                log_error_with_context(
+                    error=specific_error,
+                    operation_name="cot_processing",
+                    session_id=session_id,
+                    additional_context={"thread_name": name, "topic": topic},
+                )
+                responses[name] = f"ERROR: {sanitize_error_message(str(e))}"
 
         return responses
 
@@ -246,34 +387,81 @@ class PerspectiveOrchestrator:
             return response_text
 
         except CoTTimeoutError as e:
-            logger.warning(f"CoT timeout for {name}: {e}")
+            # CoT timeout - fallback with structured logging
+            log_error_with_context(
+                error=e,
+                operation_name="cot_thread_processing",
+                session_id=session_id,
+                additional_context={"thread_name": name, "fallback_attempted": True},
+            )
             # Fallback to standard processing
             return await self._fallback_to_standard(thread, name)
         except CoTProcessingError as e:
-            logger.error(f"CoT processing error for {name}: {e}")
+            # CoT processing error - fallback with structured logging
+            log_error_with_context(
+                error=e,
+                operation_name="cot_thread_processing",
+                session_id=session_id,
+                additional_context={"thread_name": name, "fallback_attempted": True},
+            )
             # Fallback to standard processing
             return await self._fallback_to_standard(thread, name)
         except Exception as e:
-            logger.error(f"Unexpected error in CoT for {name}: {e}")
-            raise
+            # Unexpected errors in CoT processing
+            specific_error = wrap_generic_exception(
+                e,
+                f"cot_thread_processing_{name}",
+                PerspectiveError,
+                context={"thread_name": name, "session_id": session_id},
+            )
+            log_error_with_context(
+                error=specific_error,
+                operation_name="cot_thread_processing",
+                session_id=session_id,
+                additional_context={"thread_name": name},
+            )
+            raise specific_error from e
 
     async def _fallback_to_standard(self, thread: Thread, name: str) -> str:
         """Fallback to standard processing when CoT fails"""
-        logger.info(f"Falling back to standard processing for {name}")
-        try:
-            # Use thread_manager's single thread processing
-            single_thread_dict = {name: thread}
-            responses = await self.thread_manager.broadcast_message(
-                single_thread_dict, "", "fallback"
-            )
-            return responses.get(name, "ERROR: Fallback failed")
-        except Exception as e:
-            logger.error(f"Fallback processing failed for {name}: {e}")
-            return f"ERROR: Both CoT and fallback failed: {str(e)}"
+        async with error_context(
+            operation_name="cot_fallback_processing",
+            user_context={"thread_name": name, "fallback_reason": "cot_failure"},
+        ) as ctx:
+            logger.info(f"Falling back to standard processing for {name}")
+
+            try:
+                # Use thread_manager's single thread processing
+                single_thread_dict = {name: thread}
+                responses = await self.thread_manager.broadcast_message(
+                    single_thread_dict, "", "fallback"
+                )
+
+                result = responses.get(name, "ERROR: Fallback failed")
+                ctx["fallback_success"] = not result.startswith("ERROR")
+                return result
+
+            except Exception as e:
+                # Fallback itself failed - return sanitized error
+                error_response = f"ERROR: Both CoT and fallback failed: {sanitize_error_message(str(e))}"
+                ctx["double_failure"] = True
+
+                # Log the fallback failure with context
+                log_error_with_context(
+                    error=e,
+                    operation_name="cot_fallback_processing",
+                    additional_context={
+                        "thread_name": name,
+                        "failure_type": "double_failure",
+                        "original_error": "cot_processing_failed",
+                    },
+                )
+
+                return error_response
 
     async def broadcast_to_perspectives_stream(
         self, threads: Dict[str, Thread], message: str, session_id: str = "unknown"
-    ):
+    ) -> AsyncGenerator[Dict[str, Any], None]:
         """
         Broadcast message to all perspective threads with streaming responses
 
@@ -313,40 +501,101 @@ class PerspectiveOrchestrator:
             async with self.metrics_lock:
                 self._store_metrics(metrics)
 
-            logger.error(f"Perspective streaming failed: {e}")
-            raise OrchestrationError(f"Perspective streaming failed: {e}") from e
+            # Use structured error handling
+            specific_error = wrap_generic_exception(
+                e,
+                "perspective_streaming",
+                OrchestrationError,
+                context={
+                    "session_id": session_id,
+                    "thread_count": len(threads),
+                    "streaming": True,
+                },
+            )
+
+            log_error_with_context(
+                error=specific_error,
+                operation_name="perspective_streaming",
+                session_id=session_id,
+                additional_context={"thread_count": len(threads)},
+            )
+
+            raise specific_error from e
 
     async def synthesize_perspective_responses(
         self, responses: Dict[str, str], session_id: str = "unknown"
     ) -> str:
         """Synthesize responses from multiple perspectives into a coherent analysis"""
-        try:
-            # Filter out errors and abstentions
-            valid_responses = {
-                name: response
-                for name, response in responses.items()
-                if not response.startswith("ERROR:") and NO_RESPONSE not in response
-            }
+        async with error_context(
+            operation_name="perspective_synthesis",
+            session_id=session_id,
+            user_context={
+                "total_responses": len(responses),
+                "response_names": list(responses.keys()),
+            },
+        ) as ctx:
+            try:
+                # Filter out errors and abstentions
+                valid_responses = {
+                    name: response
+                    for name, response in responses.items()
+                    if not response.startswith("ERROR:") and NO_RESPONSE not in response
+                }
 
-            if not valid_responses:
-                return self.response_formatter.format_error_response(
-                    "No valid perspective responses to synthesize",
-                    "synthesis_error",
-                    {"session_id": session_id},
+                ctx["valid_responses"] = len(valid_responses)
+
+                if not valid_responses:
+                    return self.response_formatter.format_error_response(
+                        "No valid perspective responses to synthesize",
+                        "synthesis_error",
+                        {"session_id": session_id, "total_responses": len(responses)},
+                    )
+
+                # Use response formatter for synthesis logic
+                synthesis_result = await self.response_formatter.synthesize_responses(
+                    valid_responses, session_id
                 )
 
-            # Use response formatter for synthesis logic
-            return await self.response_formatter.synthesize_responses(
-                valid_responses, session_id
-            )
+                ctx["synthesis_success"] = True
+                return synthesis_result
 
-        except Exception as e:
-            logger.error(f"Perspective synthesis failed: {e}")
-            return self.response_formatter.format_error_response(
-                f"Synthesis failed: {str(e)}",
-                "synthesis_error",
-                {"session_id": session_id},
-            )
+            except AnalysisError as e:
+                # Already a specific analysis error
+                log_error_with_context(
+                    error=e,
+                    operation_name="perspective_synthesis",
+                    session_id=session_id,
+                    additional_context={"valid_responses": len(valid_responses)},
+                )
+                return self.response_formatter.format_error_response(
+                    f"Analysis synthesis failed: {sanitize_error_message(str(e))}",
+                    "synthesis_error",
+                    {"session_id": session_id, "error_type": "analysis_error"},
+                )
+            except Exception as e:
+                # Convert generic errors to AnalysisError
+                specific_error = wrap_generic_exception(
+                    e,
+                    "perspective_synthesis",
+                    AnalysisError,
+                    context={
+                        "session_id": session_id,
+                        "response_count": len(responses),
+                    },
+                )
+
+                log_error_with_context(
+                    error=specific_error,
+                    operation_name="perspective_synthesis",
+                    session_id=session_id,
+                    additional_context={"total_responses": len(responses)},
+                )
+
+                return self.response_formatter.format_error_response(
+                    f"Synthesis failed: {sanitize_error_message(str(e))}",
+                    "synthesis_error",
+                    {"session_id": session_id, "error_type": type(e).__name__},
+                )
 
     def _store_metrics(self, metrics: PerspectiveMetrics) -> None:
         """Store perspective metrics"""
@@ -421,12 +670,12 @@ class PerspectiveOrchestrator:
 
     # Expose circuit_breakers and backends for backward compatibility
     @property
-    def circuit_breakers(self):
+    def circuit_breakers(self) -> Any:
         """Access to circuit breakers"""
         return self.thread_manager.circuit_breaker_manager.circuit_breakers
 
     @property
-    def backends(self):
+    def backends(self) -> Any:
         """Access to available backends - returns a dict-like interface for compatibility"""
         from .backend_factory import BackendFactory
 

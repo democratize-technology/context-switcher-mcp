@@ -126,16 +126,31 @@ class MetricsManager:
 
     async def get_performance_metrics(self, last_n: int = 10) -> Dict[str, Any]:
         """Get thread-level performance metrics"""
+        recent_metrics = await self._get_recent_metrics(last_n)
+        if not recent_metrics:
+            return {"message": "No thread metrics available"}
+
+        # Calculate aggregate statistics using helper methods
+        summary = self._calculate_thread_summary(recent_metrics)
+        backend_performance = self._calculate_backend_performance(recent_metrics)
+        storage_info = self._get_metrics_storage_info()
+
+        return {
+            "thread_summary": summary,
+            "backend_performance": backend_performance,
+            "metrics_storage": storage_info,
+        }
+
+    async def _get_recent_metrics(self, last_n: int):
+        """Get recent metrics with proper locking"""
         async with self.metrics_lock:
             if self.metrics_history.is_empty():
-                return {"message": "No thread metrics available"}
+                return None
+            return self.metrics_history.get_recent(last_n)
 
-            recent_metrics = self.metrics_history.get_recent(last_n)
-
-        # Calculate aggregate statistics (outside lock)
+    def _calculate_thread_summary(self, recent_metrics) -> Dict[str, Any]:
+        """Calculate aggregate thread performance summary"""
         total_operations = len(recent_metrics)
-        if total_operations == 0:
-            return {"message": "No thread metrics available"}
 
         avg_execution_time = (
             sum(m.execution_time for m in recent_metrics if m.execution_time)
@@ -145,8 +160,26 @@ class MetricsManager:
             sum(m.success_rate for m in recent_metrics) / total_operations
         )
 
-        # Backend performance breakdown
+        return {
+            "total_operations": total_operations,
+            "avg_execution_time_seconds": round(avg_execution_time, 2),
+            "overall_success_rate_percent": round(overall_success_rate, 1),
+        }
+
+    def _calculate_backend_performance(self, recent_metrics) -> Dict[str, Any]:
+        """Calculate performance breakdown by backend"""
         backend_stats = {}
+
+        # Collect raw backend statistics
+        self._collect_backend_stats(recent_metrics, backend_stats)
+
+        # Calculate derived metrics
+        self._calculate_backend_derived_metrics(backend_stats)
+
+        return backend_stats
+
+    def _collect_backend_stats(self, recent_metrics, backend_stats):
+        """Collect raw statistics for each backend"""
         for metrics in recent_metrics:
             for thread_name, thread_metrics in metrics.thread_metrics.items():
                 backend = thread_metrics.model_backend
@@ -157,15 +190,18 @@ class MetricsManager:
                         "total_time": 0.0,
                     }
 
-                backend_stats[backend]["count"] += 1
-                if thread_metrics.success:
-                    backend_stats[backend]["success"] += 1
-                if thread_metrics.execution_time:
-                    backend_stats[backend][
-                        "total_time"
-                    ] += thread_metrics.execution_time
+                self._update_backend_stats(backend_stats[backend], thread_metrics)
 
-        # Calculate backend success rates and avg times
+    def _update_backend_stats(self, stats, thread_metrics):
+        """Update statistics for a specific backend"""
+        stats["count"] += 1
+        if thread_metrics.success:
+            stats["success"] += 1
+        if thread_metrics.execution_time:
+            stats["total_time"] += thread_metrics.execution_time
+
+    def _calculate_backend_derived_metrics(self, backend_stats):
+        """Calculate success rates and average times for backends"""
         for backend, stats in backend_stats.items():
             stats["success_rate"] = (
                 (stats["success"] / stats["count"]) * 100 if stats["count"] > 0 else 0
@@ -174,21 +210,15 @@ class MetricsManager:
                 stats["total_time"] / stats["count"] if stats["count"] > 0 else 0
             )
 
+    def _get_metrics_storage_info(self) -> Dict[str, Any]:
+        """Get metrics storage utilization information"""
         return {
-            "thread_summary": {
-                "total_operations": total_operations,
-                "avg_execution_time_seconds": round(avg_execution_time, 2),
-                "overall_success_rate_percent": round(overall_success_rate, 1),
-            },
-            "backend_performance": backend_stats,
-            "metrics_storage": {
-                "current_size": len(self.metrics_history),
-                "max_size": self.metrics_history.maxsize,
-                "utilization_percent": round(
-                    (len(self.metrics_history) / self.metrics_history.maxsize) * 100, 1
-                ),
-                "memory_usage_mb": round(self.metrics_history.memory_usage_mb, 2),
-            },
+            "current_size": len(self.metrics_history),
+            "max_size": self.metrics_history.maxsize,
+            "utilization_percent": round(
+                (len(self.metrics_history) / self.metrics_history.maxsize) * 100, 1
+            ),
+            "memory_usage_mb": round(self.metrics_history.memory_usage_mb, 2),
         }
 
     def get_storage_info(self) -> Dict[str, Any]:

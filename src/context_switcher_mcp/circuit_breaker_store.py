@@ -30,86 +30,112 @@ class CircuitBreakerStore:
         Args:
             storage_path: Path to store circuit breaker state (default: ~/.context_switcher/circuit_breakers.json)
         """
-        if storage_path is None:
-            config_dir = Path.home() / ".context_switcher"
-            config_dir.mkdir(exist_ok=True)
-            storage_path = config_dir / "circuit_breakers.json"
-        else:
-            # Simplified path validation using whitelist approach
-            storage_path = Path(storage_path)
-
-            # CRITICAL: Check for path traversal BEFORE any path resolution
-            # This prevents bypasses through symlinks or other techniques
-            if ".." in str(storage_path):
-                raise ValueError(
-                    f"Path traversal attempt detected in path: {storage_path}"
-                )
-
-            # Now resolve the path to handle symlinks and relative paths
-            storage_path = storage_path.expanduser().resolve(strict=False)
-
-            # Additional check after resolution to catch symlink-based traversal
-            # Check if the resolved path contains any symlinks that could be malicious
-            if storage_path.is_symlink():
-                # Reject symlinks to prevent symlink-based attacks
-                raise ValueError(
-                    f"Symlinks are not allowed for security reasons: {storage_path}"
-                )
-
-            # Define allowed base directories (whitelist)
-            import tempfile
-
-            allowed_bases = [
-                Path.home() / ".context_switcher",  # Default config directory
-                Path.home() / ".config",  # Standard config directory
-                Path.home() / ".local",  # Local data directory
-                Path(tempfile.gettempdir()),  # System temp directory
-            ]
-
-            # Add /tmp for Unix systems
-            try:
-                allowed_bases.append(Path("/tmp").resolve())
-            except (OSError, RuntimeError):
-                pass  # /tmp may not exist on all systems
-
-            # Check if path is within any allowed base directory
-            is_allowed = False
-            for base in allowed_bases:
-                try:
-                    base_resolved = base.resolve()
-                    storage_path.relative_to(base_resolved)
-                    is_allowed = True
-                    break
-                except (ValueError, OSError):
-                    continue
-
-            if not is_allowed:
-                raise ValueError(
-                    f"Storage path must be within allowed directories: "
-                    f"{', '.join(str(b) for b in allowed_bases)}. "
-                    f"Resolved path was: {storage_path}"
-                )
-
-            # Ensure it's a JSON file
-            if storage_path.suffix != ".json":
-                raise ValueError("Storage path must be a .json file")
-
-            # Check for hidden directories (additional security measure)
-            # Allow only specific safe hidden directories
-            safe_hidden_dirs = {".context_switcher", ".config", ".local"}
-            path_parts = storage_path.parts
-            for part in path_parts:
-                if part.startswith(".") and part not in safe_hidden_dirs:
-                    raise ValueError(
-                        f"Hidden directories not allowed except {safe_hidden_dirs}: {part}"
-                    )
-
-        self.storage_path = Path(storage_path)
+        validated_path = self._resolve_and_validate_storage_path(storage_path)
+        self.storage_path = Path(validated_path)
         self._lock: Optional[asyncio.Lock] = None
         self._auto_save_task: Optional[asyncio.Task] = None
 
         # Ensure parent directory exists
         self.storage_path.parent.mkdir(parents=True, exist_ok=True)
+
+    def _resolve_and_validate_storage_path(self, storage_path: Optional[str]) -> Path:
+        """Resolve and validate the storage path with security checks"""
+        if storage_path is None:
+            return self._get_default_storage_path()
+
+        return self._validate_custom_storage_path(storage_path)
+
+    def _get_default_storage_path(self) -> Path:
+        """Get the default storage path"""
+        config_dir = Path.home() / ".context_switcher"
+        config_dir.mkdir(exist_ok=True)
+        return config_dir / "circuit_breakers.json"
+
+    def _validate_custom_storage_path(self, storage_path: str) -> Path:
+        """Validate custom storage path with comprehensive security checks"""
+        path = Path(storage_path)
+
+        # Security validation pipeline
+        self._check_path_traversal(path)
+        resolved_path = self._resolve_path_safely(path)
+        self._validate_symlink_security(resolved_path)
+        self._validate_allowed_directory(resolved_path)
+        self._validate_file_extension(resolved_path)
+        self._validate_hidden_directories(resolved_path)
+
+        return resolved_path
+
+    def _check_path_traversal(self, path: Path):
+        """Check for path traversal attempts"""
+        if ".." in str(path):
+            raise ValueError(f"Path traversal attempt detected in path: {path}")
+
+    def _resolve_path_safely(self, path: Path) -> Path:
+        """Resolve path handling user home and relative paths"""
+        return path.expanduser().resolve(strict=False)
+
+    def _validate_symlink_security(self, path: Path):
+        """Validate symlink security"""
+        if path.is_symlink():
+            raise ValueError(f"Symlinks are not allowed for security reasons: {path}")
+
+    def _validate_allowed_directory(self, path: Path):
+        """Validate path is within allowed base directories"""
+        allowed_bases = self._get_allowed_base_directories()
+
+        for base in allowed_bases:
+            if self._is_path_within_base(path, base):
+                return
+
+        raise ValueError(
+            f"Storage path must be within allowed directories: "
+            f"{', '.join(str(b) for b in allowed_bases)}. "
+            f"Resolved path was: {path}"
+        )
+
+    def _get_allowed_base_directories(self) -> list[Path]:
+        """Get list of allowed base directories"""
+        import tempfile
+
+        allowed_bases = [
+            Path.home() / ".context_switcher",  # Default config directory
+            Path.home() / ".config",  # Standard config directory
+            Path.home() / ".local",  # Local data directory
+            Path(tempfile.gettempdir()),  # System temp directory
+        ]
+
+        # Add /tmp for Unix systems
+        try:
+            allowed_bases.append(Path("/tmp").resolve())
+        except (OSError, RuntimeError):
+            pass  # /tmp may not exist on all systems
+
+        return allowed_bases
+
+    def _is_path_within_base(self, path: Path, base: Path) -> bool:
+        """Check if path is within base directory"""
+        try:
+            base_resolved = base.resolve()
+            path.relative_to(base_resolved)
+            return True
+        except (ValueError, OSError):
+            return False
+
+    def _validate_file_extension(self, path: Path):
+        """Validate file has proper JSON extension"""
+        if path.suffix != ".json":
+            raise ValueError("Storage path must be a .json file")
+
+    def _validate_hidden_directories(self, path: Path):
+        """Validate hidden directories are safe"""
+        safe_hidden_dirs = {".context_switcher", ".config", ".local"}
+        path_parts = path.parts
+
+        for part in path_parts:
+            if part.startswith(".") and part not in safe_hidden_dirs:
+                raise ValueError(
+                    f"Hidden directories not allowed except {safe_hidden_dirs}: {part}"
+                )
 
     async def save_state(self, backend: str, state_data: Dict[str, Any]) -> None:
         """Save circuit breaker state for a backend

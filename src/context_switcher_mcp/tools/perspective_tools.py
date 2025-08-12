@@ -2,6 +2,7 @@
 
 import logging
 from typing import Dict, Any, Optional
+from mcp.server.fastmcp import FastMCP
 from uuid import uuid4
 from pydantic import BaseModel, Field
 
@@ -46,7 +47,7 @@ class RecommendPerspectivesRequest(BaseModel):
     )
 
 
-def register_perspective_tools(mcp):
+def register_perspective_tools(mcp: FastMCP) -> None:
     """Register perspective management tools with the MCP server"""
 
     @mcp.tool(

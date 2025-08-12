@@ -2,6 +2,7 @@
 
 import logging
 from typing import Dict, Any
+from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
 from ..error_helpers import session_not_found_error
@@ -11,7 +12,7 @@ from ..validation import validate_session_id
 logger = logging.getLogger(__name__)
 
 
-def register_session_tools(mcp):
+def register_session_tools(mcp: FastMCP) -> None:
     """Register session management tools with the MCP server"""
 
     @mcp.tool(description="List all active context-switching sessions")

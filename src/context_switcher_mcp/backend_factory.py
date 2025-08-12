@@ -6,6 +6,7 @@ from typing import Dict, Optional
 from .models import ModelBackend, Thread
 from .backend_interface import ModelBackendInterface, BedrockBackend
 from .exceptions import ConfigurationError, ModelBackendError
+from .profiling_wrapper import create_profiling_wrapper
 
 logger = logging.getLogger(__name__)
 
@@ -130,21 +131,29 @@ class BackendFactory:
             Backend instance or None if not available
         """
         try:
+            # Create base backend
+            base_backend = None
             if backend_type == ModelBackend.BEDROCK:
-                return BedrockBackend()
+                base_backend = BedrockBackend()
             elif backend_type == ModelBackend.LITELLM:
-                return LiteLLMBackend()
+                base_backend = LiteLLMBackend()
             elif backend_type == ModelBackend.OLLAMA:
-                return OllamaBackend()
+                base_backend = OllamaBackend()
             else:
                 logger.error(f"Unknown backend type: {backend_type}")
                 return None
+
+            # Wrap with profiling if available
+            if base_backend:
+                return create_profiling_wrapper(base_backend)
+            return None
+
         except Exception as e:
             logger.warning(f"Failed to create {backend_type.value} backend: {e}")
             return None
 
     @classmethod
-    def reset(cls):
+    def reset(cls) -> None:
         """Reset all backend instances (useful for testing)"""
         cls._instances.clear()
 

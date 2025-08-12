@@ -2,13 +2,14 @@
 
 import logging
 from typing import Dict, Any
+from mcp.server.fastmcp import FastMCP
 
 from ..client_binding import client_binding_manager
 
 logger = logging.getLogger(__name__)
 
 
-def register_admin_tools(mcp):
+def register_admin_tools(mcp: FastMCP) -> None:
     """Register administrative tools with the MCP server"""
 
     @mcp.tool(description="Get performance metrics and operational health status")
