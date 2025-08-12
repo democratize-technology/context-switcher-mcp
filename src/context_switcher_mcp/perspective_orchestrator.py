@@ -1,7 +1,10 @@
 """Perspective orchestration service for managing multi-perspective analysis"""
 
 import asyncio
+import gc
+import sys
 import time
+from collections import deque
 from typing import Any, Dict, Optional, AsyncGenerator
 from dataclasses import dataclass
 
@@ -44,6 +47,15 @@ class PerspectiveMetrics:
     successful_perspectives: int = 0
     failed_perspectives: int = 0
     abstained_perspectives: int = 0
+    memory_usage_bytes: int = 0  # Track memory usage of this metric
+
+    def __post_init__(self):
+        """Calculate memory usage after initialization"""
+        self.memory_usage_bytes = sys.getsizeof(self) + sum(
+            sys.getsizeof(getattr(self, attr))
+            for attr in dir(self)
+            if not attr.startswith("_") and not callable(getattr(self, attr))
+        )
 
     @property
     def execution_time(self) -> Optional[float]:
@@ -58,6 +70,26 @@ class PerspectiveMetrics:
         if self.total_perspectives == 0:
             return 0.0
         return (self.successful_perspectives / self.total_perspectives) * 100
+
+    def cleanup(self) -> None:
+        """Explicit cleanup for memory management"""
+        # Clear any large data structures if they exist in future versions
+        pass
+
+
+@dataclass
+class MetricsRotationConfig:
+    """Configuration for metrics rotation and memory management"""
+
+    max_metrics: int = 100
+    memory_threshold_mb: float = 50.0
+    cleanup_interval_seconds: float = 300.0  # 5 minutes
+    enable_memory_monitoring: bool = True
+
+    @property
+    def memory_threshold_bytes(self) -> int:
+        """Convert MB threshold to bytes"""
+        return int(self.memory_threshold_mb * 1024 * 1024)
 
 
 class PerspectiveOrchestrator:
@@ -99,9 +131,19 @@ class PerspectiveOrchestrator:
                     "Chain of Thought tool not available - falling back to standard analysis"
                 )
 
-        # Metrics storage
-        self.metrics_history = []
+        # Metrics storage with memory management
+        self.metrics_config = MetricsRotationConfig(
+            max_metrics=100,  # Fixed default value
+            enable_memory_monitoring=True,
+        )
+        self.metrics_history = deque(maxlen=self.metrics_config.max_metrics)
         self.metrics_lock = asyncio.Lock()
+        self.memory_warning_logged = False
+        self.last_memory_check = 0.0
+
+        # Memory monitoring setup
+        if self.metrics_config.enable_memory_monitoring:
+            self._setup_memory_monitoring()
 
     @performance_timer(
         "perspective_broadcast", threshold_seconds=2.0, warn_threshold_seconds=10.0
@@ -597,23 +639,136 @@ class PerspectiveOrchestrator:
                     {"session_id": session_id, "error_type": type(e).__name__},
                 )
 
+    def _setup_memory_monitoring(self) -> None:
+        """Set up memory monitoring for metrics collection"""
+        logger.info(
+            f"Memory monitoring enabled: threshold={self.metrics_config.memory_threshold_mb}MB, "
+            f"max_metrics={self.metrics_config.max_metrics}"
+        )
+
+    def update_metrics_config(self, config: MetricsRotationConfig) -> None:
+        """Update metrics configuration and recreate deque with new limits"""
+        old_metrics = list(self.metrics_history)
+        self.metrics_config = config
+        self.metrics_history = deque(maxlen=config.max_metrics)
+
+        # Re-add existing metrics up to new limit
+        for metric in old_metrics[-config.max_metrics :]:
+            self.metrics_history.append(metric)
+
     def _store_metrics(self, metrics: PerspectiveMetrics) -> None:
-        """Store perspective metrics"""
+        """Store perspective metrics with memory management"""
+        # Calculate memory usage before storing
+        metrics.memory_usage_bytes = self._calculate_metrics_memory_usage(metrics)
+
+        # Check if old metrics need cleanup (deque handles automatic removal)
+        if len(self.metrics_history) >= self.metrics_config.max_metrics:
+            # Get the metric that will be evicted and clean it up
+            if self.metrics_history:
+                old_metric = self.metrics_history[0]
+                old_metric.cleanup()
+
+        # Store the new metric (deque automatically handles size limit)
         self.metrics_history.append(metrics)
-        # Keep only last 100 metrics to prevent memory leaks
-        if len(self.metrics_history) > 100:
-            self.metrics_history = self.metrics_history[-100:]
+
+        # Periodic memory monitoring
+        current_time = time.time()
+        if (
+            current_time - self.last_memory_check
+        ) > self.metrics_config.cleanup_interval_seconds:
+            self._check_memory_usage()
+            self.last_memory_check = current_time
+
+    def _calculate_metrics_memory_usage(self, metrics: PerspectiveMetrics) -> int:
+        """Calculate memory usage of a single metrics object"""
+        try:
+            return sys.getsizeof(metrics) + sum(
+                sys.getsizeof(getattr(metrics, attr))
+                for attr in dir(metrics)
+                if not attr.startswith("_") and not callable(getattr(metrics, attr))
+            )
+        except Exception:
+            # Fallback to basic size if detailed calculation fails
+            return sys.getsizeof(metrics)
+
+    def _check_memory_usage(self) -> None:
+        """Check memory usage and log warnings if thresholds exceeded"""
+        if not self.metrics_config.enable_memory_monitoring:
+            return
+
+        try:
+            total_memory = self.get_metrics_memory_usage()
+            threshold_bytes = self.metrics_config.memory_threshold_bytes
+
+            if total_memory > threshold_bytes and not self.memory_warning_logged:
+                memory_mb = total_memory / (1024 * 1024)
+                threshold_mb = threshold_bytes / (1024 * 1024)
+
+                logger.warning(
+                    f"Perspective metrics memory usage ({memory_mb:.2f}MB) exceeds threshold ({threshold_mb:.2f}MB). "
+                    f"Metrics count: {len(self.metrics_history)}/{self.metrics_config.max_metrics}"
+                )
+                self.memory_warning_logged = True
+
+                # Force garbage collection to free any unreferenced objects
+                gc.collect()
+
+            elif (
+                total_memory <= threshold_bytes * 0.8
+            ):  # Reset warning when usage drops significantly
+                self.memory_warning_logged = False
+
+        except Exception as e:
+            logger.error(f"Memory usage check failed: {e}")
+
+    def get_metrics_memory_usage(self) -> int:
+        """Get total memory usage of metrics history in bytes"""
+        try:
+            total_bytes = 0
+            for metric in self.metrics_history:
+                if hasattr(metric, "memory_usage_bytes"):
+                    total_bytes += metric.memory_usage_bytes
+                else:
+                    total_bytes += sys.getsizeof(metric)
+
+            # Add overhead from deque structure itself
+            total_bytes += sys.getsizeof(self.metrics_history)
+            return total_bytes
+        except Exception:
+            # Fallback calculation
+            return sum(sys.getsizeof(metric) for metric in self.metrics_history)
+
+    def cleanup_expired_metrics(self) -> int:
+        """Manually trigger cleanup of expired metrics (returns number cleaned)"""
+        initial_count = len(self.metrics_history)
+
+        # Force cleanup of old metrics beyond the limit
+        while len(self.metrics_history) > self.metrics_config.max_metrics:
+            old_metric = self.metrics_history.popleft()
+            old_metric.cleanup()
+
+        # Force garbage collection
+        gc.collect()
+
+        cleaned_count = initial_count - len(self.metrics_history)
+        if cleaned_count > 0:
+            logger.info(f"Cleaned up {cleaned_count} expired metrics objects")
+
+        return cleaned_count
 
     async def get_perspective_metrics(self, last_n: int = 10) -> Dict[str, Any]:
-        """Get perspective-level performance metrics"""
+        """Get perspective-level performance metrics with memory usage info"""
         async with self.metrics_lock:
             if not self.metrics_history:
                 return {"message": "No perspective metrics available"}
 
-            recent_metrics = self.metrics_history[-last_n:]
+            recent_metrics = list(self.metrics_history)[-last_n:]
 
         # Calculate aggregate statistics
         total_operations = len(recent_metrics)
+        if total_operations == 0:
+            return {"message": "No perspective metrics available"}
+
         avg_execution_time = (
             sum(m.execution_time for m in recent_metrics if m.execution_time)
             / total_operations
@@ -622,11 +777,19 @@ class PerspectiveOrchestrator:
             sum(m.success_rate for m in recent_metrics) / total_operations
         )
 
+        # Memory usage statistics
+        total_memory_bytes = self.get_metrics_memory_usage()
+        memory_mb = total_memory_bytes / (1024 * 1024)
+
         return {
             "perspective_summary": {
                 "total_operations": total_operations,
                 "avg_execution_time_seconds": round(avg_execution_time, 2),
                 "overall_success_rate_percent": round(overall_success_rate, 1),
+                "metrics_count": len(self.metrics_history),
+                "max_metrics": self.metrics_config.max_metrics,
+                "memory_usage_mb": round(memory_mb, 2),
+                "memory_threshold_mb": self.metrics_config.memory_threshold_mb,
             },
             "recent_operations": [
                 {
@@ -634,6 +797,7 @@ class PerspectiveOrchestrator:
                     "operation": m.operation_type,
                     "execution_time": m.execution_time,
                     "success_rate": m.success_rate,
+                    "memory_bytes": getattr(m, "memory_usage_bytes", 0),
                     "perspectives": {
                         "total": m.total_perspectives,
                         "successful": m.successful_perspectives,

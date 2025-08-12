@@ -12,6 +12,7 @@ from .exceptions import (
     PerformanceError,
 )
 from .input_sanitizer import sanitize_error_message
+from .security_context_sanitizer import sanitize_exception_context
 
 logger = logging.getLogger(__name__)
 
@@ -90,13 +91,10 @@ async def error_context(
             }
         )
 
-        # Add specific error context if available
-        if hasattr(e, "security_context"):
-            context["security_context"] = e.security_context
-        elif hasattr(e, "network_context"):
-            context["network_context"] = e.network_context
-        elif hasattr(e, "performance_context"):
-            context["performance_context"] = e.performance_context
+        # Add specific error context with sanitization
+        sanitized_exception_context = sanitize_exception_context(e)
+        if sanitized_exception_context:
+            context["sanitized_error_context"] = sanitized_exception_context
 
         logger.error(
             f"Operation {operation_name} failed after {duration:.2f}s (ID: {operation_id}): {sanitize_error_message(str(e))}",
@@ -167,13 +165,10 @@ def error_context_sync(
             }
         )
 
-        # Add specific error context if available
-        if hasattr(e, "security_context"):
-            context["security_context"] = e.security_context
-        elif hasattr(e, "network_context"):
-            context["network_context"] = e.network_context
-        elif hasattr(e, "performance_context"):
-            context["performance_context"] = e.performance_context
+        # Add specific error context with sanitization
+        sanitized_exception_context = sanitize_exception_context(e)
+        if sanitized_exception_context:
+            context["sanitized_error_context"] = sanitized_exception_context
 
         logger.error(
             f"Operation {operation_name} failed after {duration:.2f}s (ID: {operation_id}): {sanitize_error_message(str(e))}",

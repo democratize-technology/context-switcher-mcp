@@ -7,6 +7,10 @@ from typing import Any, Dict, List, Optional
 
 from .error_classification import classify_error, ErrorSeverity
 from .input_sanitizer import sanitize_error_message
+from .security_context_sanitizer import (
+    sanitize_exception_context,
+    sanitize_context_dict,
+)
 
 
 class StructuredErrorLogger:
@@ -274,21 +278,15 @@ class StructuredErrorLogger:
                 perf_metrics["operation_duration"] = duration
             log_entry["performance_metrics"] = perf_metrics
 
-        # Add error-specific context
-        if hasattr(error, "security_context"):
-            log_entry["security_context"] = error.security_context
-        elif hasattr(error, "network_context"):
-            log_entry["network_context"] = error.network_context
-        elif hasattr(error, "performance_context"):
-            log_entry["performance_context"] = error.performance_context
-        elif hasattr(error, "concurrency_context"):
-            log_entry["concurrency_context"] = error.concurrency_context
-        elif hasattr(error, "validation_context"):
-            log_entry["validation_context"] = error.validation_context
+        # Add error-specific context with sanitization
+        sanitized_exception_context = sanitize_exception_context(error)
+        if sanitized_exception_context:
+            log_entry["sanitized_context"] = sanitized_exception_context
 
-        # Add additional context
+        # Add additional context with sanitization
         if additional_context:
-            log_entry["additional_context"] = additional_context
+            sanitized_additional = sanitize_context_dict(additional_context, "generic")
+            log_entry["additional_context"] = sanitized_additional
 
         # Add error chain if available
         if error_chain:
