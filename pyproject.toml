@@ -14,7 +14,7 @@ dependencies = [
     "litellm>=1.0.0,<2.0.0",
     "boto3>=1.28.0,<2.0.0",
     "psutil>=5.9.0,<6.0.0",
-    "numpy>=1.24.0,<2.0.0",
+    "numpy>=1.24.0,<3.0.0",
     "chain-of-thought-tool @ git+https://github.com/democratize-technology/chain-of-thought-tool.git",
 ]
 
