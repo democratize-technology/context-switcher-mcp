@@ -55,15 +55,25 @@ try:
         validate_perspective_data,
         detect_advanced_prompt_injection,
         sanitize_for_llm,
+        validate_model_id,
     )
 
     sys.path.pop(0)
 except ImportError:
     # Fallback - define minimal versions
+    # Import ValidationResult for proper return type
+    from ..input_validators import ValidationResult
+
     def validate_user_content(
         content, content_type, max_length=10000, client_id="default"
     ):
-        return {"valid": True, "sanitized_content": content}
+        return ValidationResult(
+            is_valid=True,
+            cleaned_content=content,
+            issues=[],
+            risk_level="low",
+            blocked_patterns=[],
+        )
 
     def sanitize_error_message(message):
         return message
@@ -72,16 +82,42 @@ except ImportError:
         pass
 
     def validate_analysis_prompt(prompt, session_context=None):
-        return {"is_valid": True, "issues": [], "risk_level": "low"}
+        return ValidationResult(
+            is_valid=True,
+            cleaned_content=prompt,
+            issues=[],
+            risk_level="low",
+            blocked_patterns=[],
+        )
 
     def validate_perspective_data(name, description, custom_prompt=None):
-        return {"is_valid": True, "issues": [], "risk_level": "low"}
+        return ValidationResult(
+            is_valid=True,
+            cleaned_content=f"{name}: {description}",
+            issues=[],
+            risk_level="low",
+            blocked_patterns=[],
+        )
 
     def detect_advanced_prompt_injection(content):
-        return {"is_valid": True, "issues": [], "risk_level": "low"}
+        return ValidationResult(
+            is_valid=True,
+            cleaned_content=content,
+            issues=[],
+            risk_level="low",
+            blocked_patterns=[],
+        )
 
     def sanitize_for_llm(content):
         return content
+
+    def validate_model_id(model_id):
+        # Fallback validation - accepts most reasonable model IDs
+        if not model_id or not isinstance(model_id, str):
+            return False, "Model ID must be a non-empty string"
+        if len(model_id) > 200:
+            return False, "Model ID too long"
+        return True, ""
 
 
 __all__ = [
@@ -122,4 +158,5 @@ __all__ = [
     "validate_perspective_data",
     "detect_advanced_prompt_injection",
     "sanitize_for_llm",
+    "validate_model_id",
 ]

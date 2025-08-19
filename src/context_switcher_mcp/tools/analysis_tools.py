@@ -22,13 +22,42 @@ from ..exceptions import (
     OrchestrationError,
 )
 from ..logging_config import get_logger
-from ..logging_utils import mcp_tool_logger, correlation_context, get_request_logger
+from ..logging_utils import get_request_logger
 
 logger = get_logger(__name__)
 request_logger = get_request_logger()
 
 # Initialize rate limiter (shared across analysis operations)
 rate_limiter = SessionRateLimiter()
+
+
+def safe_truncate_string(text: str, max_length: int) -> str:
+    """Safely truncate a string without breaking Unicode escape sequences"""
+    if len(text) <= max_length:
+        return text
+
+    truncated = text[:max_length]
+
+    # Check if we potentially cut off a Unicode escape sequence
+    # Look for backslashes near the end that might be part of an escape
+    for i in range(min(10, len(truncated))):  # Check last 10 chars
+        pos = len(truncated) - 1 - i
+        if pos < 0:
+            break
+        if truncated[pos] == "\\":
+            # Found a backslash, check if it might be part of an escape
+            remaining = truncated[pos:]
+            if (
+                (remaining.startswith("\\U") and len(remaining) < 10)
+                or (remaining.startswith("\\u") and len(remaining) < 6)
+                or (remaining.startswith("\\x") and len(remaining) < 4)
+                or (remaining.startswith("\\") and len(remaining) < 2)
+            ):
+                # Potential incomplete escape, cut before it
+                truncated = truncated[:pos] + "..."
+                break
+
+    return truncated
 
 
 class AnalyzeFromPerspectivesRequest(BaseModel):
@@ -45,33 +74,32 @@ class SynthesizePerspectivesRequest(BaseModel):
     session_id: str = Field(description="Session ID to synthesize")
 
 
+class CheckConvergenceRequest(BaseModel):
+    session_id: str = Field(description="Session ID to check convergence for")
+
+
 def register_analysis_tools(mcp: FastMCP) -> None:
     """Register analysis tools with the MCP server"""
 
     @mcp.tool(
         description="When you need parallel insights NOW - broadcast your question to all perspectives simultaneously. Expect 10-30 seconds for comprehensive analysis. Perspectives can abstain with [NO_RESPONSE] if not relevant"
     )
-    @mcp_tool_logger(tool_name="analyze_from_perspectives")
     async def analyze_from_perspectives(
         request: AnalyzeFromPerspectivesRequest,
     ) -> Dict[str, Any]:
         """Broadcast a prompt to all perspectives and collect their responses"""
-        with correlation_context() as correlation_id:
-            logger.info(
-                f"Starting multi-perspective analysis for session {request.session_id}"
-            )
 
-            # Validate the analysis request (rate limits, session, prompt)
-            is_valid, error_response = await validate_analysis_request(
-                request.session_id, request.prompt, rate_limiter
-            )
-            if not is_valid:
-                return error_response
+        # Validate the analysis request (rate limits, session, prompt)
+        is_valid, error_response = await validate_analysis_request(
+            request.session_id, request.prompt, rate_limiter
+        )
+        if not is_valid:
+            return error_response
 
-            # Get session
-            from .. import session_manager
+        # Get session
+        from .. import session_manager
 
-            session = await session_manager.get_session(request.session_id)
+        session = await session_manager.get_session(request.session_id)
 
         # Initialize orchestrator
         from ..perspective_orchestrator import PerspectiveOrchestrator
@@ -80,7 +108,7 @@ def register_analysis_tools(mcp: FastMCP) -> None:
 
         try:
             # Execute analysis across all perspectives, passing the session topic for context
-            results = await orchestrator.broadcast_message(
+            results = await orchestrator.broadcast_to_perspectives(
                 session.threads, request.prompt, request.session_id, session.topic
             )
 
@@ -105,6 +133,40 @@ def register_analysis_tools(mcp: FastMCP) -> None:
                 }
             )
 
+            # Check for context convergence after storing analysis
+            try:
+                from ..convergence import check_context_convergence
+
+                converged, alignment_score = await check_context_convergence(
+                    session.analyses, request.session_id
+                )
+
+                if converged:
+                    logger.info(
+                        f"Contexts aligning at {alignment_score:.3f} for session {request.session_id}"
+                    )
+                    # Add convergence information to the latest analysis
+                    session.analyses[-1]["convergence"] = {
+                        "converged": True,
+                        "alignment_score": alignment_score,
+                        "message": f"Contexts converged at {alignment_score:.3f} - perspectives are aligning",
+                    }
+                else:
+                    logger.debug(
+                        f"Context alignment: {alignment_score:.3f} (below threshold) for session {request.session_id}"
+                    )
+                    session.analyses[-1]["convergence"] = {
+                        "converged": False,
+                        "alignment_score": alignment_score,
+                        "message": f"Contexts still diverse - alignment at {alignment_score:.3f}",
+                    }
+
+            except Exception as e:
+                logger.warning(
+                    f"Convergence check failed for session {request.session_id}: {e}"
+                )
+                # Continue without convergence info rather than failing the entire analysis
+
             # Calculate confidence
             total_perspectives = len(session.threads)
             confidence = (
@@ -125,6 +187,16 @@ def register_analysis_tools(mcp: FastMCP) -> None:
                     self.responses = [
                         {"perspective": k, "content": v} for k, v in results.items()
                     ]
+                    # Add convergence information if available
+                    latest_analysis = session.analyses[-1] if session.analyses else {}
+                    self.convergence = latest_analysis.get(
+                        "convergence",
+                        {
+                            "converged": False,
+                            "alignment_score": 0.0,
+                            "message": "Convergence data not available",
+                        },
+                    )
 
             analysis_results = AnalysisResults()
 
@@ -138,7 +210,10 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             return create_error_response(
                 f"Session error: {sanitize_error_message(str(e))}",
                 "session_error",
-                {"session_id": request.session_id, "prompt": request.prompt[:100]},
+                {
+                    "session_id": request.session_id,
+                    "prompt": safe_truncate_string(request.prompt, 100),
+                },
                 recoverable=True,
                 session_id=request.session_id,
             )
@@ -147,7 +222,10 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             return create_error_response(
                 f"Analysis orchestration failed: {sanitize_error_message(str(e))}",
                 "orchestration_error",
-                {"session_id": request.session_id, "prompt": request.prompt[:100]},
+                {
+                    "session_id": request.session_id,
+                    "prompt": safe_truncate_string(request.prompt, 100),
+                },
                 recoverable=True,
                 session_id=request.session_id,
             )
@@ -156,7 +234,10 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             return create_error_response(
                 f"Invalid request: {sanitize_error_message(str(e))}",
                 "validation_error",
-                {"session_id": request.session_id, "prompt": request.prompt[:100]},
+                {
+                    "session_id": request.session_id,
+                    "prompt": safe_truncate_string(request.prompt, 100),
+                },
                 recoverable=True,
                 session_id=request.session_id,
             )
@@ -167,7 +248,10 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             return create_error_response(
                 f"Analysis execution failed: {sanitize_error_message(str(e))}",
                 "execution_error",
-                {"session_id": request.session_id, "prompt": request.prompt[:100]},
+                {
+                    "session_id": request.session_id,
+                    "prompt": safe_truncate_string(request.prompt, 100),
+                },
                 recoverable=True,
                 session_id=request.session_id,
             )
@@ -335,6 +419,139 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             return create_error_response(
                 f"Synthesis failed: {sanitize_error_message(str(e))}",
                 "synthesis_error",
+                {"session_id": request.session_id},
+                recoverable=True,
+                session_id=request.session_id,
+            )
+
+    @mcp.tool(
+        description="Check context convergence status for a session - see how aligned different perspectives have become"
+    )
+    async def check_context_convergence_status(
+        request: CheckConvergenceRequest,
+    ) -> Dict[str, Any]:
+        """Check convergence status for a session's analyses"""
+        # Validate session ID
+        session_valid, session_error = await validate_session_id(
+            request.session_id, "check_convergence"
+        )
+        if not session_valid:
+            return create_error_response(
+                session_error,
+                "session_not_found",
+                {"session_id": request.session_id},
+                recoverable=True,
+            )
+
+        # Get session
+        from .. import session_manager
+
+        session = await session_manager.get_session(request.session_id)
+
+        # Check if we have analyses to check
+        if not session.analyses:
+            return create_error_response(
+                "No analyses found for convergence check. Run analyze_from_perspectives first.",
+                "no_data",
+                {"session_id": request.session_id},
+                recoverable=True,
+            )
+
+        try:
+            from ..convergence import (
+                check_context_convergence,
+                measure_current_alignment,
+                context_alignment_detector,
+            )
+
+            # Check current convergence status
+            converged, alignment_score = await check_context_convergence(
+                session.analyses, request.session_id
+            )
+
+            # Get detailed metrics for the most recent analysis
+            latest_analysis = session.analyses[-1]
+            latest_responses = latest_analysis.get("results", {})
+
+            convergence_metrics = await measure_current_alignment(
+                latest_responses, request.session_id
+            )
+
+            # Build AORP response
+            builder = AORPBuilder()
+
+            builder.status("success")
+            builder.key_insight(
+                f"Context alignment: {alignment_score:.3f} - "
+                f"{'Converged' if converged else 'Still diverse'}"
+            )
+            builder.confidence(0.9)  # High confidence in convergence measurement
+            builder.session_id(request.session_id)
+
+            builder.summary(
+                f"Convergence analysis for {len(session.analyses)} iterations"
+            )
+
+            # Determine urgency based on convergence
+            urgency = "high" if converged else "medium"
+
+            builder.data(
+                {
+                    "convergence_status": {
+                        "converged": converged,
+                        "alignment_score": alignment_score,
+                        "threshold": 0.85,
+                        "message": convergence_metrics.convergence.get(
+                            "message", "No message"
+                        )
+                        if hasattr(convergence_metrics, "convergence")
+                        else "Direct check performed",
+                    },
+                    "session_stats": {
+                        "total_analyses": len(session.analyses),
+                        "total_perspectives": len(session.threads),
+                        "latest_active_count": latest_analysis.get("active_count", 0),
+                        "latest_abstained_count": latest_analysis.get(
+                            "abstained_count", 0
+                        ),
+                    },
+                    "cache_stats": context_alignment_detector.get_cache_stats(),
+                }
+            )
+
+            builder.next_steps(
+                [
+                    "Continue analysis if not converged"
+                    if not converged
+                    else "Consider synthesis or decision-making",
+                    "Review alignment trends across iterations",
+                    "Check individual perspective responses for patterns",
+                ]
+            )
+
+            builder.primary_recommendation(
+                "Proceed with synthesis"
+                if converged
+                else "Continue multi-perspective analysis"
+            )
+
+            builder.workflow_guidance(
+                "Convergence detected - perspectives are aligning"
+                if converged
+                else "Healthy diversity maintained - continue exploring different angles"
+            )
+
+            builder.completeness(1.0)
+            builder.reliability(0.9)
+            builder.urgency(urgency)
+
+            return builder.build()
+
+        except Exception as e:
+            logger.error(f"Convergence check failed: {e}", exc_info=True)
+            return create_error_response(
+                f"Convergence check failed: {sanitize_error_message(str(e))}",
+                "convergence_error",
                 {"session_id": request.session_id},
                 recoverable=True,
                 session_id=request.session_id,

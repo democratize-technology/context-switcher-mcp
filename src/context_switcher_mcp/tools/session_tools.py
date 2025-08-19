@@ -153,7 +153,7 @@ def register_session_tools(mcp: FastMCP) -> None:
                 {
                     "prompt": a["prompt"],
                     "timestamp": a["timestamp"],
-                    "response_count": len(a["responses"]),
+                    "response_count": len(a["results"]),
                     "active_count": a["active_count"],
                 }
                 for a in session.analyses
