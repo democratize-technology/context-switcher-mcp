@@ -7,13 +7,12 @@ event tracking.
 """
 
 import hashlib
+import logging
 import secrets
-from ..logging_base import get_logger
-
-logger = get_logger(__name__)
 from datetime import datetime, timezone
 from typing import Dict, Optional, Any, Tuple
 
+from ..logging_base import get_logger
 from ..models import ClientBinding, ContextSwitcherSession
 from .secret_key_manager import SecretKeyManager, load_or_generate_secret_key
 from .client_validation_service import (
@@ -127,7 +126,7 @@ class ClientBindingManager:
                     "entropy_length": len(session_entropy),
                     "has_signature": bool(binding.binding_signature),
                 },
-                severity=logger.INFO,
+                severity=logging.INFO,
             )
 
             logger.info(f"Created client binding for session {session_id}")
@@ -142,7 +141,7 @@ class ClientBindingManager:
                 "client_binding_creation_failed",
                 session_id,
                 {"error": str(e), "initial_tool": initial_tool},
-                severity=logger.ERROR,
+                severity=logging.ERROR,
             )
             raise
 
@@ -176,7 +175,7 @@ class ClientBindingManager:
                     session_id,
                     {"tool_name": tool_name, "reason": "suspicious_activity_lockout"},
                     session,
-                    severity=logger.WARNING,
+                    severity=logging.WARNING,
                 )
                 return False, "Session locked out due to suspicious activity"
 
@@ -188,7 +187,7 @@ class ClientBindingManager:
                     session_id,
                     {"tool_name": tool_name, "has_binding": False},
                     session,
-                    severity=logger.INFO,
+                    severity=logging.INFO,
                 )
                 return True, ""
 
@@ -264,7 +263,7 @@ class ClientBindingManager:
                 session_id,
                 {"tool_name": tool_name, "error": str(e)},
                 session,
-                severity=logger.ERROR,
+                severity=logging.ERROR,
             )
 
             # Fail securely - deny access on error
@@ -358,7 +357,7 @@ class ClientBindingManager:
                 "key_rotation_failed",
                 "SYSTEM",
                 {"error": str(e), "reason": reason},
-                severity=logger.ERROR,
+                severity=logging.ERROR,
             )
             raise
 
@@ -430,7 +429,7 @@ class ClientBindingManager:
                     "security_state_cleanup",
                     "SYSTEM",
                     {"cleaned_sessions": cleaned_sessions},
-                    severity=logger.INFO,
+                    severity=logging.INFO,
                 )
 
             logger.info(f"Security state cleanup completed: {cleanup_stats}")
@@ -509,7 +508,7 @@ def create_secure_session_with_binding(
             "secure_session_creation_failed",
             session_id,
             {"topic": topic, "initial_tool": initial_tool, "error": str(e)},
-            severity=logger.ERROR,
+            severity=logging.ERROR,
         )
         raise
 

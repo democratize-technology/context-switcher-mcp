@@ -124,7 +124,7 @@ class TestAnalyzeFromPerspectives:
             mock_session_manager.get_session.return_value = self.mock_session
 
             mock_orchestrator = AsyncMock()
-            mock_orchestrator.broadcast_message.return_value = self.mock_results
+            mock_orchestrator.broadcast_to_perspectives.return_value = self.mock_results
             mock_orchestrator_class.return_value = mock_orchestrator
 
             expected_response = {
@@ -157,7 +157,7 @@ class TestAnalyzeFromPerspectives:
             assert result == expected_response
             mock_validate.assert_called_once()
             mock_session_manager.get_session.assert_called_once_with("test-session-123")
-            mock_orchestrator.broadcast_message.assert_called_once()
+            mock_orchestrator.broadcast_to_perspectives.assert_called_once()
 
             # Verify session analysis was stored
             assert len(self.mock_session.analyses) == 1
@@ -267,8 +267,8 @@ class TestAnalyzeFromPerspectives:
             mock_session_manager.get_session.return_value = self.mock_session
 
             mock_orchestrator = AsyncMock()
-            mock_orchestrator.broadcast_message.side_effect = OrchestrationError(
-                "Orchestration failed"
+            mock_orchestrator.broadcast_to_perspectives.side_effect = (
+                OrchestrationError("Orchestration failed")
             )
             mock_orchestrator_class.return_value = mock_orchestrator
 
@@ -318,7 +318,7 @@ class TestAnalyzeFromPerspectives:
             mock_session_manager.get_session.return_value = self.mock_session
 
             mock_orchestrator = AsyncMock()
-            mock_orchestrator.broadcast_message.side_effect = ValueError(
+            mock_orchestrator.broadcast_to_perspectives.side_effect = ValueError(
                 "Invalid input"
             )
             mock_orchestrator_class.return_value = mock_orchestrator
@@ -417,7 +417,7 @@ class TestAnalyzeFromPerspectives:
             mock_session_manager.get_session.return_value = self.mock_session
 
             mock_orchestrator = AsyncMock()
-            mock_orchestrator.broadcast_message.return_value = error_results
+            mock_orchestrator.broadcast_to_perspectives.return_value = error_results
             mock_orchestrator_class.return_value = mock_orchestrator
 
             expected_response = {

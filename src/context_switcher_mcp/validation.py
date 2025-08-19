@@ -4,12 +4,29 @@ from .logging_base import get_logger
 from typing import Tuple
 
 from .client_binding import validate_session_access
-from .config import get_config
 from .security import sanitize_error_message
 
 logger = get_logger(__name__)
 
-config = get_config()
+
+def _get_config():
+    """Lazy config loading to avoid module-level import issues"""
+    try:
+        from .config import get_config
+
+        return get_config()
+    except ImportError as e:
+        logger.error(f"Failed to load config: {e}")
+
+        # Fallback configuration for validation
+        class FallbackValidation:
+            max_topic_length = 1000
+            max_session_id_length = 100
+
+        class FallbackConfig:
+            validation = FallbackValidation()
+
+        return FallbackConfig()
 
 
 def validate_topic(topic: str) -> Tuple[bool, str]:
@@ -27,6 +44,7 @@ def validate_topic(topic: str) -> Tuple[bool, str]:
     if len(topic.strip()) == 0:
         return False, "Topic cannot be empty or whitespace only"
 
+    config = _get_config()
     if len(topic) > config.validation.max_topic_length:
         return (
             False,
@@ -75,6 +93,7 @@ async def validate_session_id(session_id: str, operation: str) -> Tuple[bool, st
     if not session_id or not isinstance(session_id, str):
         return False, "Session ID must be a non-empty string"
 
+    config = _get_config()
     if len(session_id) > config.validation.max_session_id_length:
         return (
             False,
@@ -91,6 +110,14 @@ async def validate_session_id(session_id: str, operation: str) -> Tuple[bool, st
     # Client binding validation
     access_valid, access_error = await validate_session_access(session, operation)
     if not access_valid:
+        # Check if this is specifically a rate limiting issue
+        if "excessive_access_rate" in access_error:
+            # Return a clear rate limiting message instead of misleading "session not found"
+            return (
+                False,
+                "Access temporarily restricted due to rate limiting - please wait before trying again",
+            )
+        # For other validation failures, use sanitized error
         return False, sanitize_error_message(access_error)
 
     return True, ""

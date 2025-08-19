@@ -6,6 +6,7 @@ secure logging infrastructure while standardizing patterns across the codebase.
 """
 
 # Circular import removed - get_logger and lazy_log are defined in this file
+import asyncio
 import logging
 import os
 import sys
@@ -211,7 +212,7 @@ class LoggingConfig:
 
         # Setup console handler
         if self.config["output"] in ["console", "both"]:
-            console_handler = logging.StreamHandler(sys.stdout)
+            console_handler = logging.StreamHandler(sys.stderr)
             console_handler.setFormatter(formatter)
             console_handler.setLevel(log_level)
             root_logger.addHandler(console_handler)
@@ -284,11 +285,11 @@ class LoggingConfig:
     ) -> Union[logging.Logger, SecureLogger]:
         """Get a configured logger instance"""
         global _initializing_logger
-        
+
         # Prevent recursion during logger initialization
         if _initializing_logger:
             return logging.getLogger(name)
-        
+
         if not _logging_configured:
             _initializing_logger = True
             try:
@@ -392,19 +393,19 @@ def is_performance_logging_enabled() -> bool:
 # Performance optimization helpers
 class LazyLogString:
     """Lazy string evaluation for expensive log operations"""
-    
+
     def __init__(self, func, *args, **kwargs):
         self.func = func
         self.args = args
         self.kwargs = kwargs
-    
+
     def __str__(self):
         return str(self.func(*self.args, **self.kwargs))
 
 
 def lazy_log(func, *args, **kwargs):
     """Create a lazy-evaluated log string for performance optimization
-    
+
     Usage:
         logger.debug("Expensive computation: %s", lazy_log(expensive_function))
     """
@@ -415,7 +416,7 @@ def log_performance(logger: logging.Logger, operation: str, duration: float, **k
     """Log performance metrics in a structured way"""
     if not is_performance_logging_enabled():
         return
-    
+
     extra = {
         "operation": operation,
         "duration_ms": round(duration * 1000, 2),
@@ -423,89 +424,97 @@ def log_performance(logger: logging.Logger, operation: str, duration: float, **k
             "operation": operation,
             "duration_ms": round(duration * 1000, 2),
             "timestamp": datetime.utcnow().isoformat() + "Z",
-            **kwargs
-        }
+            **kwargs,
+        },
     }
-    
+
     logger.info(f"Performance: {operation} completed in {duration:.2f}s", extra=extra)
 
 
-def log_security_event(logger: logging.Logger, event_type: str, details: dict, level: str = "WARNING"):
+def log_security_event(
+    logger: logging.Logger, event_type: str, details: dict, level: str = "WARNING"
+):
     """Log security events in a structured, secure way"""
     config = get_logging_config()
     if not config.config["security_logging"]:
         return
-    
+
     # Get security logger
     security_logger = logging.getLogger("security")
     log_level = getattr(logging, level.upper(), logging.WARNING)
-    
+
     # Sanitize details to prevent data exposure
     sanitized_details = {}
     for key, value in details.items():
-        if key.lower() in ['password', 'token', 'secret', 'key', 'credential']:
+        if key.lower() in ["password", "token", "secret", "key", "credential"]:
             sanitized_details[key] = "[REDACTED]"
         else:
             sanitized_details[key] = str(value)[:100]  # Truncate long values
-    
+
     extra = {
         "event_type": event_type,
         "security_event": {
             "type": event_type,
             "timestamp": datetime.utcnow().isoformat() + "Z",
-            "details": sanitized_details
-        }
+            "details": sanitized_details,
+        },
     }
-    
+
     security_logger.log(log_level, f"Security event: {event_type}", extra=extra)
 
 
-def log_structured(logger: logging.Logger, message: str, level: str = "INFO", **structured_data):
+def log_structured(
+    logger: logging.Logger, message: str, level: str = "INFO", **structured_data
+):
     """Log with structured data for better observability
-    
+
     Usage:
         log_structured(logger, "Processing request", session_id=session.id, user_id=user.id)
     """
     log_level = getattr(logging, level.upper(), logging.INFO)
-    
+
     # Filter out None values and sensitive data
     filtered_data = {}
     for key, value in structured_data.items():
         if value is not None:
-            if key.lower() in ['password', 'token', 'secret', 'key', 'credential']:
+            if key.lower() in ["password", "token", "secret", "key", "credential"]:
                 filtered_data[key] = "[REDACTED]"
             else:
                 filtered_data[key] = value
-    
+
     logger.log(log_level, message, extra=filtered_data)
 
 
-def log_with_context(logger: logging.Logger, message: str, context: dict, level: str = "INFO"):
+def log_with_context(
+    logger: logging.Logger, message: str, context: dict, level: str = "INFO"
+):
     """Log with rich context information for debugging"""
     correlation_id = get_correlation_id()
-    
+
     context_data = {
         "context": context,
         "correlation_id": correlation_id,
-        "timestamp": datetime.utcnow().isoformat() + "Z"
+        "timestamp": datetime.utcnow().isoformat() + "Z",
     }
-    
+
     log_level = getattr(logging, level.upper(), logging.INFO)
     logger.log(log_level, message, extra=context_data)
 
 
-def conditional_log(logger: logging.Logger, condition_func, message: str, level: str = "DEBUG", **kwargs):
+def conditional_log(
+    logger: logging.Logger, condition_func, message: str, level: str = "DEBUG", **kwargs
+):
     """Only log if condition is met - avoids expensive operations
-    
+
     Usage:
         conditional_log(logger, lambda: expensive_check(), "Debug info", level="DEBUG")
     """
     log_level = getattr(logging, level.upper(), logging.DEBUG)
-    
+
     # Only check condition if log level is enabled
     if not logger.isEnabledFor(log_level):
         return
-    
+
     if condition_func():
         logger.log(log_level, message, **kwargs)
 
@@ -513,62 +522,77 @@ def conditional_log(logger: logging.Logger, condition_func, message: str, level:
 # Decorator for automatic function performance logging
 def log_function_performance(logger: logging.Logger, log_args: bool = False):
     """Decorator to automatically log function performance"""
+
     def decorator(func):
         import functools
         import time
-        
+
         @functools.wraps(func)
         async def async_wrapper(*args, **kwargs):
             start_time = time.perf_counter()
             try:
                 result = await func(*args, **kwargs)
                 duration = time.perf_counter() - start_time
-                
-                extra = {"function": func.__name__, "duration_ms": round(duration * 1000, 2)}
+
+                extra = {
+                    "function": func.__name__,
+                    "duration_ms": round(duration * 1000, 2),
+                }
                 if log_args and args:
                     extra["args_count"] = len(args)
                 if log_args and kwargs:
                     extra["kwargs_keys"] = list(kwargs.keys())
-                
+
                 log_performance(logger, f"{func.__name__}()", duration, **extra)
                 return result
             except Exception as e:
                 duration = time.perf_counter() - start_time
                 logger.error(
                     f"Function {func.__name__} failed after {duration:.2f}s: {str(e)}",
-                    extra={"function": func.__name__, "duration_ms": round(duration * 1000, 2), "error": str(e)}
+                    extra={
+                        "function": func.__name__,
+                        "duration_ms": round(duration * 1000, 2),
+                        "error": str(e),
+                    },
                 )
                 raise
-        
+
         @functools.wraps(func)
         def sync_wrapper(*args, **kwargs):
             start_time = time.perf_counter()
             try:
                 result = func(*args, **kwargs)
                 duration = time.perf_counter() - start_time
-                
-                extra = {"function": func.__name__, "duration_ms": round(duration * 1000, 2)}
+
+                extra = {
+                    "function": func.__name__,
+                    "duration_ms": round(duration * 1000, 2),
+                }
                 if log_args and args:
                     extra["args_count"] = len(args)
                 if log_args and kwargs:
                     extra["kwargs_keys"] = list(kwargs.keys())
-                
+
                 log_performance(logger, f"{func.__name__}()", duration, **extra)
                 return result
             except Exception as e:
                 duration = time.perf_counter() - start_time
                 logger.error(
                     f"Function {func.__name__} failed after {duration:.2f}s: {str(e)}",
-                    extra={"function": func.__name__, "duration_ms": round(duration * 1000, 2), "error": str(e)}
+                    extra={
+                        "function": func.__name__,
+                        "duration_ms": round(duration * 1000, 2),
+                        "error": str(e),
+                    },
                 )
                 raise
-        
+
         # Return appropriate wrapper based on function type
         if asyncio.iscoroutinefunction(func):
             return async_wrapper
         else:
             return sync_wrapper
-    
+
     return decorator
 
 
@@ -576,39 +600,52 @@ def log_function_performance(logger: logging.Logger, log_args: bool = False):
 def validate_logging_migration():
     """Validate that logging migration is complete"""
     import ast
-    import os
-    
+
     issues = []
     src_path = Path(__file__).parent
-    
+
     for py_file in src_path.rglob("*.py"):
         if py_file.name.startswith("test_"):
             continue  # Skip test files
-        
+
         try:
             with open(py_file, "r", encoding="utf-8") as f:
                 content = f.read()
-            
+
             # Check for old patterns
-            if "import logging" in content and "from .logging_config import get_logger, lazy_log" not in content:
-                issues.append(f"{py_file}: Still using 'import logging' without standardized import")
-            
+            if (
+                "import logging" in content
+                and "from .logging_config import get_logger, lazy_log" not in content
+            ):
+                issues.append(
+                    f"{py_file}: Still using 'import logging' without standardized import"
+                )
+
             if "get_logger(" in content:
                 issues.append(f"{py_file}: Still using 'logging.getLogger()' directly")
-            
+
             # Check for string concatenation in log calls
             tree = ast.parse(content)
             for node in ast.walk(tree):
                 if isinstance(node, ast.Call):
-                    if (isinstance(node.func, ast.Attribute) and 
-                        node.func.attr in ['debug', 'info', 'warning', 'error', 'critical']):
+                    if isinstance(node.func, ast.Attribute) and node.func.attr in [
+                        "debug",
+                        "info",
+                        "warning",
+                        "error",
+                        "critical",
+                    ]:
                         for arg in node.args:
-                            if isinstance(arg, ast.BinOp) and isinstance(arg.op, ast.Add):
-                                issues.append(f"{py_file}:{node.lineno}: Using string concatenation in log call")
-        
+                            if isinstance(arg, ast.BinOp) and isinstance(
+                                arg.op, ast.Add
+                            ):
+                                issues.append(
+                                    f"{py_file}:{node.lineno}: Using string concatenation in log call"
+                                )
+
         except Exception as e:
             issues.append(f"{py_file}: Could not analyze file: {e}")
-    
+
     return issues
 
 
@@ -627,7 +664,7 @@ __all__ = [
     # Performance helpers
     "lazy_log",
     "log_performance",
-    "log_security_event", 
+    "log_security_event",
     "log_structured",
     "log_with_context",
     "conditional_log",

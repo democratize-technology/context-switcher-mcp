@@ -6,6 +6,7 @@ and monitoring capabilities for the client binding security system.
 """
 
 import logging
+import sys
 from ..logging_base import get_logger
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional
@@ -182,7 +183,9 @@ class SecurityEventTracker:
                 console_message,
                 extra={"security_alert": True, "event_record": event_record},
             )
-            print(console_message)  # Keep console output for critical security alerts
+            print(
+                console_message, file=sys.stderr
+            )  # Keep console output for critical security alerts
 
     def log_binding_validation_failure(
         self,

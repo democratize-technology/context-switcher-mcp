@@ -117,9 +117,20 @@ def build_analysis_aorp_response(
 
     # Set immediate values
     builder.status("success" if len(results.model_errors) == 0 else "partial")
-    builder.key_insight(
-        f"Analysis complete: {results.active_count} active perspectives, {results.abstained_count} abstained"
-    )
+
+    # Build key insight with convergence awareness
+    base_insight = f"Analysis complete: {results.active_count} active perspectives, {results.abstained_count} abstained"
+    if hasattr(results, "convergence") and results.convergence:
+        if results.convergence.get("converged", False):
+            alignment_score = results.convergence.get("alignment_score", 0.0)
+            base_insight += f" - Contexts converged at {alignment_score:.3f} alignment"
+        else:
+            alignment_score = results.convergence.get("alignment_score", 0.0)
+            base_insight += (
+                f" - Contexts remain diverse ({alignment_score:.3f} alignment)"
+            )
+
+    builder.key_insight(base_insight)
     builder.confidence(confidence)
 
     # Add perspective responses as structured data
@@ -129,17 +140,28 @@ def build_analysis_aorp_response(
             perspectives_data[response["perspective"]] = response["content"]
 
     builder.summary(f"Multi-perspective analysis of: {prompt[:100]}...")
-    builder.data(
-        {
-            "perspectives": perspectives_data,
-            "metrics": {
-                "active_count": results.active_count,
-                "abstained_count": results.abstained_count,
-                "error_count": len(results.model_errors),
-                "confidence": confidence,
-            },
+
+    # Prepare data with convergence information
+    data_dict = {
+        "perspectives": perspectives_data,
+        "metrics": {
+            "active_count": results.active_count,
+            "abstained_count": results.abstained_count,
+            "error_count": len(results.model_errors),
+            "confidence": confidence,
+        },
+    }
+
+    # Add convergence information if available
+    if hasattr(results, "convergence") and results.convergence:
+        data_dict["convergence"] = {
+            "converged": results.convergence.get("converged", False),
+            "alignment_score": results.convergence.get("alignment_score", 0.0),
+            "message": results.convergence.get("message", "No convergence data"),
+            "threshold": 0.85,  # Our moderate threshold
         }
-    )
+
+    builder.data(data_dict)
 
     # Add abstained perspectives info
     abstained_perspectives = [
@@ -148,12 +170,26 @@ def build_analysis_aorp_response(
 
     # Set actionable information
     builder.next_steps(next_steps)
-    builder.primary_recommendation(
-        "Review perspective insights and consider synthesis for deeper analysis"
-    )
-    builder.workflow_guidance(
-        "Present perspectives to user, highlight areas of agreement and tension"
-    )
+
+    # Make recommendations convergence-aware
+    if (
+        hasattr(results, "convergence")
+        and results.convergence
+        and results.convergence.get("converged", False)
+    ):
+        builder.primary_recommendation(
+            "Contexts have converged - consider synthesis or move to decision-making"
+        )
+        builder.workflow_guidance(
+            "Convergence detected: perspectives are aligning. Consider synthesizing insights or proceeding with consolidated approach"
+        )
+    else:
+        builder.primary_recommendation(
+            "Review perspective insights and consider synthesis for deeper analysis"
+        )
+        builder.workflow_guidance(
+            "Present perspectives to user, highlight areas of agreement and tension"
+        )
 
     # Set quality metrics
     total_perspectives = results.active_count + results.abstained_count

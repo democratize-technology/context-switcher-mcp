@@ -12,8 +12,6 @@ import uuid
 from contextlib import contextmanager
 from typing import Any, Callable, Dict, Optional, Union, TypeVar
 from dataclasses import dataclass
-from .logging_base import get_logger
-
 from .logging_base import (
     get_logger,
     set_correlation_id,
@@ -456,53 +454,101 @@ def mcp_tool_logger(
     include_request_data: bool = True,
     include_response_data: bool = True,
 ) -> Callable[[F], F]:
-    """Decorator for MCP tool logging"""
+    """Decorator for MCP tool logging that handles both sync and async functions"""
 
     def decorator(func: F) -> F:
+        import inspect
+
         name = tool_name or func.__name__
         request_logger = RequestLogger()
 
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            # Extract request data for logging
-            request_data = {}
-            if include_request_data and args:
-                # First arg is typically the request object
-                if hasattr(args[0], "__dict__"):
-                    request_data = {
-                        k: v
-                        for k, v in args[0].__dict__.items()
-                        if not k.startswith("_")
-                    }
+        # Check if the function is async
+        if inspect.iscoroutinefunction(func):
 
-            correlation_id = request_logger.log_request(name, request_data)
-            start_time = time.time()
+            @functools.wraps(func)
+            async def async_wrapper(*args, **kwargs):
+                # Extract request data for logging
+                request_data = {}
+                if include_request_data and args:
+                    # First arg is typically the request object
+                    if hasattr(args[0], "__dict__"):
+                        request_data = {
+                            k: v
+                            for k, v in args[0].__dict__.items()
+                            if not k.startswith("_")
+                        }
 
-            try:
-                result = func(*args, **kwargs)
-                duration = time.time() - start_time
+                correlation_id = request_logger.log_request(name, request_data)
+                start_time = time.time()
 
-                # Prepare response metadata
-                response_metadata = {}
-                if include_response_data and result is not None:
-                    response_metadata["result_type"] = type(result).__name__
-                    if hasattr(result, "__len__"):
-                        response_metadata["result_length"] = len(result)
+                try:
+                    result = await func(*args, **kwargs)  # Await async function
+                    duration = time.time() - start_time
 
-                request_logger.log_response(
-                    name, True, duration, response_metadata, None, correlation_id
-                )
+                    # Prepare response metadata
+                    response_metadata = {}
+                    if include_response_data and result is not None:
+                        response_metadata["result_type"] = type(result).__name__
+                        if hasattr(result, "__len__"):
+                            response_metadata["result_length"] = len(result)
 
-                return result
+                    request_logger.log_response(
+                        name, True, duration, response_metadata, None, correlation_id
+                    )
 
-            except Exception as e:
-                duration = time.time() - start_time
-                request_logger.log_response(
-                    name, False, duration, None, e, correlation_id
-                )
-                raise
+                    return result
 
-        return wrapper
+                except Exception as e:
+                    duration = time.time() - start_time
+                    request_logger.log_response(
+                        name, False, duration, None, e, correlation_id
+                    )
+                    raise
+
+            return async_wrapper
+        else:
+
+            @functools.wraps(func)
+            def sync_wrapper(*args, **kwargs):
+                # Extract request data for logging
+                request_data = {}
+                if include_request_data and args:
+                    # First arg is typically the request object
+                    if hasattr(args[0], "__dict__"):
+                        request_data = {
+                            k: v
+                            for k, v in args[0].__dict__.items()
+                            if not k.startswith("_")
+                        }
+
+                correlation_id = request_logger.log_request(name, request_data)
+                start_time = time.time()
+
+                try:
+                    result = func(*args, **kwargs)  # Call sync function normally
+                    duration = time.time() - start_time
+
+                    # Prepare response metadata
+                    response_metadata = {}
+                    if include_response_data and result is not None:
+                        response_metadata["result_type"] = type(result).__name__
+                        if hasattr(result, "__len__"):
+                            response_metadata["result_length"] = len(result)
+
+                    request_logger.log_response(
+                        name, True, duration, response_metadata, None, correlation_id
+                    )
+
+                    return result
+
+                except Exception as e:
+                    duration = time.time() - start_time
+                    request_logger.log_response(
+                        name, False, duration, None, e, correlation_id
+                    )
+                    raise
+
+            return sync_wrapper
 
     return decorator
 

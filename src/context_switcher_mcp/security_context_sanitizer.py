@@ -64,7 +64,7 @@ class SecurityContextSanitizer:
             # File paths that could reveal system structure
             (r"/home/[^/\s]+", "/home/***"),
             (r"/Users/[^/\s]+", "/Users/***"),
-            (r"C:\\Users\\[^\\]+", "C:\\Users\\***"),
+            (r"C:\\Users\\[^\\]+", r"C:\\Users\\***"),
         ]
 
         # Context-specific sanitization rules
