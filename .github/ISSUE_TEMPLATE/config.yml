@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 🤔 General Questions & Discussions
+    url: https://github.com/democratize-technology/context-switcher-mcp/discussions
+    about: Ask questions, share ideas, or discuss the Context Switcher MCP server
+  - name: 📖 Documentation
+    url: https://github.com/democratize-technology/context-switcher-mcp/blob/main/README.md
+    about: Read the comprehensive documentation and setup guides
+  - name: 🚀 Thinkerz Platform
+    url: https://github.com/democratize-technology/thinkerz
+    about: Learn about the broader cognitive AI orchestration platform
+  - name: 🔒 Security Issues
+    url: https://github.com/democratize-technology/context-switcher-mcp/blob/main/SECURITY.md
+    about: Report security vulnerabilities privately (do not use public issues)

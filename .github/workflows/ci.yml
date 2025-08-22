@@ -1,0 +1,314 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+    inputs:
+      run_integration_tests:
+        description: 'Run integration tests'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  PYTHONUNBUFFERED: 1
+  PYTHONDONTWRITEBYTECODE: 1
+  PIP_DISABLE_PIP_VERSION_CHECK: 1
+  PIP_NO_CACHE_DIR: 1
+
+jobs:
+  code-quality:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v1
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: |
+          uv sync --dev
+
+      - name: Lint with ruff
+        run: |
+          uv run ruff check . --output-format=github
+
+      - name: Check code formatting
+        run: |
+          uv run ruff format --check .
+
+      - name: Type checking with mypy
+        run: |
+          uv run mypy src/ --show-error-codes
+
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Bandit Security Scan
+        uses: securecodewarrior/github-action-add-sarif@v1
+        with:
+          sarif-file: 'bandit-report.sarif'
+        continue-on-error: true
+
+      - name: Set up Python for security checks
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install security tools
+        run: |
+          pip install bandit[toml] safety
+
+      - name: Run Bandit
+        run: |
+          bandit -r src/ -f json -o bandit-report.json || true
+          bandit -r src/ || true
+
+      - name: Run Safety check
+        run: |
+          safety check || true
+
+  test:
+    name: Test Suite
+    needs: [code-quality]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.10', '3.11', '3.12']
+        exclude:
+          # Limit Windows and macOS to fewer Python versions for faster CI
+          - os: windows-latest
+            python-version: '3.10'
+          - os: macos-latest
+            python-version: '3.10'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v1
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: |
+          uv sync --dev
+
+      - name: Run tests with coverage
+        run: |
+          uv run pytest tests/ -v --cov=src/context_switcher_mcp --cov-report=xml --cov-report=term-missing --cov-fail-under=80
+        env:
+          # Mock credentials for testing
+          AWS_ACCESS_KEY_ID: mock_key_id
+          AWS_SECRET_ACCESS_KEY: mock_secret
+          AWS_DEFAULT_REGION: us-east-1
+
+      - name: Upload coverage to Codecov
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+  integration-tests:
+    name: Integration Tests
+    needs: [test]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.inputs.run_integration_tests == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v1
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: |
+          uv sync --dev
+
+      - name: Run integration tests
+        run: |
+          uv run pytest tests/ -v -m integration --tb=short
+        env:
+          # Mock credentials for integration testing
+          AWS_ACCESS_KEY_ID: mock_key_id
+          AWS_SECRET_ACCESS_KEY: mock_secret
+          AWS_DEFAULT_REGION: us-east-1
+          TEST_INTEGRATION: true
+
+  build:
+    name: Build Package
+    needs: [code-quality, test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install build tools
+        run: |
+          pip install build twine
+
+      - name: Build package
+        run: |
+          python -m build
+
+      - name: Check package
+        run: |
+          twine check dist/*
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: dist-packages
+          path: dist/
+          retention-days: 7
+
+  test-install:
+    name: Test Installation
+    needs: [build]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.10', '3.11', '3.12']
+    steps:
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: dist-packages
+          path: dist/
+
+      - name: Install from wheel
+        run: |
+          pip install dist/*.whl
+
+      - name: Test import
+        run: |
+          python -c "import context_switcher_mcp; print('Import successful')"
+
+      - name: Test CLI
+        run: |
+          python -m context_switcher_mcp --help
+
+  performance-test:
+    name: Performance Benchmarks
+    needs: [test]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v1
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: |
+          uv sync --dev
+
+      - name: Run performance tests
+        run: |
+          # Add performance test commands here
+          echo "Performance tests would run here"
+          # uv run pytest tests/performance/ -v --benchmark-only
+        env:
+          AWS_ACCESS_KEY_ID: mock_key_id
+          AWS_SECRET_ACCESS_KEY: mock_secret
+          AWS_DEFAULT_REGION: us-east-1
+
+  publish-test-results:
+    name: Publish Test Results
+    needs: [test, integration-tests]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Download test results
+        uses: actions/download-artifact@v3
+        with:
+          name: test-results
+          path: test-results/
+        continue-on-error: true
+
+      - name: Publish test results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: "test-results/**/*.xml"
+        continue-on-error: true
+
+  status-check:
+    name: Status Check
+    needs: [code-quality, security-scan, test, build, test-install]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check all jobs status
+        run: |
+          if [[ "${{ needs.code-quality.result }}" != "success" ]] || \
+             [[ "${{ needs.test.result }}" != "success" ]] || \
+             [[ "${{ needs.build.result }}" != "success" ]] || \
+             [[ "${{ needs.test-install.result }}" != "success" ]]; then
+            echo "One or more critical jobs failed"
+            exit 1
+          else
+            echo "All critical jobs passed"
+          fi
+
+      - name: Report success
+        run: |
+          echo "✅ All CI/CD pipeline checks passed successfully!"
+          echo "✅ Code quality: ${{ needs.code-quality.result }}"
+          echo "🔒 Security scan: ${{ needs.security-scan.result }}"
+          echo "🧪 Tests: ${{ needs.test.result }}"
+          echo "📦 Build: ${{ needs.build.result }}"
+          echo "⚙️ Installation: ${{ needs.test-install.result }}"

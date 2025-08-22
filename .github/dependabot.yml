@@ -7,7 +7,7 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "09:00"
+      time: "06:00"
       timezone: "UTC"
     open-pull-requests-limit: 10
     reviewers:
@@ -16,10 +16,41 @@ updates:
       - "democratizetech"
     commit-message:
       prefix: "deps"
+      prefix-development: "deps-dev"
       include: "scope"
     labels:
       - "dependencies"
       - "python"
+    # Group related updates together
+    groups:
+      testing:
+        patterns:
+          - "pytest*"
+          - "coverage*"
+          - "mock*"
+      linting:
+        patterns:
+          - "ruff*"
+          - "mypy*"
+          - "black*"
+          - "pre-commit*"
+      llm-backends:
+        patterns:
+          - "litellm*"
+          - "boto3*"
+          - "openai*"
+      core-deps:
+        patterns:
+          - "pydantic*"
+          - "httpx*"
+          - "mcp*"
+    # Security updates with higher priority
+    allow:
+      - dependency-type: "all"
+    ignore:
+      # Ignore patch updates for stable dependencies unless security-related
+      - dependency-name: "numpy"
+        update-types: ["version-update:semver-patch"]
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
@@ -27,7 +58,7 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "09:00"
+      time: "06:00"
       timezone: "UTC"
     open-pull-requests-limit: 5
     reviewers:
@@ -40,3 +71,22 @@ updates:
     labels:
       - "dependencies"
       - "github-actions"
+      - "ci"
+
+  # Docker (for future container support)
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "democratizetech"
+    commit-message:
+      prefix: "docker"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "docker"
