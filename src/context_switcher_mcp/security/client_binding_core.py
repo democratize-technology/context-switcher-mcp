@@ -10,15 +10,15 @@ import hashlib
 import logging
 import secrets
 from datetime import datetime, timezone
-from typing import Dict, Optional, Any, Tuple
+from typing import Any
 
 from ..logging_base import get_logger
 from ..models import ClientBinding, ContextSwitcherSession
-from .secret_key_manager import SecretKeyManager, load_or_generate_secret_key
 from .client_validation_service import (
     ClientValidationService,
     client_validation_service,
 )
+from .secret_key_manager import SecretKeyManager, load_or_generate_secret_key
 from .security_event_tracker import SecurityEventTracker, security_event_tracker
 
 logger = get_logger(__name__)
@@ -44,9 +44,9 @@ class ClientBindingManager:
 
     def __init__(
         self,
-        secret_key: Optional[str] = None,
-        validation_service: Optional[ClientValidationService] = None,
-        event_tracker: Optional[SecurityEventTracker] = None,
+        secret_key: str | None = None,
+        validation_service: ClientValidationService | None = None,
+        event_tracker: SecurityEventTracker | None = None,
     ):
         """Initialize client binding manager.
 
@@ -147,7 +147,7 @@ class ClientBindingManager:
 
     async def validate_session_binding(
         self, session: ContextSwitcherSession, tool_name: str
-    ) -> Tuple[bool, str]:
+    ) -> tuple[bool, str]:
         """Validate client binding for session access.
 
         Args:
@@ -361,7 +361,7 @@ class ClientBindingManager:
             )
             raise
 
-    def get_security_metrics(self) -> Dict[str, Any]:
+    def get_security_metrics(self) -> dict[str, Any]:
         """Get comprehensive security metrics for monitoring.
 
         Returns:
@@ -405,7 +405,7 @@ class ClientBindingManager:
                 },
             }
 
-    def cleanup_security_state(self) -> Dict[str, int]:
+    def cleanup_security_state(self) -> dict[str, int]:
         """Clean up old security state (maintenance operation).
 
         Returns:
@@ -515,7 +515,7 @@ def create_secure_session_with_binding(
 
 async def validate_session_access(
     session: ContextSwitcherSession, tool_name: str
-) -> Tuple[bool, str]:
+) -> tuple[bool, str]:
     """Validate session access with client binding checks.
 
     Args:

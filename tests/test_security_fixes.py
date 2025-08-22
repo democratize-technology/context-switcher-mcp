@@ -12,11 +12,13 @@ import tempfile  # noqa: E402
 import threading  # noqa: E402
 from datetime import datetime, timezone  # noqa: E402
 from pathlib import Path  # noqa: E402
-from unittest.mock import MagicMock, patch, AsyncMock  # noqa: E402
+from unittest.mock import AsyncMock, MagicMock, patch  # noqa: E402
 
 import pytest  # noqa: E402
-
-from context_switcher_mcp.backend_interface import LiteLLMBackend, OllamaBackend  # noqa: E402
+from context_switcher_mcp.backend_interface import (  # noqa: E402
+    LiteLLMBackend,
+    OllamaBackend,
+)
 from context_switcher_mcp.circuit_breaker_store import CircuitBreakerStore  # noqa: E402
 from context_switcher_mcp.client_binding import (  # noqa: E402
     ClientBindingManager,
@@ -24,14 +26,19 @@ from context_switcher_mcp.client_binding import (  # noqa: E402
     _load_or_generate_secret_key,
     create_secure_session_with_binding,
 )
-from context_switcher_mcp.exceptions import ModelConnectionError, ModelValidationError  # noqa: E402
+from context_switcher_mcp.exceptions import (  # noqa: E402
+    ModelConnectionError,
+    ModelValidationError,
+)
 from context_switcher_mcp.models import (  # noqa: E402
     ClientBinding,
     ContextSwitcherSession,
     ModelBackend,
     Thread,
 )
-from context_switcher_mcp.perspective_orchestrator import PerspectiveOrchestrator  # noqa: E402
+from context_switcher_mcp.perspective_orchestrator import (
+    PerspectiveOrchestrator,  # noqa: E402
+)
 
 
 class TestCircuitBreakerPathTraversal:
@@ -268,8 +275,8 @@ class TestCircuitBreakerRaceCondition:
             )
 
             # Mock backend to raise authentication error (non-transient)
-            from context_switcher_mcp.exceptions import ModelAuthenticationError
             from context_switcher_mcp.backend_factory import BackendFactory
+            from context_switcher_mcp.exceptions import ModelAuthenticationError
 
             mock_backend = AsyncMock()
             mock_backend.call_model.side_effect = ModelAuthenticationError(
@@ -628,7 +635,7 @@ class TestIntegrationScenarios:
         assert session.is_binding_valid("wrong_secret") is False
 
         # Test suspicious activity detection
-        for i in range(5):
+        for _i in range(5):
             binding.validation_failures += 1
 
         assert binding.is_suspicious() is True

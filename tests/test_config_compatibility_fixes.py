@@ -13,9 +13,9 @@ Key fixes tested:
 - Added profiling property to ContextSwitcherConfig that returns self.monitoring.profiling
 """
 
-import pytest
-from unittest.mock import Mock, patch, AsyncMock
+from unittest.mock import AsyncMock, Mock, patch
 
+import pytest
 from context_switcher_mcp.config import get_config
 from context_switcher_mcp.config.migration import LegacyConfigAdapter
 
@@ -136,11 +136,11 @@ class TestConfigProfilingProperty:
             assert isinstance(value, bool), f"config.profiling.{attr} should be boolean"
 
         # Test numeric attributes
-        assert isinstance(profiling_config.sampling_rate, (int, float))
+        assert isinstance(profiling_config.sampling_rate, int | float)
         assert isinstance(profiling_config.max_history_size, int)
-        assert isinstance(profiling_config.cost_alert_threshold_usd, (int, float))
-        assert isinstance(profiling_config.latency_alert_threshold_s, (int, float))
-        assert isinstance(profiling_config.memory_alert_threshold_mb, (int, float))
+        assert isinstance(profiling_config.cost_alert_threshold_usd, int | float)
+        assert isinstance(profiling_config.latency_alert_threshold_s, int | float)
+        assert isinstance(profiling_config.memory_alert_threshold_mb, int | float)
 
 
 class TestValidationFileUsage:

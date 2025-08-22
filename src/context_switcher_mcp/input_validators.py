@@ -1,18 +1,17 @@
 """Input validation classes for comprehensive content validation"""
 
 import time
-from .logging_base import get_logger
-from typing import List, Tuple, Optional
-from dataclasses import dataclass
 from collections import defaultdict, deque
+from dataclasses import dataclass
 
+from .input_sanitizer import sanitize_for_llm
+from .logging_base import get_logger
 from .security_patterns import (
-    SecurityPatternMatcher,
+    ADVANCED_PROMPT_INJECTION_PATTERNS,
     COMPILED_ADVANCED_PATTERNS,
     SECURITY_PATTERNS,
-    ADVANCED_PROMPT_INJECTION_PATTERNS,
+    SecurityPatternMatcher,
 )
-from .input_sanitizer import sanitize_for_llm
 
 logger = get_logger(__name__)
 
@@ -23,9 +22,9 @@ class ValidationResult:
 
     is_valid: bool
     cleaned_content: str
-    issues: List[str]
+    issues: list[str]
     risk_level: str = "low"  # low, medium, high, critical
-    blocked_patterns: Optional[List[str]] = None
+    blocked_patterns: list[str] | None = None
 
     def __post_init__(self):
         if self.blocked_patterns is None:
@@ -52,7 +51,7 @@ class ContentValidator:
 
     def _check_rate_limit(
         self, content_type: str, client_id: str = "default"
-    ) -> Tuple[bool, str]:
+    ) -> tuple[bool, str]:
         """Check if validation requests are within rate limits"""
         key = f"{client_id}:{content_type}"
         now = time.time()
@@ -125,7 +124,7 @@ class SecurityPatternValidator:
     """Validates content against security patterns"""
 
     @staticmethod
-    def validate_security_patterns(content: str) -> Tuple[List[str], List[str], str]:
+    def validate_security_patterns(content: str) -> tuple[list[str], list[str], str]:
         """Check for basic security patterns
 
         Returns:
@@ -150,7 +149,7 @@ class PromptInjectionValidator:
     """Validates content for advanced prompt injection attempts"""
 
     @staticmethod
-    def validate_prompt_injection(content: str) -> Tuple[List[str], List[str], str]:
+    def validate_prompt_injection(content: str) -> tuple[list[str], list[str], str]:
         """Check for advanced prompt injection patterns
 
         Returns:
@@ -176,7 +175,7 @@ class PromptInjectionValidator:
         return issues, blocked_patterns, risk_level
 
     @staticmethod
-    def _detect_advanced_prompt_injection(text: str) -> List[InjectionAttempt]:
+    def _detect_advanced_prompt_injection(text: str) -> list[InjectionAttempt]:
         """
         Detect sophisticated prompt injection attempts
 
@@ -238,7 +237,7 @@ class ContentStructureValidator:
     def __init__(self, content_validator: ContentValidator):
         self._content_validator = content_validator
 
-    def validate_structure(self, content: str) -> Tuple[List[str], str]:
+    def validate_structure(self, content: str) -> tuple[list[str], str]:
         """Validate content structure
 
         Returns:
@@ -386,14 +385,14 @@ _content_validator = _validation_orchestrator._content_validator
 
 
 # Legacy function wrappers
-def detect_advanced_prompt_injection(text: str) -> List[InjectionAttempt]:
+def detect_advanced_prompt_injection(text: str) -> list[InjectionAttempt]:
     """Legacy wrapper for advanced prompt injection detection"""
     return PromptInjectionValidator._detect_advanced_prompt_injection(text)
 
 
 def sanitize_user_input(
     text: str, max_length: int = 10000
-) -> Tuple[bool, str, List[str]]:
+) -> tuple[bool, str, list[str]]:
     """Legacy wrapper for basic user input sanitization"""
     result = _validation_orchestrator.validate_content(
         text, "general", max_length, "default"

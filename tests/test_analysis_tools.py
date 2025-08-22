@@ -1,20 +1,20 @@
 """Comprehensive tests for analysis_tools module"""
 
-import pytest
 import asyncio
-from unittest.mock import Mock, AsyncMock, patch
 from datetime import datetime, timezone
+from unittest.mock import AsyncMock, Mock, patch
 
+import pytest
+from context_switcher_mcp.exceptions import (
+    OrchestrationError,
+    SessionNotFoundError,
+)
 from context_switcher_mcp.tools.analysis_tools import (
     AnalyzeFromPerspectivesRequest,
     AnalyzeFromPerspectivesStreamRequest,
     SynthesizePerspectivesRequest,
-    register_analysis_tools,
     rate_limiter,
-)
-from context_switcher_mcp.exceptions import (
-    SessionNotFoundError,
-    OrchestrationError,
+    register_analysis_tools,
 )
 
 

@@ -1,9 +1,9 @@
 """Tests for the centralized session lock manager"""
 
 import asyncio
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
+import pytest
 from context_switcher_mcp.session_lock_manager import (
     SessionLockManager,
     get_session_lock_manager,

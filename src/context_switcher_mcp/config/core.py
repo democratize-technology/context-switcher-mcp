@@ -12,19 +12,19 @@ The design principles:
 - Extensibility: Easy to add new configuration domains
 """
 
-from ..logging_config import get_logger
 import os
 from pathlib import Path
-from typing import Optional, Union, Dict, Any
+from typing import Any
 
-from pydantic import Field, ConfigDict, computed_field
+from pydantic import ConfigDict, Field, computed_field
 from pydantic_settings import BaseSettings
 
+from ..logging_config import get_logger
 from .domains.models import ModelConfig
-from .domains.session import SessionConfig
+from .domains.monitoring import MonitoringConfig, ProfilingConfig
 from .domains.security import SecurityConfig
 from .domains.server import ServerConfig
-from .domains.monitoring import MonitoringConfig, ProfilingConfig
+from .domains.session import SessionConfig
 
 logger = get_logger(__name__)
 
@@ -78,9 +78,9 @@ class ContextSwitcherConfig(BaseSettings):
 
     # Configuration metadata
     config_version: str = Field(default="unified-v1")
-    loaded_from: Optional[str] = Field(default=None)
+    loaded_from: str | None = Field(default=None)
 
-    def __init__(self, config_file: Optional[Union[str, Path]] = None, **kwargs):
+    def __init__(self, config_file: str | Path | None = None, **kwargs):
         """Initialize configuration with validation
 
         Args:
@@ -199,7 +199,7 @@ class ContextSwitcherConfig(BaseSettings):
         """
         return self.models
 
-    def get_masked_dict(self) -> Dict[str, Any]:
+    def get_masked_dict(self) -> dict[str, Any]:
         """Get configuration as dictionary with sensitive data masked
 
         This is safe for logging and debugging as it masks sensitive
@@ -261,7 +261,7 @@ class ContextSwitcherConfig(BaseSettings):
 
         return messages
 
-    def _load_config_file(self, config_file: Union[str, Path]) -> Dict[str, Any]:
+    def _load_config_file(self, config_file: str | Path) -> dict[str, Any]:
         """Load configuration from JSON or YAML file
 
         Args:
@@ -279,7 +279,7 @@ class ContextSwitcherConfig(BaseSettings):
             raise ConfigurationError(f"Configuration file not found: {config_path}")
 
         try:
-            with open(config_path, "r", encoding="utf-8") as f:
+            with open(config_path, encoding="utf-8") as f:
                 if config_path.suffix.lower() == ".json":
                     import json
 
@@ -307,8 +307,8 @@ class ContextSwitcherConfig(BaseSettings):
 
 
 def create_config(
-    environment: Optional[str] = None,
-    config_file: Optional[Union[str, Path]] = None,
+    environment: str | None = None,
+    config_file: str | Path | None = None,
     **overrides,
 ) -> ContextSwitcherConfig:
     """Factory function to create configuration instances
@@ -344,7 +344,7 @@ def create_config(
 
 
 # Configuration validation utilities
-def validate_config_dict(config_dict: Dict[str, Any]) -> list[str]:
+def validate_config_dict(config_dict: dict[str, Any]) -> list[str]:
     """Validate a configuration dictionary without creating an instance
 
     Args:

@@ -6,13 +6,14 @@ contexts start aligning. It uses a moderate threshold (0.85) to balance
 alignment detection with maintaining healthy diversity across perspectives.
 """
 
-import numpy as np
-from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import Any
 
-from .logging_base import get_logger
+import numpy as np
+
 from .constants import NO_RESPONSE
+from .logging_base import get_logger
 
 logger = get_logger(__name__)
 
@@ -30,7 +31,7 @@ class ConvergenceMetrics:
     valid_responses: int
     timestamp: datetime
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for logging/storage"""
         return {
             "session_id": self.session_id,
@@ -68,7 +69,7 @@ class ContextAlignmentDetector:
             )
 
         self.threshold = threshold
-        self.embeddings_cache: Dict[str, np.ndarray] = {}
+        self.embeddings_cache: dict[str, np.ndarray] = {}
 
         logger.info(
             f"Context alignment detector initialized with threshold {threshold} (moderate diversity preservation)"
@@ -76,8 +77,8 @@ class ContextAlignmentDetector:
 
     async def measure_context_alignment(
         self,
-        current_responses: Dict[str, str],
-        previous_responses: Optional[Dict[str, str]] = None,
+        current_responses: dict[str, str],
+        previous_responses: dict[str, str] | None = None,
         session_id: str = "unknown",
     ) -> ConvergenceMetrics:
         """
@@ -143,8 +144,8 @@ class ContextAlignmentDetector:
         )
 
     async def check_iteration_convergence(
-        self, session_analyses: List[Dict[str, Any]], session_id: str = "unknown"
-    ) -> Tuple[bool, float]:
+        self, session_analyses: list[dict[str, Any]], session_id: str = "unknown"
+    ) -> tuple[bool, float]:
         """
         Check convergence by comparing recent iterations.
 
@@ -173,7 +174,7 @@ class ContextAlignmentDetector:
 
         return metrics.converged, metrics.alignment_score
 
-    def _filter_valid_responses(self, responses: Dict[str, str]) -> Dict[str, str]:
+    def _filter_valid_responses(self, responses: dict[str, str]) -> dict[str, str]:
         """Filter out errors and abstentions"""
         return {
             name: response
@@ -187,8 +188,8 @@ class ContextAlignmentDetector:
         }
 
     async def _get_embeddings(
-        self, responses: Dict[str, str], session_id: str
-    ) -> Dict[str, np.ndarray]:
+        self, responses: dict[str, str], session_id: str
+    ) -> dict[str, np.ndarray]:
         """
         Get embeddings for responses, with caching.
 
@@ -253,7 +254,7 @@ class ContextAlignmentDetector:
             return np.zeros(100)
 
     def _calculate_cross_perspective_alignment(
-        self, embeddings: Dict[str, np.ndarray]
+        self, embeddings: dict[str, np.ndarray]
     ) -> float:
         """
         Calculate alignment score across all perspectives.
@@ -317,7 +318,7 @@ class ContextAlignmentDetector:
         logger.debug(f"Cleared {cleared_count} cached embeddings")
         return cleared_count
 
-    def get_cache_stats(self) -> Dict[str, Any]:
+    def get_cache_stats(self) -> dict[str, Any]:
         """Get cache statistics"""
         return {
             "cached_embeddings": len(self.embeddings_cache),
@@ -385,8 +386,8 @@ context_alignment_detector = ContextAlignmentDetector(threshold=0.85)
 
 
 async def check_context_convergence(
-    session_analyses: List[Dict[str, Any]], session_id: str = "unknown"
-) -> Tuple[bool, float]:
+    session_analyses: list[dict[str, Any]], session_id: str = "unknown"
+) -> tuple[bool, float]:
     """
     Convenience function to check if contexts are converging.
 
@@ -403,7 +404,7 @@ async def check_context_convergence(
 
 
 async def measure_current_alignment(
-    current_responses: Dict[str, str], session_id: str = "unknown"
+    current_responses: dict[str, str], session_id: str = "unknown"
 ) -> ConvergenceMetrics:
     """
     Convenience function to measure alignment in current responses.

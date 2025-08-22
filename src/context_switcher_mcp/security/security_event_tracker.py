@@ -7,9 +7,10 @@ and monitoring capabilities for the client binding security system.
 
 import logging
 import sys
-from ..logging_base import get_logger
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional
+from typing import Any
+
+from ..logging_base import get_logger
 from ..models import ContextSwitcherSession
 
 logger = get_logger(__name__)
@@ -54,9 +55,9 @@ class SecurityEventTracker:
         self,
         event_type: str,
         session_id: str,
-        details: Dict[str, Any],
-        session: Optional[ContextSwitcherSession] = None,
-        severity: Optional[int] = None,
+        details: dict[str, Any],
+        session: ContextSwitcherSession | None = None,
+        severity: int | None = None,
     ) -> None:
         """Log a security event with comprehensive context.
 
@@ -149,7 +150,7 @@ class SecurityEventTracker:
         severity: int,
         event_type: str,
         session_id: str,
-        event_record: Dict[str, Any],
+        event_record: dict[str, Any],
     ) -> None:
         """Log event with specified severity level.
 
@@ -192,7 +193,7 @@ class SecurityEventTracker:
         session_id: str,
         tool_name: str,
         failure_count: int,
-        session: Optional[ContextSwitcherSession] = None,
+        session: ContextSwitcherSession | None = None,
     ) -> None:
         """Log client binding validation failure with specific context.
 
@@ -222,8 +223,8 @@ class SecurityEventTracker:
         self,
         session_id: str,
         tool_name: str,
-        access_metrics: Dict[str, Any],
-        session: Optional[ContextSwitcherSession] = None,
+        access_metrics: dict[str, Any],
+        session: ContextSwitcherSession | None = None,
     ) -> None:
         """Log suspicious access pattern detection.
 
@@ -248,7 +249,7 @@ class SecurityEventTracker:
         )
 
     def log_key_rotation_event(
-        self, key_info: Dict[str, Any], reason: str = "scheduled"
+        self, key_info: dict[str, Any], reason: str = "scheduled"
     ) -> None:
         """Log secret key rotation event.
 
@@ -269,7 +270,7 @@ class SecurityEventTracker:
             severity=logging.INFO,
         )
 
-    def _classify_access_pattern(self, access_metrics: Dict[str, Any]) -> str:
+    def _classify_access_pattern(self, access_metrics: dict[str, Any]) -> str:
         """Classify the type of suspicious access pattern.
 
         Args:
@@ -296,8 +297,8 @@ class SecurityEventTracker:
         return "unclassified_suspicious"
 
     def get_event_summary(
-        self, session_id: Optional[str] = None, hours: int = 24
-    ) -> Dict[str, Any]:
+        self, session_id: str | None = None, hours: int = 24
+    ) -> dict[str, Any]:
         """Get summary of security events for monitoring.
 
         Args:
@@ -331,8 +332,8 @@ security_event_tracker = SecurityEventTracker()
 def log_security_event_with_binding(
     event_type: str,
     session_id: str,
-    details: Dict[str, Any],
-    session: Optional[ContextSwitcherSession] = None,
+    details: dict[str, Any],
+    session: ContextSwitcherSession | None = None,
 ) -> None:
     """Log security event with binding context (backward compatibility function).
 
@@ -352,7 +353,7 @@ def log_binding_validation_failure(
     session_id: str,
     tool_name: str,
     failure_count: int,
-    session: Optional[ContextSwitcherSession] = None,
+    session: ContextSwitcherSession | None = None,
 ) -> None:
     """Log binding validation failure (convenience function).
 
@@ -370,8 +371,8 @@ def log_binding_validation_failure(
 def log_suspicious_access_pattern(
     session_id: str,
     tool_name: str,
-    access_metrics: Dict[str, Any],
-    session: Optional[ContextSwitcherSession] = None,
+    access_metrics: dict[str, Any],
+    session: ContextSwitcherSession | None = None,
 ) -> None:
     """Log suspicious access pattern (convenience function).
 

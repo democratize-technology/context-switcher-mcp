@@ -1,26 +1,27 @@
 """Unified backend interface to eliminate configuration duplication"""
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, AsyncGenerator
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass
+from typing import Any
 
-from .models import Thread
-from .config import get_config
 from .aorp import create_error_response
-from .security import sanitize_error_message
+from .config import get_config
+from .error_context import error_context
+from .error_decorators import log_errors_with_context
 from .exceptions import (
+    ConfigurationError,
+    ModelAuthenticationError,
     ModelBackendError,
     ModelConnectionError,
-    ModelTimeoutError,
     ModelRateLimitError,
-    ModelAuthenticationError,
+    ModelTimeoutError,
     ModelValidationError,
-    ConfigurationError,
-    NetworkTimeoutError,
     NetworkConnectivityError,
+    NetworkTimeoutError,
 )
-from .error_decorators import log_errors_with_context
-from .error_context import error_context
+from .models import Thread
+from .security import sanitize_error_message
 
 
 @dataclass
@@ -62,7 +63,7 @@ class ModelBackendInterface(ABC):
 
     async def call_model_stream(
         self, thread: Thread
-    ) -> AsyncGenerator[Dict[str, Any], None]:
+    ) -> AsyncGenerator[dict[str, Any], None]:
         """Make a streaming model call (fallback to regular call if not supported)"""
         try:
             response = await self.call_model(thread)
@@ -93,7 +94,7 @@ class ModelBackendInterface(ABC):
             }
 
     def _format_error_response(
-        self, error_message: str, error_type: str, context: Dict[str, Any]
+        self, error_message: str, error_type: str, context: dict[str, Any]
     ) -> str:
         """Format error as AORP response"""
         sanitized_message = sanitize_error_message(error_message)
@@ -124,7 +125,7 @@ class ModelBackendInterface(ABC):
         else:
             return "api_error", f"API call failed: {sanitize_error_message(str(error))}"
 
-    def _prepare_messages(self, thread: Thread) -> list[Dict[str, str]]:
+    def _prepare_messages(self, thread: Thread) -> list[dict[str, str]]:
         """Prepare messages in standard format"""
         messages = [{"role": "system", "content": thread.system_prompt}]
 
@@ -289,7 +290,7 @@ class BedrockBackend(ModelBackendInterface):
 
     async def call_model_stream(
         self, thread: Thread
-    ) -> AsyncGenerator[Dict[str, Any], None]:
+    ) -> AsyncGenerator[dict[str, Any], None]:
         try:
             import boto3
 
@@ -512,7 +513,7 @@ class OllamaBackend(ModelBackendInterface):
                 ) from e
 
 
-BACKEND_REGISTRY: Dict[str, ModelBackendInterface] = {
+BACKEND_REGISTRY: dict[str, ModelBackendInterface] = {
     "bedrock": BedrockBackend(),
     "litellm": LiteLLMBackend(),
     "ollama": OllamaBackend(),

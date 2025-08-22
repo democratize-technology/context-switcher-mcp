@@ -1,9 +1,10 @@
 """Comprehensive tests for __main__.py module"""
 
-import pytest
-from unittest.mock import patch
-import sys
 import importlib
+import sys
+from unittest.mock import patch
+
+import pytest
 
 
 class TestMainModule:
@@ -137,10 +138,9 @@ class TestMainModule:
     def test_import_path_correctness(self):
         """Test that the import path is correct"""
         # Verify that the import statement works correctly
-        import context_switcher_mcp.__main__ as main_module
-
         # The main function should be the same as the one in the parent package
         import context_switcher_mcp
+        import context_switcher_mcp.__main__ as main_module
 
         assert main_module.main is context_switcher_mcp.main
 
@@ -207,7 +207,6 @@ class TestMainModuleIntegration:
         """Test that there are no circular import issues"""
         try:
             # Multiple imports should work without issues
-            import context_switcher_mcp.__main__
             import context_switcher_mcp
             import context_switcher_mcp.__main__  # Second import
 
@@ -286,9 +285,10 @@ class TestMainModuleCompatibility:
 
     def test_module_path_resolution(self):
         """Test that module paths are resolved correctly"""
-        import context_switcher_mcp.__main__ as main_module
-        import context_switcher_mcp
         import os
+
+        import context_switcher_mcp
+        import context_switcher_mcp.__main__ as main_module
 
         # Get the file paths
         main_file = main_module.__file__
@@ -302,8 +302,8 @@ class TestMainModuleCompatibility:
 
     def test_package_relationship(self):
         """Test the relationship between __main__ and the parent package"""
-        import context_switcher_mcp.__main__ as main_module
         import context_switcher_mcp
+        import context_switcher_mcp.__main__ as main_module
 
         # Verify package relationship
         assert main_module.__package__ == "context_switcher_mcp"

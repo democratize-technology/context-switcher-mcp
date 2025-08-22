@@ -1,16 +1,16 @@
 """Circuit breaker pattern implementation for resilient backend failure handling"""
 
-from .logging_base import get_logger
-from typing import Any, Dict
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import Any
 
-from .models import ModelBackend
-from .config import get_config
 from .circuit_breaker_store import (
-    save_circuit_breaker_state,
     load_circuit_breaker_state,
+    save_circuit_breaker_state,
 )
+from .config import get_config
+from .logging_base import get_logger
+from .models import ModelBackend
 
 logger = get_logger(__name__)
 
@@ -105,7 +105,7 @@ class CircuitBreakerManager:
     def __init__(self):
         """Initialize circuit breaker manager"""
         # Circuit breakers for each backend
-        self.circuit_breakers: Dict[ModelBackend, CircuitBreakerState] = {
+        self.circuit_breakers: dict[ModelBackend, CircuitBreakerState] = {
             backend: CircuitBreakerState(backend=backend) for backend in ModelBackend
         }
 
@@ -137,7 +137,7 @@ class CircuitBreakerManager:
         circuit_breaker = self.circuit_breakers[backend]
         await circuit_breaker.record_failure()
 
-    def get_status_summary(self) -> Dict[str, Dict[str, Any]]:
+    def get_status_summary(self) -> dict[str, dict[str, Any]]:
         """Get current circuit breaker status for all backends"""
         circuit_status = {}
         for backend, breaker in self.circuit_breakers.items():
@@ -152,7 +152,7 @@ class CircuitBreakerManager:
             }
         return circuit_status
 
-    def reset_all_circuit_breakers(self) -> Dict[str, str]:
+    def reset_all_circuit_breakers(self) -> dict[str, str]:
         """Reset all circuit breakers to CLOSED state"""
         reset_status = {}
         for backend, breaker in self.circuit_breakers.items():
@@ -222,7 +222,7 @@ class CircuitBreakerManager:
                         f"state={breaker.state}, failures={breaker.failure_count}"
                     )
 
-        except (OSError, IOError, ValueError) as e:
+        except (OSError, ValueError) as e:
             # File system or parsing errors - log but continue
             logger.warning(f"Failed to load circuit breaker states: {e}")
         except Exception as e:

@@ -1,10 +1,10 @@
 """Comprehensive tests for session concurrency management"""
 
-import pytest
 import asyncio
-from unittest.mock import Mock, AsyncMock, patch
 from datetime import datetime, timezone
+from unittest.mock import AsyncMock, Mock, patch
 
+import pytest
 from context_switcher_mcp.session_concurrency import (
     SessionConcurrency,
     create_session_concurrency,

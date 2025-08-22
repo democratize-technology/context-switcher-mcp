@@ -1,53 +1,50 @@
 """Comprehensive tests for standardized error handling patterns"""
 
 import asyncio
+
 import pytest
+from src.context_switcher_mcp.error_classification import (
+    ErrorCategory,
+    ErrorSeverity,
+    classify_error,
+    get_retry_parameters,
+    is_retriable_error,
+    is_transient_error,
+)
+from src.context_switcher_mcp.error_context import (
+    ErrorAccumulator,
+    error_context,
+    resource_cleanup_context,
+    suppress_and_log,
+)
+from src.context_switcher_mcp.error_decorators import (
+    handle_model_errors,
+    log_errors_with_context,
+    retry_on_transient_errors,
+    validate_parameters,
+)
+from src.context_switcher_mcp.error_logging import (
+    StructuredErrorLogger,
+)
 
 # Import the new error handling components
 from src.context_switcher_mcp.exceptions import (
+    AuthenticationError,
+    ConcurrencyError,
     ContextSwitcherError,
+    LockTimeoutError,
+    ModelAuthenticationError,
     ModelBackendError,
     ModelConnectionError,
     ModelRateLimitError,
-    ModelAuthenticationError,
     ModelValidationError,
     NetworkError,
     NetworkTimeoutError,
-    SecurityError,
-    AuthenticationError,
-    ConcurrencyError,
-    LockTimeoutError,
-    ValidationError,
     ParameterValidationError,
     PerformanceError,
     PerformanceTimeoutError,
-)
-
-from src.context_switcher_mcp.error_decorators import (
-    handle_model_errors,
-    retry_on_transient_errors,
-    log_errors_with_context,
-    validate_parameters,
-)
-
-from src.context_switcher_mcp.error_context import (
-    error_context,
-    suppress_and_log,
-    resource_cleanup_context,
-    ErrorAccumulator,
-)
-
-from src.context_switcher_mcp.error_classification import (
-    classify_error,
-    is_transient_error,
-    is_retriable_error,
-    get_retry_parameters,
-    ErrorSeverity,
-    ErrorCategory,
-)
-
-from src.context_switcher_mcp.error_logging import (
-    StructuredErrorLogger,
+    SecurityError,
+    ValidationError,
 )
 
 

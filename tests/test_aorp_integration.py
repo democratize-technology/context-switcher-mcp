@@ -1,14 +1,14 @@
 """AORP integration tests with MCP tools - validating end-to-end AORP functionality"""
 
-import pytest
-from unittest.mock import Mock, patch, AsyncMock
 from datetime import datetime, timezone
+from unittest.mock import AsyncMock, Mock, patch
 
+import pytest
 from src.context_switcher_mcp.aorp import (
-    convert_legacy_response,
     AORPBuilder,
+    convert_legacy_response,
 )
-from src.context_switcher_mcp.models import ModelBackend, Thread, ContextSwitcherSession
+from src.context_switcher_mcp.models import ContextSwitcherSession, ModelBackend, Thread
 
 
 class TestLegacyResponseConversion:

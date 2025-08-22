@@ -1,29 +1,29 @@
 """Comprehensive tests for backend_interface module"""
 
-import pytest
 import asyncio
-from unittest.mock import Mock, AsyncMock, patch
-import httpx
+from unittest.mock import AsyncMock, Mock, patch
 
+import httpx
+import pytest
 from context_switcher_mcp.backend_interface import (
-    ModelCallConfig,
-    ModelBackendInterface,
+    BACKEND_REGISTRY,
     BedrockBackend,
     LiteLLMBackend,
+    ModelBackendInterface,
+    ModelCallConfig,
     OllamaBackend,
-    BACKEND_REGISTRY,
     get_backend_interface,
 )
-from context_switcher_mcp.models import Thread
 from context_switcher_mcp.exceptions import (
+    ConfigurationError,
+    ModelAuthenticationError,
     ModelBackendError,
     ModelConnectionError,
-    ModelTimeoutError,
     ModelRateLimitError,
-    ModelAuthenticationError,
+    ModelTimeoutError,
     ModelValidationError,
-    ConfigurationError,
 )
+from context_switcher_mcp.models import Thread
 
 
 class TestModelCallConfig:
@@ -575,7 +575,7 @@ class TestLiteLLMBackend:
     async def test_call_model_validation_error(self):
         """Test LiteLLM call_model with validation error"""
         with (
-            patch("context_switcher_mcp.backend_interface.litellm") as mock_litellm,
+            patch("context_switcher_mcp.backend_interface.litellm"),
             patch(
                 "context_switcher_mcp.backend_interface.validate_model_id"
             ) as mock_validate,
@@ -945,7 +945,7 @@ class TestIntegrationScenarios:
 
         # Make concurrent calls
         tasks = []
-        for backend, thread in zip(backends, threads):
+        for backend, thread in zip(backends, threads, strict=False):
             task = backend.call_model(thread)
             tasks.append(task)
 

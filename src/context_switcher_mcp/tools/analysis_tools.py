@@ -1,28 +1,29 @@
 """Analysis tools for Context-Switcher MCP Server"""
 
 from datetime import datetime, timezone
-from typing import Dict, Any
+from typing import Any
+
 from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
 from ..aorp import (
     AORPBuilder,
-    generate_synthesis_next_steps,
     create_error_response,
+    generate_synthesis_next_steps,
+)
+from ..exceptions import (
+    OrchestrationError,
+    SessionNotFoundError,
 )
 from ..helpers.analysis_helpers import (
-    validate_analysis_request,
     build_analysis_aorp_response,
-)
-from ..rate_limiter import SessionRateLimiter
-from ..security import sanitize_error_message
-from ..validation import validate_session_id
-from ..exceptions import (
-    SessionNotFoundError,
-    OrchestrationError,
+    validate_analysis_request,
 )
 from ..logging_config import get_logger
 from ..logging_utils import get_request_logger
+from ..rate_limiter import SessionRateLimiter
+from ..security import sanitize_error_message
+from ..validation import validate_session_id
 
 logger = get_logger(__name__)
 request_logger = get_request_logger()
@@ -86,7 +87,7 @@ def register_analysis_tools(mcp: FastMCP) -> None:
     )
     async def analyze_from_perspectives(
         request: AnalyzeFromPerspectivesRequest,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Broadcast a prompt to all perspectives and collect their responses"""
 
         # Validate the analysis request (rate limits, session, prompt)
@@ -264,7 +265,7 @@ def register_analysis_tools(mcp: FastMCP) -> None:
     )
     async def synthesize_perspectives(
         request: SynthesizePerspectivesRequest,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Synthesize insights across all perspective analyses"""
         # Validate session ID with client binding
         session_valid, session_error = await validate_session_id(
@@ -299,8 +300,8 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             perspectives_data = latest_analysis.get("results", {})
 
             # Import and use ResponseFormatter for actual synthesis
-            from ..response_formatter import ResponseFormatter
             from ..models import ModelBackend
+            from ..response_formatter import ResponseFormatter
 
             formatter = ResponseFormatter()
 
@@ -429,7 +430,7 @@ def register_analysis_tools(mcp: FastMCP) -> None:
     )
     async def check_context_convergence_status(
         request: CheckConvergenceRequest,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Check convergence status for a session's analyses"""
         # Validate session ID
         session_valid, session_error = await validate_session_id(
@@ -460,8 +461,8 @@ def register_analysis_tools(mcp: FastMCP) -> None:
         try:
             from ..convergence import (
                 check_context_convergence,
-                measure_current_alignment,
                 context_alignment_detector,
+                measure_current_alignment,
             )
 
             # Check current convergence status

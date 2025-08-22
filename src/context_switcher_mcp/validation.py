@@ -1,9 +1,7 @@
 """Validation utilities for Context-Switcher MCP Server"""
 
-from .logging_base import get_logger
-from typing import Tuple
-
 from .client_binding import validate_session_access
+from .logging_base import get_logger
 from .security import sanitize_error_message
 
 logger = get_logger(__name__)
@@ -29,7 +27,7 @@ def _get_config():
         return FallbackConfig()
 
 
-def validate_topic(topic: str) -> Tuple[bool, str]:
+def validate_topic(topic: str) -> tuple[bool, str]:
     """Validate analysis topic
 
     Args:
@@ -79,7 +77,7 @@ def validate_topic(topic: str) -> Tuple[bool, str]:
     return True, ""
 
 
-async def validate_session_id(session_id: str, operation: str) -> Tuple[bool, str]:
+async def validate_session_id(session_id: str, operation: str) -> tuple[bool, str]:
     """Validate session ID and access permissions
 
     Args:

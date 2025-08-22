@@ -1,11 +1,11 @@
 """Security monitoring and metrics collection"""
 
-from ..logging_base import get_logger
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
 from datetime import datetime, timezone
 from threading import Lock
+
+from ..logging_base import get_logger
 
 logger = get_logger(__name__)
 
@@ -21,7 +21,7 @@ class SecurityMetrics:
     blocked_requests: int = 0
 
     # Time-series data (last 24 hours)
-    hourly_failures: List[int] = field(default_factory=lambda: [0] * 24)
+    hourly_failures: list[int] = field(default_factory=lambda: [0] * 24)
     last_updated: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def add_validation_failure(self):
@@ -57,7 +57,7 @@ class SecurityMetrics:
 
         self.last_updated = now
 
-    def get_summary(self) -> Dict[str, any]:
+    def get_summary(self) -> dict[str, any]:
         """Get security metrics summary"""
         total_security_events = (
             self.validation_failures
@@ -88,9 +88,9 @@ class ThreatIndicator:
     first_seen: datetime
     last_seen: datetime
     occurrence_count: int = 1
-    metadata: Dict[str, any] = field(default_factory=dict)
+    metadata: dict[str, any] = field(default_factory=dict)
 
-    def update_occurrence(self, metadata: Optional[Dict[str, any]] = None):
+    def update_occurrence(self, metadata: dict[str, any] | None = None):
         """Update occurrence count and last seen time"""
         self.occurrence_count += 1
         self.last_seen = datetime.now(timezone.utc)
@@ -103,7 +103,7 @@ class SecurityMonitor:
 
     def __init__(self):
         self.metrics = SecurityMetrics()
-        self.threat_indicators: Dict[str, ThreatIndicator] = {}
+        self.threat_indicators: dict[str, ThreatIndicator] = {}
         self.recent_events = deque(maxlen=1000)  # Keep last 1000 security events
         self.lock = Lock()
 
@@ -138,9 +138,9 @@ class SecurityMonitor:
     def record_security_event(
         self,
         event_type: str,
-        details: Dict[str, any],
+        details: dict[str, any],
         threat_level: str = "medium",
-        session_id: Optional[str] = None,
+        session_id: str | None = None,
     ):
         """Record a security event for monitoring"""
         with self.lock:
@@ -178,7 +178,7 @@ class SecurityMonitor:
                     f"High-severity security event: {event_type} - {details}"
                 )
 
-    def _analyze_threat_indicators(self, event: Dict[str, any]):
+    def _analyze_threat_indicators(self, event: dict[str, any]):
         """Analyze event for threat indicators"""
         details = event["details"]
         threat_level = event["threat_level"]
@@ -227,7 +227,7 @@ class SecurityMonitor:
                     metadata=details,
                 )
 
-    def get_threat_summary(self) -> Dict[str, any]:
+    def get_threat_summary(self) -> dict[str, any]:
         """Get summary of current threats"""
         with self.lock:
             threat_counts = defaultdict(int)
@@ -261,7 +261,7 @@ class SecurityMonitor:
                 "metrics": self.metrics.get_summary(),
             }
 
-    def get_security_health_score(self) -> Tuple[float, str]:
+    def get_security_health_score(self) -> tuple[float, str]:
         """Calculate security health score (0-100)"""
         with self.lock:
             score = 100.0
@@ -331,7 +331,7 @@ class SecurityMonitor:
 
             logger.info(f"Cleaned up {len(old_keys)} old threat indicators")
 
-    def export_security_report(self) -> Dict[str, any]:
+    def export_security_report(self) -> dict[str, any]:
         """Export comprehensive security report"""
         with self.lock:
             health_score, health_status = self.get_security_health_score()
@@ -354,8 +354,8 @@ class SecurityMonitor:
             }
 
     def _generate_security_recommendations(
-        self, health_score: float, threat_summary: Dict[str, any]
-    ) -> List[str]:
+        self, health_score: float, threat_summary: dict[str, any]
+    ) -> list[str]:
         """Generate security recommendations based on current state"""
         recommendations = []
 
@@ -403,9 +403,9 @@ def get_security_monitor() -> SecurityMonitor:
 
 def record_security_event(
     event_type: str,
-    details: Dict[str, any],
+    details: dict[str, any],
     threat_level: str = "medium",
-    session_id: Optional[str] = None,
+    session_id: str | None = None,
 ):
     """Convenience function to record security events"""
     _security_monitor.record_security_event(
@@ -413,7 +413,7 @@ def record_security_event(
     )
 
 
-def get_security_health() -> Tuple[float, str]:
+def get_security_health() -> tuple[float, str]:
     """Get current security health score and status"""
     return _security_monitor.get_security_health_score()
 

@@ -1,28 +1,28 @@
 """Comprehensive tests for LLM profiling system"""
 
-import pytest
 import asyncio
 import time
-from unittest.mock import Mock, AsyncMock, patch
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock, Mock, patch
 
+import pytest
+from src.context_switcher_mcp.backend_interface import ModelCallConfig
 from src.context_switcher_mcp.llm_profiler import (
+    CostCalculator,
+    LLMCallMetrics,
     LLMProfiler,
+    MemoryProfiler,
     ProfilingConfig,
     ProfilingLevel,
-    LLMCallMetrics,
-    CostCalculator,
-    MemoryProfiler,
     get_global_profiler,
 )
+from src.context_switcher_mcp.models import ModelBackend, Thread
+from src.context_switcher_mcp.performance_dashboard import PerformanceDashboard
 from src.context_switcher_mcp.profiling_wrapper import (
-    ProfilingBackendWrapper,
     EnhancedProfilingWrapper,
+    ProfilingBackendWrapper,
     create_profiling_wrapper,
 )
-from src.context_switcher_mcp.performance_dashboard import PerformanceDashboard
-from src.context_switcher_mcp.models import Thread, ModelBackend
-from src.context_switcher_mcp.backend_interface import ModelCallConfig
 
 
 class TestCostCalculator:

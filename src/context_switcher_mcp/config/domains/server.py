@@ -10,13 +10,14 @@ This module handles MCP server configuration including:
 
 import re
 from enum import Enum
-from typing import Optional
-from pydantic import BaseModel, Field, field_validator, computed_field
+
+from pydantic import Field, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class LogLevel(str, Enum):
     """Valid logging levels"""
+
     DEBUG = "DEBUG"
     INFO = "INFO"
     WARNING = "WARNING"
@@ -26,181 +27,171 @@ class LogLevel(str, Enum):
 
 class ServerConfig(BaseSettings):
     """Configuration for the MCP server networking and behavior
-    
+
     Controls how the server binds to network interfaces, handles connections,
     and manages logging. Critical for both development and production deployments.
     """
-    
+
     model_config = SettingsConfigDict(
-        env_prefix="CS_SERVER_",
-        case_sensitive=False,
-        extra="forbid"
+        env_prefix="CS_SERVER_", case_sensitive=False, extra="forbid"
     )
-    
+
     # Network configuration
     host: str = Field(
-        default="localhost",
-        description="Server host address to bind to",
-        env="CS_HOST"
+        default="localhost", description="Server host address to bind to", env="CS_HOST"
     )
-    
+
     port: int = Field(
-        default=3023,
-        ge=1024,
-        le=65535,
-        description="Server port number",
-        env="CS_PORT"
+        default=3023, ge=1024, le=65535, description="Server port number", env="CS_PORT"
     )
-    
+
     # Logging configuration
     log_level: LogLevel = Field(
-        default=LogLevel.INFO,
-        description="Server logging level",
-        env="CS_LOG_LEVEL"
+        default=LogLevel.INFO, description="Server logging level", env="CS_LOG_LEVEL"
     )
-    
+
     log_format: str = Field(
         default="structured",
         description="Log format: 'structured', 'simple', or 'json'",
-        env="CS_LOG_FORMAT"
+        env="CS_LOG_FORMAT",
     )
-    
+
     enable_access_logging: bool = Field(
         default=True,
         description="Enable HTTP access logging",
-        env="CS_ENABLE_ACCESS_LOGGING"
+        env="CS_ENABLE_ACCESS_LOGGING",
     )
-    
-    log_file_path: Optional[str] = Field(
+
+    log_file_path: str | None = Field(
         default=None,
         description="Path to log file (None for console only)",
-        env="CS_LOG_FILE_PATH"
+        env="CS_LOG_FILE_PATH",
     )
-    
+
     max_log_file_size_mb: int = Field(
         default=100,
         ge=1,
         le=10000,
         description="Maximum log file size in MB before rotation",
-        env="CS_MAX_LOG_FILE_SIZE_MB"
+        env="CS_MAX_LOG_FILE_SIZE_MB",
     )
-    
+
     log_file_backup_count: int = Field(
         default=5,
         ge=1,
         le=100,
         description="Number of rotated log files to keep",
-        env="CS_LOG_FILE_BACKUP_COUNT"
+        env="CS_LOG_FILE_BACKUP_COUNT",
     )
-    
+
     # Connection and performance settings
     max_concurrent_connections: int = Field(
         default=100,
         ge=1,
         le=10000,
         description="Maximum concurrent client connections",
-        env="CS_MAX_CONCURRENT_CONNECTIONS"
+        env="CS_MAX_CONCURRENT_CONNECTIONS",
     )
-    
+
     connection_timeout_seconds: float = Field(
         default=60.0,
         ge=1.0,
         le=600.0,
         description="Client connection timeout in seconds",
-        env="CS_CONNECTION_TIMEOUT"
+        env="CS_CONNECTION_TIMEOUT",
     )
-    
+
     request_timeout_seconds: float = Field(
         default=300.0,  # 5 minutes
         ge=1.0,
         le=3600.0,
         description="Request processing timeout in seconds",
-        env="CS_REQUEST_TIMEOUT"
+        env="CS_REQUEST_TIMEOUT",
     )
-    
+
     keepalive_timeout_seconds: float = Field(
         default=30.0,
         ge=1.0,
         le=300.0,
         description="HTTP keep-alive timeout in seconds",
-        env="CS_KEEPALIVE_TIMEOUT"
+        env="CS_KEEPALIVE_TIMEOUT",
     )
-    
+
     # Development and debugging settings
     enable_debug_mode: bool = Field(
         default=False,
         description="Enable debug mode with additional logging",
-        env="CS_ENABLE_DEBUG_MODE"
+        env="CS_ENABLE_DEBUG_MODE",
     )
-    
+
     enable_hot_reload: bool = Field(
         default=False,
         description="Enable hot reload for development",
-        env="CS_ENABLE_HOT_RELOAD"
+        env="CS_ENABLE_HOT_RELOAD",
     )
-    
+
     enable_cors: bool = Field(
         default=False,
         description="Enable CORS headers for web clients",
-        env="CS_ENABLE_CORS"
+        env="CS_ENABLE_CORS",
     )
-    
+
     cors_allowed_origins: list[str] = Field(
         default=[],
         description="Allowed CORS origins (empty = all)",
-        env="CS_CORS_ALLOWED_ORIGINS"
+        env="CS_CORS_ALLOWED_ORIGINS",
     )
-    
+
     # Health and monitoring endpoints
     enable_health_endpoint: bool = Field(
         default=True,
         description="Enable /health endpoint",
-        env="CS_ENABLE_HEALTH_ENDPOINT"
+        env="CS_ENABLE_HEALTH_ENDPOINT",
     )
-    
+
     enable_metrics_endpoint: bool = Field(
         default=True,
         description="Enable /metrics endpoint",
-        env="CS_ENABLE_METRICS_ENDPOINT"
+        env="CS_ENABLE_METRICS_ENDPOINT",
     )
-    
+
     enable_status_endpoint: bool = Field(
         default=True,
         description="Enable /status endpoint with system info",
-        env="CS_ENABLE_STATUS_ENDPOINT"
+        env="CS_ENABLE_STATUS_ENDPOINT",
     )
-    
+
     # Performance tuning
     worker_threads: int = Field(
         default=4,
         ge=1,
         le=100,
         description="Number of worker threads for request processing",
-        env="CS_WORKER_THREADS"
+        env="CS_WORKER_THREADS",
     )
-    
+
     max_request_size_mb: int = Field(
         default=10,
         ge=1,
         le=1000,
         description="Maximum request size in MB",
-        env="CS_MAX_REQUEST_SIZE_MB"
+        env="CS_MAX_REQUEST_SIZE_MB",
     )
-    
+
     enable_compression: bool = Field(
         default=True,
         description="Enable response compression",
-        env="CS_ENABLE_COMPRESSION"
+        env="CS_ENABLE_COMPRESSION",
     )
-    
+
     compression_threshold_bytes: int = Field(
         default=1024,
         ge=100,
         le=100000,
         description="Minimum response size for compression",
-        env="CS_COMPRESSION_THRESHOLD_BYTES"
+        env="CS_COMPRESSION_THRESHOLD_BYTES",
     )
-    
+
     @field_validator("host")
     @classmethod
     def validate_host(cls, v: str) -> str:
@@ -208,20 +199,20 @@ class ServerConfig(BaseSettings):
         # Allow common host formats
         if v in ["localhost", "0.0.0.0", "*"]:
             return v
-        
+
         # Validate IP address format
         if re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", v):
             parts = v.split(".")
             if not all(0 <= int(part) <= 255 for part in parts):
                 raise ValueError("Invalid IP address format")
             return v
-        
+
         # Allow hostname format (basic validation)
         if re.match(r"^[a-zA-Z0-9\.\-]+$", v):
             return v
-        
+
         raise ValueError("Invalid host address format")
-    
+
     @field_validator("log_format")
     @classmethod
     def validate_log_format(cls, v: str) -> str:
@@ -230,7 +221,7 @@ class ServerConfig(BaseSettings):
         if v not in valid_formats:
             raise ValueError(f"Invalid log format: {v}. Valid: {valid_formats}")
         return v
-    
+
     @field_validator("cors_allowed_origins")
     @classmethod
     def validate_cors_origins(cls, v: list[str]) -> list[str]:
@@ -241,39 +232,39 @@ class ServerConfig(BaseSettings):
             if not re.match(r"^https?://[a-zA-Z0-9\.\-:]+$", origin):
                 raise ValueError(f"Invalid CORS origin format: {origin}")
         return v
-    
+
     @computed_field
     @property
     def is_development_mode(self) -> bool:
         """Check if server is configured for development"""
         return (
-            self.log_level == LogLevel.DEBUG or
-            self.enable_debug_mode or
-            self.enable_hot_reload or
-            self.host == "localhost"
+            self.log_level == LogLevel.DEBUG
+            or self.enable_debug_mode
+            or self.enable_hot_reload
+            or self.host == "localhost"
         )
-    
+
     @computed_field
     @property
     def is_production_ready(self) -> bool:
         """Check if server configuration is production-ready"""
         return (
-            self.log_level in [LogLevel.INFO, LogLevel.WARNING, LogLevel.ERROR] and
-            not self.enable_debug_mode and
-            not self.enable_hot_reload and
-            self.max_concurrent_connections >= 10 and
-            self.request_timeout_seconds <= 600
+            self.log_level in [LogLevel.INFO, LogLevel.WARNING, LogLevel.ERROR]
+            and not self.enable_debug_mode
+            and not self.enable_hot_reload
+            and self.max_concurrent_connections >= 10
+            and self.request_timeout_seconds <= 600
         )
-    
+
     @computed_field
     @property
     def bind_address(self) -> str:
         """Get the full bind address"""
         return f"{self.host}:{self.port}"
-    
+
     def get_log_config(self) -> dict[str, any]:
         """Get logging configuration dictionary
-        
+
         Returns:
             Dictionary with logging parameters
         """
@@ -285,10 +276,10 @@ class ServerConfig(BaseSettings):
             "max_file_size_mb": self.max_log_file_size_mb,
             "backup_count": self.log_file_backup_count,
         }
-    
+
     def get_connection_config(self) -> dict[str, any]:
         """Get connection configuration dictionary
-        
+
         Returns:
             Dictionary with connection parameters
         """
@@ -298,10 +289,10 @@ class ServerConfig(BaseSettings):
             "request_timeout": self.request_timeout_seconds,
             "keepalive_timeout": self.keepalive_timeout_seconds,
         }
-    
+
     def get_cors_config(self) -> dict[str, any]:
         """Get CORS configuration dictionary
-        
+
         Returns:
             Dictionary with CORS parameters
         """
@@ -309,10 +300,10 @@ class ServerConfig(BaseSettings):
             "enabled": self.enable_cors,
             "allowed_origins": self.cors_allowed_origins.copy(),
         }
-    
+
     def get_performance_config(self) -> dict[str, any]:
         """Get performance tuning configuration
-        
+
         Returns:
             Dictionary with performance parameters
         """
@@ -322,10 +313,10 @@ class ServerConfig(BaseSettings):
             "enable_compression": self.enable_compression,
             "compression_threshold_bytes": self.compression_threshold_bytes,
         }
-    
+
     def get_monitoring_endpoints(self) -> dict[str, bool]:
         """Get enabled monitoring endpoints
-        
+
         Returns:
             Dictionary of endpoint names to enabled status
         """
@@ -334,15 +325,17 @@ class ServerConfig(BaseSettings):
             "metrics": self.enable_metrics_endpoint,
             "status": self.enable_status_endpoint,
         }
-    
+
     def is_secure_deployment(self) -> bool:
         """Check if deployment is configured securely
-        
+
         Returns:
             True if configuration follows security best practices
         """
         return (
-            self.host != "0.0.0.0" or  # Not bound to all interfaces
-            (self.enable_cors and self.cors_allowed_origins) or  # CORS properly configured
-            not self.enable_debug_mode  # Debug mode disabled
+            self.host != "0.0.0.0"  # Not bound to all interfaces
+            or (
+                self.enable_cors and self.cors_allowed_origins
+            )  # CORS properly configured
+            or not self.enable_debug_mode  # Debug mode disabled
         )

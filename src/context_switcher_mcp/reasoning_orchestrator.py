@@ -1,8 +1,9 @@
 """Chain of Thought integration for structured perspective reasoning"""
 
 import asyncio
+from typing import Any
+
 from .logging_base import get_logger
-from typing import Any, Dict, Optional, Tuple
 
 try:
     from chain_of_thought import (
@@ -14,9 +15,9 @@ try:
 except ImportError:
     COT_AVAILABLE = False
 
+from .config import get_config
 from .exceptions import OrchestrationError
 from .models import Thread
-from .config import get_config
 
 logger = get_logger(__name__)
 
@@ -30,7 +31,7 @@ class ChainOfThoughtError(OrchestrationError):
 class CoTTimeoutError(ChainOfThoughtError):
     """Chain of Thought processing timeout"""
 
-    def __init__(self, timeout: float, message: Optional[str] = None):
+    def __init__(self, timeout: float, message: str | None = None):
         msg = message or f"Chain of Thought processing timed out after {timeout}s"
         super().__init__(msg)
         self.timeout = timeout
@@ -39,7 +40,7 @@ class CoTTimeoutError(ChainOfThoughtError):
 class CoTProcessingError(ChainOfThoughtError):
     """Error during Chain of Thought processing"""
 
-    def __init__(self, message: str, stage: Optional[str] = None):
+    def __init__(self, message: str, stage: str | None = None):
         super().__init__(message)
         self.stage = stage
 
@@ -47,7 +48,7 @@ class CoTProcessingError(ChainOfThoughtError):
 class PerspectiveReasoningOrchestrator:
     """Orchestrates Chain of Thought reasoning for perspective analysis"""
 
-    def __init__(self, cot_timeout: Optional[float] = None):
+    def __init__(self, cot_timeout: float | None = None):
         """Initialize the reasoning orchestrator
 
         Args:
@@ -64,7 +65,7 @@ class PerspectiveReasoningOrchestrator:
         self.summary_timeout = 60.0  # 1 minute for summary generation
         self.default_temperature = config.models.default_temperature
         self._cot_available = COT_AVAILABLE
-        self._processors: Dict[str, AsyncChainOfThoughtProcessor] = {}
+        self._processors: dict[str, AsyncChainOfThoughtProcessor] = {}
 
     @property
     def is_available(self) -> bool:
@@ -83,8 +84,8 @@ class PerspectiveReasoningOrchestrator:
         prompt: str,
         bedrock_client: Any,
         session_id: str = "unknown",
-        topic: Optional[str] = None,
-    ) -> Tuple[str, Dict[str, Any]]:
+        topic: str | None = None,
+    ) -> tuple[str, dict[str, Any]]:
         """Analyze a prompt using structured Chain of Thought reasoning
 
         Args:
@@ -191,7 +192,7 @@ Remember: You are analyzing from the {thread.name} perspective.
 Focus on aspects most relevant to this perspective."""
 
     def _prepare_conversation_messages(
-        self, thread: Thread, prompt: str, topic: Optional[str]
+        self, thread: Thread, prompt: str, topic: str | None
     ) -> list:
         """Prepare conversation messages with history and CoT prompt"""
         messages = []
@@ -226,9 +227,7 @@ Focus on aspects most relevant to this perspective."""
                 messages.append({"role": msg["role"], "content": [{"text": content}]})
         return messages
 
-    def _build_cot_prompt(
-        self, thread: Thread, prompt: str, topic: Optional[str]
-    ) -> str:
+    def _build_cot_prompt(self, thread: Thread, prompt: str, topic: str | None) -> str:
         """Build Chain of Thought prompt with optional topic context"""
         if topic:
             return f"""Context: You are analyzing the topic "{topic}" from your {thread.name} perspective.

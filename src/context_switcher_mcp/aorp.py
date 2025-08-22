@@ -4,7 +4,8 @@ Transforms MCP responses from data dumps into AI workflow enablers
 """
 
 from datetime import datetime, timezone
-from typing import Dict, List, Any, Optional
+from typing import Any
+
 from .logging_base import get_logger
 
 logger = get_logger(__name__)
@@ -46,7 +47,7 @@ class AORPBuilder:
         self.response["immediate"]["session_id"] = session_id
         return self
 
-    def next_steps(self, steps: List[str]) -> "AORPBuilder":
+    def next_steps(self, steps: list[str]) -> "AORPBuilder":
         """Set prioritized next action items"""
         self.response["actionable"]["next_steps"] = steps
         return self
@@ -58,7 +59,7 @@ class AORPBuilder:
         self.response["actionable"]["recommendations"]["primary"] = recommendation
         return self
 
-    def secondary_recommendations(self, recommendations: List[str]) -> "AORPBuilder":
+    def secondary_recommendations(self, recommendations: list[str]) -> "AORPBuilder":
         """Set additional recommendations"""
         if "recommendations" not in self.response["actionable"]:
             self.response["actionable"]["recommendations"] = {}
@@ -114,7 +115,7 @@ class AORPBuilder:
         self.response["details"]["debug"] = debug_info
         return self
 
-    def build(self) -> Dict[str, Any]:
+    def build(self) -> dict[str, Any]:
         """Build the final AORP response"""
         # Validate required fields
         immediate = self.response["immediate"]
@@ -148,7 +149,7 @@ def calculate_analysis_confidence(
     total_perspectives: int,
     error_count: int,
     abstention_count: int,
-    response_lengths: List[int],
+    response_lengths: list[int],
 ) -> float:
     """Calculate confidence score for analysis responses"""
 
@@ -204,7 +205,7 @@ def generate_analysis_next_steps(
     error_count: int,
     has_synthesis: bool,
     confidence: float,
-) -> List[str]:
+) -> list[str]:
     """Generate contextual next steps for analysis responses"""
 
     steps = []
@@ -237,7 +238,7 @@ def generate_analysis_next_steps(
 
 def generate_synthesis_next_steps(
     tensions_identified: int, emergent_insights: int, confidence: float
-) -> List[str]:
+) -> list[str]:
     """Generate next steps for synthesis responses"""
 
     steps = []
@@ -265,10 +266,10 @@ def generate_synthesis_next_steps(
 def create_error_response(
     error_message: str,
     error_type: str = "general_error",
-    context: Optional[Dict[str, Any]] = None,
+    context: dict[str, Any] | None = None,
     recoverable: bool = True,
-    session_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    session_id: str | None = None,
+) -> dict[str, Any]:
     """Create standardized error response using AORP"""
 
     builder = AORPBuilder()
@@ -326,8 +327,8 @@ def create_error_response(
 
 
 def convert_legacy_response(
-    legacy_response: Dict[str, Any], tool_type: str
-) -> Dict[str, Any]:
+    legacy_response: dict[str, Any], tool_type: str
+) -> dict[str, Any]:
     """Convert legacy response format to AORP (backward compatibility)"""
 
     builder = AORPBuilder()
@@ -349,8 +350,8 @@ def convert_legacy_response(
 
 
 def _convert_analysis_response(
-    legacy: Dict[str, Any], builder: AORPBuilder
-) -> Dict[str, Any]:
+    legacy: dict[str, Any], builder: AORPBuilder
+) -> dict[str, Any]:
     """Convert legacy analysis response to AORP"""
 
     summary = legacy.get("summary", {})
@@ -401,8 +402,8 @@ def _convert_analysis_response(
 
 
 def _convert_synthesis_response(
-    legacy: Dict[str, Any], builder: AORPBuilder
-) -> Dict[str, Any]:
+    legacy: dict[str, Any], builder: AORPBuilder
+) -> dict[str, Any]:
     """Convert legacy synthesis response to AORP"""
 
     metadata = legacy.get("metadata", {})
@@ -435,8 +436,8 @@ def _convert_synthesis_response(
 
 
 def _convert_session_response(
-    legacy: Dict[str, Any], builder: AORPBuilder
-) -> Dict[str, Any]:
+    legacy: dict[str, Any], builder: AORPBuilder
+) -> dict[str, Any]:
     """Convert legacy session response to AORP"""
 
     perspectives = legacy.get("perspectives", [])
@@ -473,8 +474,8 @@ def _convert_session_response(
 
 
 def _convert_generic_response(
-    legacy: Dict[str, Any], builder: AORPBuilder
-) -> Dict[str, Any]:
+    legacy: dict[str, Any], builder: AORPBuilder
+) -> dict[str, Any]:
     """Convert generic legacy response to AORP"""
 
     return (

@@ -1,7 +1,6 @@
 """Security pattern definitions and matching utilities"""
 
 import re
-from typing import List
 
 # Enhanced security patterns to detect and block
 SECURITY_PATTERNS = [
@@ -108,7 +107,7 @@ class SecurityPatternMatcher:
     """Efficient security pattern matching utilities"""
 
     @staticmethod
-    def match_basic_security_patterns(content: str) -> List[int]:
+    def match_basic_security_patterns(content: str) -> list[int]:
         """Find indices of all matching basic security patterns"""
         matches = []
         for i, pattern in enumerate(COMPILED_PATTERNS):
@@ -117,7 +116,7 @@ class SecurityPatternMatcher:
         return matches
 
     @staticmethod
-    def match_advanced_injection_patterns(content: str) -> List[int]:
+    def match_advanced_injection_patterns(content: str) -> list[int]:
         """Find indices of all matching advanced injection patterns"""
         matches = []
         for i, pattern in enumerate(COMPILED_ADVANCED_PATTERNS):
@@ -126,7 +125,7 @@ class SecurityPatternMatcher:
         return matches
 
     @staticmethod
-    def match_model_patterns(model_id: str) -> List[int]:
+    def match_model_patterns(model_id: str) -> list[int]:
         """Find indices of all matching model ID patterns"""
         matches = []
         for i, pattern in enumerate(COMPILED_MODEL_PATTERNS):

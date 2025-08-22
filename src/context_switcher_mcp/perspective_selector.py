@@ -1,8 +1,9 @@
 """Smart perspective selection for Context Switcher MCP"""
 
-from typing import Any, Dict, List, Optional, Set
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
+
 from .logging_base import get_logger
 
 logger = get_logger(__name__)
@@ -35,7 +36,7 @@ class PerspectiveRecommendation:
     description: str
     relevance_score: float
     reasoning: str
-    custom_prompt: Optional[str] = None
+    custom_prompt: str | None = None
 
 
 class SmartPerspectiveSelector:
@@ -325,8 +326,8 @@ class SmartPerspectiveSelector:
         self.base_perspectives = ["technical", "business", "user", "risk"]
 
     def analyze_problem(
-        self, topic: str, context: Optional[str] = None
-    ) -> Dict[ProblemDomain, float]:
+        self, topic: str, context: str | None = None
+    ) -> dict[ProblemDomain, float]:
         """Analyze the problem to identify relevant domains"""
         text = topic.lower()
         if context:
@@ -352,10 +353,10 @@ class SmartPerspectiveSelector:
     def recommend_perspectives(
         self,
         topic: str,
-        context: Optional[str] = None,
-        existing_perspectives: Optional[List[str]] = None,
+        context: str | None = None,
+        existing_perspectives: list[str] | None = None,
         max_recommendations: int = 5,
-    ) -> List[PerspectiveRecommendation]:
+    ) -> list[PerspectiveRecommendation]:
         """Recommend perspectives based on problem analysis"""
 
         # Analyze problem domains
@@ -369,7 +370,7 @@ class SmartPerspectiveSelector:
         # Filter domains with meaningful scores
         relevant_domains = [(d, s) for d, s in relevant_domains if s > 0.1]
 
-        recommendations: List[Dict[str, Any]] = []
+        recommendations: list[dict[str, Any]] = []
         used_perspectives = set(existing_perspectives or [])
         used_perspectives.update(self.base_perspectives)
 
@@ -449,8 +450,8 @@ Provide specific, practical insights. If the topic is outside your expertise, re
 
     def _add_fallback_perspectives(
         self,
-        recommendations: List[PerspectiveRecommendation],
-        used_perspectives: Set[str],
+        recommendations: list[PerspectiveRecommendation],
+        used_perspectives: set[str],
         topic: str,
     ):
         """Add fallback perspectives when few domain-specific ones are found"""
@@ -484,8 +485,8 @@ Provide specific, practical insights. If the topic is outside your expertise, re
                 recommendations.append(recommendation)
 
     def suggest_follow_up_perspectives(
-        self, initial_responses: Dict[str, str], original_topic: str
-    ) -> List[PerspectiveRecommendation]:
+        self, initial_responses: dict[str, str], original_topic: str
+    ) -> list[PerspectiveRecommendation]:
         """Suggest follow-up perspectives based on initial analysis"""
 
         # Analyze patterns in responses
@@ -524,7 +525,7 @@ Provide specific, practical insights. If the topic is outside your expertise, re
                 )
 
         # Convert to recommendations
-        recommendations: List[Dict[str, Any]] = []
+        recommendations: list[dict[str, Any]] = []
         for name, desc, reasoning in emerging_themes:
             recommendations.append(
                 PerspectiveRecommendation(

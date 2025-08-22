@@ -2,10 +2,10 @@
 
 import os
 import re
-from ..logging_base import get_logger
 from pathlib import Path
-from typing import Tuple, Optional, List
 from urllib.parse import urlparse
+
+from ..logging_base import get_logger
 
 logger = get_logger(__name__)
 
@@ -34,8 +34,8 @@ class PathValidator:
 
     @staticmethod
     def validate_file_path(
-        file_path: str, base_directory: Optional[str] = None, allow_create: bool = False
-    ) -> Tuple[bool, str, Optional[str]]:
+        file_path: str, base_directory: str | None = None, allow_create: bool = False
+    ) -> tuple[bool, str, str | None]:
         """
         Validate file path for security issues
 
@@ -104,7 +104,7 @@ class PathValidator:
             return False, f"Invalid path: {str(e)}", None
 
     @staticmethod
-    def validate_config_file_path(file_path: str) -> Tuple[bool, str, Optional[str]]:
+    def validate_config_file_path(file_path: str) -> tuple[bool, str, str | None]:
         """
         Validate configuration file path with additional restrictions
 
@@ -138,8 +138,8 @@ class PathValidator:
 
     @staticmethod
     def validate_url(
-        url: str, allowed_schemes: Optional[List[str]] = None
-    ) -> Tuple[bool, str]:
+        url: str, allowed_schemes: list[str] | None = None
+    ) -> tuple[bool, str]:
         """
         Validate URL for security issues
 
@@ -217,7 +217,7 @@ class SecureFileHandler:
     @staticmethod
     def safe_read_file(
         file_path: str, max_size: int = 10 * 1024 * 1024
-    ) -> Tuple[bool, str, Optional[str]]:
+    ) -> tuple[bool, str, str | None]:
         """
         Safely read file content with validation
 
@@ -248,7 +248,7 @@ class SecureFileHandler:
                 )
 
             # Read file content safely
-            with open(normalized_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(normalized_path, encoding="utf-8", errors="ignore") as f:
                 content = f.read(
                     max_size + 1
                 )  # Read one extra byte to detect oversized files
@@ -258,7 +258,7 @@ class SecureFileHandler:
 
             return True, content, normalized_path
 
-        except (OSError, IOError, UnicodeDecodeError) as e:
+        except (OSError, UnicodeDecodeError) as e:
             logger.error(f"Error reading file {normalized_path}: {e}")
             return False, f"Failed to read file: {str(e)}", normalized_path
 
@@ -266,9 +266,9 @@ class SecureFileHandler:
     def safe_write_file(
         file_path: str,
         content: str,
-        base_directory: Optional[str] = None,
+        base_directory: str | None = None,
         max_size: int = 10 * 1024 * 1024,
-    ) -> Tuple[bool, str, Optional[str]]:
+    ) -> tuple[bool, str, str | None]:
         """
         Safely write file content with validation
 
@@ -299,7 +299,7 @@ class SecureFileHandler:
 
             return True, "", normalized_path
 
-        except (OSError, IOError) as e:
+        except OSError as e:
             logger.error(f"Error writing file {normalized_path}: {e}")
             return False, f"Failed to write file: {str(e)}", normalized_path
 

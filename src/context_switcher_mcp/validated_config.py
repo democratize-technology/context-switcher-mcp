@@ -15,11 +15,10 @@ Features:
 """
 
 import json
-from .logging_base import get_logger
 import re
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from pydantic import (
     Field,
@@ -30,6 +29,8 @@ from pydantic import (
     model_validator,
 )
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from .logging_base import get_logger
 
 logger = get_logger(__name__)
 
@@ -493,7 +494,7 @@ class ValidatedSecurityConfig(BaseSettings):
 
     model_config = SettingsConfigDict(case_sensitive=True, extra="forbid")
 
-    secret_key: Optional[str] = Field(
+    secret_key: str | None = Field(
         default=None,
         min_length=32,
         description="Encryption secret key (sensitive)",
@@ -502,7 +503,7 @@ class ValidatedSecurityConfig(BaseSettings):
 
     @field_validator("secret_key")
     @classmethod
-    def validate_secret_key(cls, v: Optional[str]) -> Optional[str]:
+    def validate_secret_key(cls, v: str | None) -> str | None:
         """Validate secret key format and strength"""
         if v is not None:
             if len(v) < 32:
@@ -551,7 +552,7 @@ class ValidatedContextSwitcherConfig(BaseSettings):
             and self.security.secret_key is not None
         )
 
-    def mask_sensitive_data(self) -> Dict[str, Any]:
+    def mask_sensitive_data(self) -> dict[str, Any]:
         """Return configuration with sensitive data masked for logging"""
         config_dict = self.model_dump()
 
@@ -569,7 +570,7 @@ class ValidatedContextSwitcherConfig(BaseSettings):
 
         return config_dict
 
-    def validate_external_dependencies(self) -> List[str]:
+    def validate_external_dependencies(self) -> list[str]:
         """Validate external service dependencies (non-blocking)
 
         Returns:
@@ -617,7 +618,7 @@ class ConfigurationError(Exception):
 
 
 def load_validated_config(
-    config_file: Optional[Union[str, Path]] = None,
+    config_file: str | Path | None = None,
     env_override: bool = True,
     validate_dependencies: bool = True,
 ) -> ValidatedContextSwitcherConfig:
@@ -641,13 +642,13 @@ def load_validated_config(
             config_path = Path(config_file)
             if config_path.exists():
                 if config_path.suffix.lower() == ".json":
-                    with open(config_path, "r", encoding="utf-8") as f:
+                    with open(config_path, encoding="utf-8") as f:
                         kwargs = json.load(f)
                 elif config_path.suffix.lower() in [".yaml", ".yml"]:
                     try:
                         import yaml
 
-                        with open(config_path, "r", encoding="utf-8") as f:
+                        with open(config_path, encoding="utf-8") as f:
                             kwargs = yaml.safe_load(f)
                     except ImportError:
                         raise ConfigurationError(
@@ -721,4 +722,4 @@ def reload_validated_config() -> ValidatedContextSwitcherConfig:
 
 
 # Global configuration instance
-_validated_config: Optional[ValidatedContextSwitcherConfig] = None
+_validated_config: ValidatedContextSwitcherConfig | None = None

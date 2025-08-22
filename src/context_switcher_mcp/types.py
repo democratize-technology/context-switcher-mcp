@@ -9,7 +9,7 @@ should be defined here.
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Dict, List, Optional, Any
+from typing import Any
 
 
 class ModelBackend(str, Enum):
@@ -64,11 +64,11 @@ class ThreadData:
     name: str
     system_prompt: str
     model_backend: ModelBackend
-    model_name: Optional[str] = None
-    conversation_history: List[Dict[str, str]] = field(default_factory=list)
+    model_name: str | None = None
+    conversation_history: list[dict[str, str]] = field(default_factory=list)
     status: ThreadStatus = ThreadStatus.READY
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation"""
         return {
             "id": self.id,
@@ -87,13 +87,13 @@ class SessionData:
 
     session_id: str
     created_at: datetime
-    topic: Optional[str] = None
+    topic: str | None = None
     access_count: int = 0
     last_accessed: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     version: int = 0  # For optimistic locking
     status: SessionStatus = SessionStatus.ACTIVE
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation"""
         return {
             "session_id": self.session_id,
@@ -113,14 +113,14 @@ class AnalysisResult:
     session_id: str
     analysis_type: AnalysisType
     prompt: str
-    responses: Dict[str, str]
+    responses: dict[str, str]
     active_count: int
     abstained_count: int
     failed_count: int = 0
-    execution_time: Optional[float] = None
+    execution_time: float | None = None
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation"""
         return {
             "session_id": self.session_id,
@@ -140,12 +140,12 @@ class SecurityEventData:
     """Security event information"""
 
     event_type: str
-    session_id: Optional[str] = None
+    session_id: str | None = None
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     severity: ErrorSeverity = ErrorSeverity.MEDIUM
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation"""
         return {
             "event_type": self.event_type,
@@ -164,12 +164,12 @@ class ClientBindingData:
     creation_timestamp: datetime
     binding_signature: str
     access_pattern_hash: str
-    tool_usage_sequence: List[str] = field(default_factory=list)
+    tool_usage_sequence: list[str] = field(default_factory=list)
     validation_failures: int = 0
     last_validated: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    security_flags: List[str] = field(default_factory=list)
+    security_flags: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation"""
         return {
             "session_entropy": self.session_entropy,
@@ -194,7 +194,7 @@ class ConfigurationData:
     retry_delay_seconds: float = 1.0
     timeout_seconds: float = 30.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation"""
         return {
             "max_active_sessions": self.max_active_sessions,
@@ -212,13 +212,13 @@ class MetricsData:
 
     operation_name: str
     start_time: float
-    end_time: Optional[float] = None
+    end_time: float | None = None
     success_count: int = 0
     failure_count: int = 0
     total_operations: int = 0
 
     @property
-    def execution_time(self) -> Optional[float]:
+    def execution_time(self) -> float | None:
         """Calculate execution time"""
         if self.end_time is None:
             return None
@@ -231,7 +231,7 @@ class MetricsData:
             return 0.0
         return (self.success_count / self.total_operations) * 100
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation"""
         return {
             "operation_name": self.operation_name,
@@ -246,12 +246,12 @@ class MetricsData:
 
 
 # Type aliases for complex types
-ResponseMap = Dict[str, str]
-ThreadMap = Dict[str, ThreadData]
-SessionMap = Dict[str, SessionData]
-ConfigMap = Dict[str, Any]
-SecurityFlags = List[str]
-ConversationHistory = List[Dict[str, str]]
+ResponseMap = dict[str, str]
+ThreadMap = dict[str, ThreadData]
+SessionMap = dict[str, SessionData]
+ConfigMap = dict[str, Any]
+SecurityFlags = list[str]
+ConversationHistory = list[dict[str, str]]
 
 # Constants that don't depend on other modules
 NO_RESPONSE = "[NO_RESPONSE]"

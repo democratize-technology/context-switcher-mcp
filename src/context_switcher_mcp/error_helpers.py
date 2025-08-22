@@ -1,27 +1,28 @@
 """Error handling helper functions to reduce code duplication and standardize error patterns"""
 
 import functools
-from .logging_base import get_logger
-from typing import Any, Callable, Dict, Optional, Type, TypeVar
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 from .aorp import create_error_response
-from .security import sanitize_error_message
+from .error_classification import classify_error, get_error_handling_strategy
+from .error_logging import log_error_with_context
 from .exceptions import (
-    ContextSwitcherError,
-    OrchestrationError,
-    SessionError,
-    ModelBackendError,
-    PerspectiveError,
     AnalysisError,
+    ContextSwitcherError,
+    ModelBackendError,
     NetworkConnectivityError,
     NetworkTimeoutError,
+    OrchestrationError,
+    PerformanceTimeoutError,
+    PerspectiveError,
     SessionCleanupError,
+    SessionError,
     SessionExpiredError,
     SessionNotFoundError,
-    PerformanceTimeoutError,
 )
-from .error_logging import log_error_with_context
-from .error_classification import classify_error, get_error_handling_strategy
+from .logging_base import get_logger
+from .security import sanitize_error_message
 
 logger = get_logger(__name__)
 F = TypeVar("F", bound=Callable[..., Any])
@@ -29,9 +30,9 @@ F = TypeVar("F", bound=Callable[..., Any])
 
 def validation_error(
     message: str,
-    context: Optional[Dict[str, Any]] = None,
-    session_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    context: dict[str, Any] | None = None,
+    session_id: str | None = None,
+) -> dict[str, Any]:
     """Create a validation error response
 
     Args:
@@ -51,9 +52,7 @@ def validation_error(
     )
 
 
-def session_not_found_error(
-    session_id: str, hint: Optional[str] = None
-) -> Dict[str, Any]:
+def session_not_found_error(session_id: str, hint: str | None = None) -> dict[str, Any]:
     """Create a session not found error response
 
     Args:
@@ -76,8 +75,8 @@ def session_not_found_error(
 
 
 def rate_limit_error(
-    message: str, retry_after_seconds: int, session_id: Optional[str] = None
-) -> Dict[str, Any]:
+    message: str, retry_after_seconds: int, session_id: str | None = None
+) -> dict[str, Any]:
     """Create a rate limit error response
 
     Args:
@@ -102,10 +101,10 @@ def rate_limit_error(
 
 def execution_error(
     message: str,
-    context: Optional[Dict[str, Any]] = None,
-    session_id: Optional[str] = None,
+    context: dict[str, Any] | None = None,
+    session_id: str | None = None,
     recoverable: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Create an execution error response
 
     Args:
@@ -127,8 +126,8 @@ def execution_error(
 
 
 def security_error(
-    message: str, details: Dict[str, Any], session_id: Optional[str] = None
-) -> Dict[str, Any]:
+    message: str, details: dict[str, Any], session_id: str | None = None
+) -> dict[str, Any]:
     """Create a security error response
 
     Args:
@@ -149,8 +148,8 @@ def security_error(
 
 
 def resource_limit_error(
-    resource_type: str, limit: int, current: Optional[int] = None
-) -> Dict[str, Any]:
+    resource_type: str, limit: int, current: int | None = None
+) -> dict[str, Any]:
     """Create a resource limit error response
 
     Args:
@@ -182,8 +181,8 @@ def resource_limit_error(
 def wrap_generic_exception(
     error: Exception,
     operation_name: str,
-    default_exception_class: Type[ContextSwitcherError] = OrchestrationError,
-    context: Optional[Dict[str, Any]] = None,
+    default_exception_class: type[ContextSwitcherError] = OrchestrationError,
+    context: dict[str, Any] | None = None,
 ) -> ContextSwitcherError:
     """Convert generic exceptions to specific typed exceptions with context.
 
@@ -277,9 +276,9 @@ def wrap_generic_exception(
 
 def standardize_exception_handling(
     operation_name: str,
-    session_id: Optional[str] = None,
+    session_id: str | None = None,
     log_errors: bool = True,
-    default_exception_class: Type[ContextSwitcherError] = OrchestrationError,
+    default_exception_class: type[ContextSwitcherError] = OrchestrationError,
 ) -> Callable[[F], F]:
     """Decorator to standardize exception handling for any function.
 
@@ -380,7 +379,7 @@ def standardize_exception_handling(
 
 
 def create_error_mapping(
-    error_patterns: Dict[str, Type[ContextSwitcherError]],
+    error_patterns: dict[str, type[ContextSwitcherError]],
 ) -> Callable[[Exception, str], ContextSwitcherError]:
     """Create a custom error mapping function for specific modules.
 
@@ -430,7 +429,7 @@ def create_error_mapping(
 
 def get_fallback_response(
     error: Exception, operation_name: str, default_response: Any = None
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Generate a standardized fallback response for errors.
 
     Args:

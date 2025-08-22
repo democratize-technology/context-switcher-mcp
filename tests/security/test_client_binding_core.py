@@ -2,27 +2,36 @@
 Test suite for ClientBindingCore security module.
 """
 
-import sys
 import os
-from datetime import datetime, timezone, timedelta
+import sys
+from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
-import pytest  # noqa: E402
 import secrets  # noqa: E402
 
-from context_switcher_mcp.models import ClientBinding, ContextSwitcherSession  # noqa: E402
+import pytest  # noqa: E402
+from context_switcher_mcp.models import (  # noqa: E402
+    ClientBinding,
+    ContextSwitcherSession,
+)
 from context_switcher_mcp.security.client_binding_core import (  # noqa: E402
     ClientBindingManager,
-    get_client_binding_manager,
     create_secure_session_with_binding,
+    get_client_binding_manager,
     validate_session_access,
 )
-from context_switcher_mcp.security.secret_key_manager import SecretKeyManager  # noqa: E402
 from context_switcher_mcp.security.client_validation_service import (
     ClientValidationService,
-)  # noqa: E402
-from context_switcher_mcp.security.security_event_tracker import SecurityEventTracker  # noqa: E402
+)
+
+# noqa: E402
+from context_switcher_mcp.security.secret_key_manager import (
+    SecretKeyManager,  # noqa: E402
+)
+from context_switcher_mcp.security.security_event_tracker import (
+    SecurityEventTracker,  # noqa: E402
+)
 
 
 class TestClientBindingManager:
@@ -59,7 +68,7 @@ class TestClientBindingManager:
 
     def test_manager_initialization_with_dependencies(self):
         """Test initialization with dependency injection"""
-        key_manager = SecretKeyManager("test_key")
+        SecretKeyManager("test_key")
         validation_service = ClientValidationService()
         event_tracker = SecurityEventTracker()
 

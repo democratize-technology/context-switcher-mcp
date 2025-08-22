@@ -7,19 +7,21 @@ should be defined here to prevent circular dependencies.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Any, AsyncGenerator, Tuple, AsyncContextManager
+from collections.abc import AsyncGenerator
+from contextlib import AbstractAsyncContextManager
+from typing import Any
 
 from .types import (
-    ThreadData,
-    SessionData,
-    ModelBackend,
     AnalysisResult,
-    SecurityEventData,
     ClientBindingData,
     ConfigurationData,
+    ModelBackend,
     ResponseMap,
-    ThreadMap,
+    SecurityEventData,
+    SessionData,
     SessionMap,
+    ThreadData,
+    ThreadMap,
 )
 
 
@@ -32,12 +34,12 @@ class ConfigurationProvider(ABC):
         pass
 
     @abstractmethod
-    def get_backend_config(self, backend: ModelBackend) -> Dict[str, Any]:
+    def get_backend_config(self, backend: ModelBackend) -> dict[str, Any]:
         """Get backend-specific configuration"""
         pass
 
     @abstractmethod
-    def get_security_config(self) -> Dict[str, Any]:
+    def get_security_config(self) -> dict[str, Any]:
         """Get security configuration"""
         pass
 
@@ -51,18 +53,18 @@ class ConfigurationMigrator(ABC):
     """Protocol for configuration migration"""
 
     @abstractmethod
-    def migrate_config(self, old_config: Dict[str, Any]) -> Dict[str, Any]:
+    def migrate_config(self, old_config: dict[str, Any]) -> dict[str, Any]:
         """Migrate old configuration to new format"""
         pass
 
     @abstractmethod
-    def is_migration_needed(self, config: Dict[str, Any]) -> bool:
+    def is_migration_needed(self, config: dict[str, Any]) -> bool:
         """Check if migration is needed"""
         pass
 
     @abstractmethod
     def validate_migration(
-        self, old_config: Dict[str, Any], new_config: Dict[str, Any]
+        self, old_config: dict[str, Any], new_config: dict[str, Any]
     ) -> bool:
         """Validate that migration was successful"""
         pass
@@ -77,7 +79,7 @@ class SessionManagerProtocol(ABC):
         pass
 
     @abstractmethod
-    async def get_session(self, session_id: str) -> Optional[SessionData]:
+    async def get_session(self, session_id: str) -> SessionData | None:
         """Get session by ID"""
         pass
 
@@ -115,7 +117,7 @@ class ThreadManagerProtocol(ABC):
     @abstractmethod
     async def broadcast_message_stream(
         self, threads: ThreadMap, message: str, session_id: str
-    ) -> AsyncGenerator[Dict[str, Any], None]:
+    ) -> AsyncGenerator[dict[str, Any], None]:
         """Broadcast message with streaming responses"""
         pass
 
@@ -127,7 +129,7 @@ class ThreadManagerProtocol(ABC):
         pass
 
     @abstractmethod
-    def get_thread_metrics(self, last_n: int = 10) -> Dict[str, Any]:
+    def get_thread_metrics(self, last_n: int = 10) -> dict[str, Any]:
         """Get thread-level performance metrics"""
         pass
 
@@ -145,7 +147,7 @@ class PerspectiveOrchestratorProtocol(ABC):
     @abstractmethod
     async def broadcast_to_perspectives_stream(
         self, threads: ThreadMap, message: str, session_id: str
-    ) -> AsyncGenerator[Dict[str, Any], None]:
+    ) -> AsyncGenerator[dict[str, Any], None]:
         """Broadcast with streaming responses"""
         pass
 
@@ -157,7 +159,7 @@ class PerspectiveOrchestratorProtocol(ABC):
         pass
 
     @abstractmethod
-    async def get_perspective_metrics(self, last_n: int = 10) -> Dict[str, Any]:
+    async def get_perspective_metrics(self, last_n: int = 10) -> dict[str, Any]:
         """Get perspective-level performance metrics"""
         pass
 
@@ -221,15 +223,15 @@ class ValidationManagerProtocol(ABC):
 
     @abstractmethod
     def validate_session_creation(
-        self, topic: str, perspectives: Optional[List[str]]
-    ) -> Tuple[bool, Optional[str]]:
+        self, topic: str, perspectives: list[str] | None
+    ) -> tuple[bool, str | None]:
         """Validate session creation parameters"""
         pass
 
     @abstractmethod
     def validate_message_input(
         self, message: str, session_id: str
-    ) -> Tuple[bool, Optional[str]]:
+    ) -> tuple[bool, str | None]:
         """Validate message input"""
         pass
 
@@ -244,25 +246,25 @@ class MetricsManagerProtocol(ABC):
 
     @abstractmethod
     def record_operation_start(
-        self, operation_name: str, context: Dict[str, Any]
+        self, operation_name: str, context: dict[str, Any]
     ) -> str:
         """Record start of operation, return operation ID"""
         pass
 
     @abstractmethod
     def record_operation_end(
-        self, operation_id: str, success: bool, error: Optional[str] = None
+        self, operation_id: str, success: bool, error: str | None = None
     ) -> None:
         """Record end of operation"""
         pass
 
     @abstractmethod
-    def get_metrics_summary(self, last_n: int = 10) -> Dict[str, Any]:
+    def get_metrics_summary(self, last_n: int = 10) -> dict[str, Any]:
         """Get metrics summary"""
         pass
 
     @abstractmethod
-    def get_performance_health(self) -> Dict[str, Any]:
+    def get_performance_health(self) -> dict[str, Any]:
         """Get overall performance health status"""
         pass
 
@@ -271,7 +273,7 @@ class CircuitBreakerManagerProtocol(ABC):
     """Protocol for circuit breaker management"""
 
     @abstractmethod
-    def get_circuit_breaker_status(self, backend: ModelBackend) -> Dict[str, Any]:
+    def get_circuit_breaker_status(self, backend: ModelBackend) -> dict[str, Any]:
         """Get circuit breaker status for backend"""
         pass
 
@@ -300,7 +302,7 @@ class ResponseFormatterProtocol(ABC):
     """Protocol for response formatting"""
 
     @abstractmethod
-    async def format_analysis_response(self, result: AnalysisResult) -> Dict[str, Any]:
+    async def format_analysis_response(self, result: AnalysisResult) -> dict[str, Any]:
         """Format analysis result into AORP format"""
         pass
 
@@ -313,8 +315,8 @@ class ResponseFormatterProtocol(ABC):
 
     @abstractmethod
     def format_error_response(
-        self, error_message: str, error_type: str, context: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, error_message: str, error_type: str, context: dict[str, Any]
+    ) -> dict[str, Any]:
         """Format error into AORP error response"""
         pass
 
@@ -325,7 +327,7 @@ class LockManagerProtocol(ABC):
     @abstractmethod
     async def acquire_lock(
         self, resource_id: str, timeout: float = 10.0
-    ) -> AsyncContextManager:
+    ) -> AbstractAsyncContextManager:
         """Acquire lock for resource"""
         pass
 
@@ -344,7 +346,7 @@ class ErrorHandlerProtocol(ABC):
     """Protocol for error handling and logging"""
 
     @abstractmethod
-    def handle_exception(self, error: Exception, context: Dict[str, Any]) -> str:
+    def handle_exception(self, error: Exception, context: dict[str, Any]) -> str:
         """Handle exception and return correlation ID"""
         pass
 
@@ -396,21 +398,21 @@ class SessionServiceProtocol(ABC):
     async def create_session(
         self,
         topic: str,
-        perspectives: Optional[List[str]] = None,
-        template: Optional[str] = None,
+        perspectives: list[str] | None = None,
+        template: str | None = None,
         model_backend: ModelBackend = ModelBackend.BEDROCK,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create complete session with all dependencies"""
         pass
 
     @abstractmethod
     async def analyze_with_perspectives(
         self, session_id: str, message: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Perform complete perspective analysis"""
         pass
 
     @abstractmethod
-    async def get_session_summary(self, session_id: str) -> Dict[str, Any]:
+    async def get_session_summary(self, session_id: str) -> dict[str, Any]:
         """Get complete session summary"""
         pass

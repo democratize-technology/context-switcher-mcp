@@ -1,12 +1,13 @@
 """Enhanced input validation for additional security measures"""
 
-import re
-from ..logging_base import get_logger
 import html
 import json
-from typing import Tuple, List, Dict, Any, Optional
+import re
 from dataclasses import dataclass
+from typing import Any
 from urllib.parse import unquote
+
+from ..logging_base import get_logger
 
 logger = get_logger(__name__)
 
@@ -27,12 +28,12 @@ class ValidationConfig:
 class EnhancedInputValidator:
     """Enhanced input validation with additional security checks"""
 
-    def __init__(self, config: Optional[ValidationConfig] = None):
+    def __init__(self, config: ValidationConfig | None = None):
         self.config = config or ValidationConfig()
 
     def validate_json_structure(
         self, json_str: str
-    ) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+    ) -> tuple[bool, str, dict[str, Any] | None]:
         """
         Validate JSON structure for security issues
 
@@ -61,7 +62,7 @@ class EnhancedInputValidator:
         except RecursionError:
             return False, "JSON structure too deeply nested", None
 
-    def _validate_json_complexity(self, data: Any, depth: int = 0) -> Tuple[bool, str]:
+    def _validate_json_complexity(self, data: Any, depth: int = 0) -> tuple[bool, str]:
         """Validate JSON complexity to prevent DoS attacks"""
         if depth > self.config.max_nesting_depth:
             return (
@@ -103,7 +104,7 @@ class EnhancedInputValidator:
 
         return True, ""
 
-    def _validate_string_content(self, text: str) -> Tuple[bool, str]:
+    def _validate_string_content(self, text: str) -> tuple[bool, str]:
         """Validate string content for security issues"""
         # Check for excessive length
         if len(text) > 100000:  # 100KB limit for individual strings
@@ -129,7 +130,7 @@ class EnhancedInputValidator:
 
         return True, ""
 
-    def validate_email(self, email: str) -> Tuple[bool, str]:
+    def validate_email(self, email: str) -> tuple[bool, str]:
         """
         Validate email address format with security considerations
 
@@ -177,7 +178,7 @@ class EnhancedInputValidator:
 
     def validate_identifier(
         self, identifier: str, max_length: int = 100
-    ) -> Tuple[bool, str]:
+    ) -> tuple[bool, str]:
         """
         Validate identifier (session ID, perspective name, etc.)
 
@@ -222,7 +223,7 @@ class EnhancedInputValidator:
 
         return True, ""
 
-    def sanitize_html_content(self, content: str) -> Tuple[str, List[str]]:
+    def sanitize_html_content(self, content: str) -> tuple[str, list[str]]:
         """
         Sanitize HTML content for safe display
 
@@ -260,7 +261,7 @@ class EnhancedInputValidator:
 
         return sanitized, sanitizations
 
-    def validate_url_parameters(self, url: str) -> Tuple[bool, str, Dict[str, str]]:
+    def validate_url_parameters(self, url: str) -> tuple[bool, str, dict[str, str]]:
         """
         Validate URL parameters for security issues
 
@@ -271,7 +272,7 @@ class EnhancedInputValidator:
             Tuple of (is_valid, error_message, sanitized_params)
         """
         try:
-            from urllib.parse import urlparse, parse_qs
+            from urllib.parse import parse_qs, urlparse
 
             parsed = urlparse(url)
             params = parse_qs(parsed.query)
@@ -329,7 +330,7 @@ class ConfigurationInputValidator:
     """Specialized validator for configuration inputs"""
 
     @staticmethod
-    def validate_environment_variable(name: str, value: str) -> Tuple[bool, str]:
+    def validate_environment_variable(name: str, value: str) -> tuple[bool, str]:
         """
         Validate environment variable name and value
 
@@ -388,7 +389,7 @@ class ConfigurationInputValidator:
     @staticmethod
     def validate_config_value(
         key: str, value: Any, expected_type: type
-    ) -> Tuple[bool, str, Any]:
+    ) -> tuple[bool, str, Any]:
         """
         Validate configuration value with type checking
 

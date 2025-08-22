@@ -11,19 +11,18 @@ from unittest.mock import patch
 
 import pytest
 from pydantic import ValidationError
-
 from src.context_switcher_mcp.validated_config import (
     ConfigurationError,
     LogLevel,
     ProfilingLevel,
     ValidatedContextSwitcherConfig,
     ValidatedModelConfig,
-    ValidatedServerConfig,
     ValidatedProfilingConfig,
     ValidatedRetryConfig,
     ValidatedSecurityConfig,
-    load_validated_config,
+    ValidatedServerConfig,
     get_validated_config,
+    load_validated_config,
     reload_validated_config,
 )
 
@@ -479,7 +478,7 @@ class TestEnvironmentVariableHandling:
             assert config.server.port == 8080
             assert config.server.log_level == LogLevel.DEBUG
 
-            assert config.profiling.enabled == False
+            assert not config.profiling.enabled
             assert config.profiling.level == ProfilingLevel.BASIC
             assert config.profiling.sampling_rate == 0.05
 

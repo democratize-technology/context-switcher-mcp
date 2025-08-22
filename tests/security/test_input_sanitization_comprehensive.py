@@ -1,15 +1,15 @@
 """Comprehensive tests for input sanitization security measures"""
 
-import pytest
 import json
 
+import pytest
+from context_switcher_mcp.security.enhanced_validators import (
+    ConfigurationInputValidator,
+    EnhancedInputValidator,
+)
 from context_switcher_mcp.security.path_validator import (
     PathValidator,
     SecureFileHandler,
-)
-from context_switcher_mcp.security.enhanced_validators import (
-    EnhancedInputValidator,
-    ConfigurationInputValidator,
 )
 from context_switcher_mcp.security.secure_logging import get_secure_logger
 
@@ -40,8 +40,8 @@ class TestPathValidation:
 
     def test_valid_paths(self):
         """Test that valid paths are accepted"""
-        import tempfile
         import os
+        import tempfile
 
         with tempfile.NamedTemporaryFile(delete=False) as temp_file:
             temp_path = temp_file.name
@@ -89,8 +89,8 @@ class TestPathValidation:
 
     def test_secure_file_operations(self):
         """Test secure file reading and writing"""
-        import tempfile
         import os
+        import tempfile
 
         # Test file size limits
         large_content = "A" * (11 * 1024 * 1024)  # 11MB - exceeds 10MB limit
@@ -127,7 +127,7 @@ class TestEnhancedInputValidation:
         assert not is_valid, "JSON with too many keys should be rejected"
 
         # Test JSON with long arrays
-        long_array = json.dumps([i for i in range(2000)])
+        long_array = json.dumps(list(range(2000)))
         is_valid, error_msg, _ = validator.validate_json_structure(long_array)
         assert not is_valid, "JSON with long arrays should be rejected"
 

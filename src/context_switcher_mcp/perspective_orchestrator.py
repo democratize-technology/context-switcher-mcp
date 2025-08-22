@@ -5,32 +5,33 @@ import gc
 import sys
 import time
 from collections import deque
-from typing import Any, Dict, Optional, AsyncGenerator
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass
+from typing import Any
 
-from .models import Thread
-from .thread_manager import ThreadManager
-from .response_formatter import ResponseFormatter
-from .exceptions import (
-    OrchestrationError,
-    PerspectiveError,
-    AnalysisError,
-    PerformanceTimeoutError,
-)
 from .constants import NO_RESPONSE
-from .reasoning_orchestrator import (
-    PerspectiveReasoningOrchestrator,
-    CoTTimeoutError,
-    CoTProcessingError,
-)
+from .error_context import error_context
 from .error_helpers import (
     wrap_generic_exception,
 )
 from .error_logging import log_error_with_context
-from .error_context import error_context
-from .security import sanitize_error_message
+from .exceptions import (
+    AnalysisError,
+    OrchestrationError,
+    PerformanceTimeoutError,
+    PerspectiveError,
+)
 from .logging_base import get_logger
 from .logging_utils import performance_timer
+from .models import Thread
+from .reasoning_orchestrator import (
+    CoTProcessingError,
+    CoTTimeoutError,
+    PerspectiveReasoningOrchestrator,
+)
+from .response_formatter import ResponseFormatter
+from .security import sanitize_error_message
+from .thread_manager import ThreadManager
 
 logger = get_logger(__name__)
 
@@ -42,7 +43,7 @@ class PerspectiveMetrics:
     session_id: str
     operation_type: str  # 'broadcast', 'synthesis', 'single_thread'
     start_time: float
-    end_time: Optional[float] = None
+    end_time: float | None = None
     total_perspectives: int = 0
     successful_perspectives: int = 0
     failed_perspectives: int = 0
@@ -58,7 +59,7 @@ class PerspectiveMetrics:
         )
 
     @property
-    def execution_time(self) -> Optional[float]:
+    def execution_time(self) -> float | None:
         """Calculate total operation execution time"""
         if self.end_time is None:
             return None
@@ -150,11 +151,11 @@ class PerspectiveOrchestrator:
     )
     async def broadcast_to_perspectives(
         self,
-        threads: Dict[str, Thread],
+        threads: dict[str, Thread],
         message: str,
         session_id: str = "unknown",
         topic: str = None,
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """Broadcast message to all perspective threads and collect responses"""
         async with error_context(
             operation_name="perspective_broadcast",
@@ -236,7 +237,7 @@ class PerspectiveOrchestrator:
             total_perspectives=total_threads,
         )
 
-    def _partition_threads_by_strategy(self, threads: Dict[str, Thread]) -> tuple:
+    def _partition_threads_by_strategy(self, threads: dict[str, Thread]) -> tuple:
         """Partition threads into CoT and standard processing groups"""
         cot_threads = {}
         standard_threads = {}
@@ -260,12 +261,12 @@ class PerspectiveOrchestrator:
 
     async def _execute_parallel_broadcasts(
         self,
-        cot_threads: Dict[str, Thread],
-        standard_threads: Dict[str, Thread],
+        cot_threads: dict[str, Thread],
+        standard_threads: dict[str, Thread],
         message: str,
         session_id: str,
         topic: str,
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """Execute broadcasts to both CoT and standard threads in parallel"""
         responses = {}
 
@@ -286,10 +287,10 @@ class PerspectiveOrchestrator:
         return responses
 
     def _classify_responses_for_metrics(
-        self, responses: Dict[str, str], metrics: PerspectiveMetrics
+        self, responses: dict[str, str], metrics: PerspectiveMetrics
     ) -> None:
         """Classify responses and update metrics accordingly"""
-        for perspective_name, response in responses.items():
+        for _perspective_name, response in responses.items():
             if not isinstance(response, str):
                 metrics.failed_perspectives += 1
                 continue
@@ -337,11 +338,11 @@ class PerspectiveOrchestrator:
 
     async def _broadcast_with_cot(
         self,
-        threads: Dict[str, Thread],
+        threads: dict[str, Thread],
         message: str,
         session_id: str,
         topic: str = None,
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """Broadcast to threads using Chain of Thought reasoning"""
         import boto3
 
@@ -502,8 +503,8 @@ class PerspectiveOrchestrator:
                 return error_response
 
     async def broadcast_to_perspectives_stream(
-        self, threads: Dict[str, Thread], message: str, session_id: str = "unknown"
-    ) -> AsyncGenerator[Dict[str, Any], None]:
+        self, threads: dict[str, Thread], message: str, session_id: str = "unknown"
+    ) -> AsyncGenerator[dict[str, Any], None]:
         """
         Broadcast message to all perspective threads with streaming responses
 
@@ -565,7 +566,7 @@ class PerspectiveOrchestrator:
             raise specific_error from e
 
     async def synthesize_perspective_responses(
-        self, responses: Dict[str, str], session_id: str = "unknown"
+        self, responses: dict[str, str], session_id: str = "unknown"
     ) -> str:
         """Synthesize responses from multiple perspectives into a coherent analysis"""
         async with error_context(
@@ -756,7 +757,7 @@ class PerspectiveOrchestrator:
 
         return cleaned_count
 
-    async def get_perspective_metrics(self, last_n: int = 10) -> Dict[str, Any]:
+    async def get_perspective_metrics(self, last_n: int = 10) -> dict[str, Any]:
         """Get perspective-level performance metrics with memory usage info"""
         async with self.metrics_lock:
             if not self.metrics_history:
@@ -809,7 +810,7 @@ class PerspectiveOrchestrator:
             ],
         }
 
-    async def get_performance_metrics(self, last_n: int = 10) -> Dict[str, Any]:
+    async def get_performance_metrics(self, last_n: int = 10) -> dict[str, Any]:
         """Get combined performance metrics for recent operations"""
         # Get metrics from thread manager and perspective orchestrator
         thread_metrics = await self.thread_manager.get_thread_metrics(last_n)
@@ -824,7 +825,7 @@ class PerspectiveOrchestrator:
             "circuit_breakers": circuit_status,
         }
 
-    def reset_circuit_breakers(self) -> Dict[str, str]:
+    def reset_circuit_breakers(self) -> dict[str, str]:
         """Reset all circuit breakers to CLOSED state"""
         return self.thread_manager.reset_circuit_breakers()
 

@@ -1,9 +1,9 @@
 """Tests for the new session lock implementation using SessionLockManager"""
 
 import asyncio
-import pytest
 from datetime import datetime, timezone
 
+import pytest
 from context_switcher_mcp.models import ContextSwitcherSession
 from context_switcher_mcp.session_lock_manager import get_session_lock_manager
 

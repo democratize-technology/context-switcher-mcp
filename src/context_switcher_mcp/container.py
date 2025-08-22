@@ -6,10 +6,11 @@ loose coupling between modules and supports testability. All dependencies
 are registered here and resolved through protocols.
 """
 
-from .logging_base import get_logger
-from typing import TypeVar, Type, Dict, Any, Optional, Callable, cast
+from collections.abc import Callable
 from threading import Lock
+from typing import Any, TypeVar, cast
 
+from .logging_base import get_logger
 from .protocols import ContainerProtocol
 
 logger = get_logger(__name__)
@@ -33,13 +34,13 @@ class DependencyContainer(ContainerProtocol):
     """Simple dependency injection container with lifecycle management"""
 
     def __init__(self):
-        self._instances: Dict[Type, Any] = {}
-        self._factories: Dict[Type, Callable[[], Any]] = {}
-        self._singletons: Dict[Type, Any] = {}
+        self._instances: dict[type, Any] = {}
+        self._factories: dict[type, Callable[[], Any]] = {}
+        self._singletons: dict[type, Any] = {}
         self._resolving: set = set()  # Track what we're currently resolving
         self._lock = Lock()  # Thread safety for registration
 
-    def register_instance(self, interface: Type[T], instance: T) -> None:
+    def register_instance(self, interface: type[T], instance: T) -> None:
         """Register a pre-created singleton instance
 
         Args:
@@ -50,7 +51,7 @@ class DependencyContainer(ContainerProtocol):
             logger.debug(f"Registering instance for {interface.__name__}")
             self._instances[interface] = instance
 
-    def register_factory(self, interface: Type[T], factory: Callable[[], T]) -> None:
+    def register_factory(self, interface: type[T], factory: Callable[[], T]) -> None:
         """Register a factory function that creates instances
 
         Args:
@@ -62,7 +63,7 @@ class DependencyContainer(ContainerProtocol):
             self._factories[interface] = factory
 
     def register_singleton_factory(
-        self, interface: Type[T], factory: Callable[[], T]
+        self, interface: type[T], factory: Callable[[], T]
     ) -> None:
         """Register a factory that creates a singleton instance
 
@@ -83,7 +84,7 @@ class DependencyContainer(ContainerProtocol):
 
             self._factories[interface] = singleton_wrapper
 
-    def register_transient(self, interface: Type[T], implementation: Type[T]) -> None:
+    def register_transient(self, interface: type[T], implementation: type[T]) -> None:
         """Register a transient dependency (new instance each time)
 
         Args:
@@ -96,7 +97,7 @@ class DependencyContainer(ContainerProtocol):
 
         self.register_factory(interface, factory)
 
-    def register_singleton(self, interface: Type[T], implementation: Type[T]) -> None:
+    def register_singleton(self, interface: type[T], implementation: type[T]) -> None:
         """Register a singleton dependency (same instance each time)
 
         Args:
@@ -109,7 +110,7 @@ class DependencyContainer(ContainerProtocol):
 
         self.register_singleton_factory(interface, factory)
 
-    def get(self, interface: Type[T]) -> T:
+    def get(self, interface: type[T]) -> T:
         """Get instance of interface
 
         Args:
@@ -148,7 +149,7 @@ class DependencyContainer(ContainerProtocol):
             f"Available registrations: {list(self._instances.keys()) + list(self._factories.keys())}"
         )
 
-    def get_optional(self, interface: Type[T]) -> Optional[T]:
+    def get_optional(self, interface: type[T]) -> T | None:
         """Get instance of interface, return None if not found
 
         Args:
@@ -162,7 +163,7 @@ class DependencyContainer(ContainerProtocol):
         except DependencyResolutionError:
             return None
 
-    def has_registration(self, interface: Type) -> bool:
+    def has_registration(self, interface: type) -> bool:
         """Check if interface is registered
 
         Args:
@@ -173,7 +174,7 @@ class DependencyContainer(ContainerProtocol):
         """
         return interface in self._instances or interface in self._factories
 
-    def clear_registration(self, interface: Type) -> bool:
+    def clear_registration(self, interface: type) -> bool:
         """Clear registration for interface
 
         Args:
@@ -210,7 +211,7 @@ class DependencyContainer(ContainerProtocol):
             self._singletons.clear()
             logger.debug("Cleared all dependency registrations")
 
-    def get_registration_info(self) -> Dict[str, Dict[str, Any]]:
+    def get_registration_info(self) -> dict[str, dict[str, Any]]:
         """Get information about current registrations
 
         Returns:
@@ -234,7 +235,7 @@ class DependencyContainer(ContainerProtocol):
             "total_registrations": len(self._instances) + len(self._factories),
         }
 
-    def validate_dependencies(self) -> Dict[str, Any]:
+    def validate_dependencies(self) -> dict[str, Any]:
         """Validate that all registered dependencies can be resolved
 
         Returns:
@@ -269,7 +270,7 @@ class DependencyContainer(ContainerProtocol):
 
 
 # Global container instance
-_global_container: Optional[DependencyContainer] = None
+_global_container: DependencyContainer | None = None
 _container_lock = Lock()
 
 
@@ -302,37 +303,37 @@ def reset_container() -> None:
 
 
 # Convenience functions that use the global container
-def register_instance(interface: Type[T], instance: T) -> None:
+def register_instance(interface: type[T], instance: T) -> None:
     """Register instance in global container"""
     get_container().register_instance(interface, instance)
 
 
-def register_factory(interface: Type[T], factory: Callable[[], T]) -> None:
+def register_factory(interface: type[T], factory: Callable[[], T]) -> None:
     """Register factory in global container"""
     get_container().register_factory(interface, factory)
 
 
-def register_singleton_factory(interface: Type[T], factory: Callable[[], T]) -> None:
+def register_singleton_factory(interface: type[T], factory: Callable[[], T]) -> None:
     """Register singleton factory in global container"""
     get_container().register_singleton_factory(interface, factory)
 
 
-def register_singleton(interface: Type[T], implementation: Type[T]) -> None:
+def register_singleton(interface: type[T], implementation: type[T]) -> None:
     """Register singleton in global container"""
     get_container().register_singleton(interface, implementation)
 
 
-def get_dependency(interface: Type[T]) -> T:
+def get_dependency(interface: type[T]) -> T:
     """Get dependency from global container"""
     return get_container().get(interface)
 
 
-def get_optional_dependency(interface: Type[T]) -> Optional[T]:
+def get_optional_dependency(interface: type[T]) -> T | None:
     """Get optional dependency from global container"""
     return get_container().get_optional(interface)
 
 
-def has_dependency(interface: Type) -> bool:
+def has_dependency(interface: type) -> bool:
     """Check if dependency is registered in global container"""
     return get_container().has_registration(interface)
 
@@ -341,7 +342,7 @@ def has_dependency(interface: Type) -> bool:
 class DependencyOverride:
     """Context manager for temporarily overriding dependencies"""
 
-    def __init__(self, interface: Type[T], instance: T):
+    def __init__(self, interface: type[T], instance: T):
         self.interface = interface
         self.instance = instance
         self.container = get_container()
@@ -368,6 +369,6 @@ class DependencyOverride:
         # backup/restore mechanism
 
 
-def with_dependency_override(interface: Type[T], instance: T):
+def with_dependency_override(interface: type[T], instance: T):
     """Decorator/context manager for dependency override"""
     return DependencyOverride(interface, instance)

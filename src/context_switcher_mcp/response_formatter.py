@@ -1,14 +1,14 @@
 """Response formatting service for AORP-compliant responses"""
 
-from .logging_base import get_logger
-from typing import Any, Dict, Optional
+from typing import Any
 
 from .aorp import create_error_response
 from .backend_factory import BackendFactory
 from .compression import compress_perspectives
 from .constants import NO_RESPONSE
 from .exceptions import ModelBackendError
-from .models import Thread, ModelBackend
+from .logging_base import get_logger
+from .models import ModelBackend, Thread
 
 logger = get_logger(__name__)
 
@@ -24,7 +24,7 @@ class ResponseFormatter:
         self,
         error_message: str,
         error_type: str,
-        context: Optional[Dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
         recoverable: bool = True,
     ) -> str:
         """Format an error response according to AORP specification"""
@@ -46,7 +46,7 @@ class ResponseFormatter:
         return f"{NO_RESPONSE}{reason_text}"
 
     def format_success_response(
-        self, content: str, metadata: Optional[Dict[str, Any]] = None
+        self, content: str, metadata: dict[str, Any] | None = None
     ) -> str:
         """Format a successful response with optional metadata"""
         if metadata:
@@ -56,7 +56,7 @@ class ResponseFormatter:
 
     async def synthesize_responses(
         self,
-        responses: Dict[str, str],
+        responses: dict[str, str],
         session_id: str = "unknown",
         synthesis_backend: ModelBackend = ModelBackend.BEDROCK,
     ) -> str:
@@ -125,7 +125,7 @@ class ResponseFormatter:
                 {"session_id": session_id},
             )
 
-    def _create_synthesis_prompt(self, responses: Dict[str, str]) -> str:
+    def _create_synthesis_prompt(self, responses: dict[str, str]) -> str:
         """Create a prompt for synthesizing multiple perspective responses"""
         prompt_parts = [
             "I need you to synthesize insights from multiple perspective analyses below.",
@@ -162,10 +162,10 @@ class ResponseFormatter:
         self,
         event_type: str,
         content: str,
-        perspective_name: Optional[str] = None,
-        timestamp: Optional[float] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        perspective_name: str | None = None,
+        timestamp: float | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Format a streaming event for real-time responses"""
         import time
 
@@ -191,7 +191,7 @@ class ResponseFormatter:
         """Check if a response is an abstention"""
         return NO_RESPONSE in response
 
-    def extract_error_info(self, error_response: str) -> Dict[str, Any]:
+    def extract_error_info(self, error_response: str) -> dict[str, Any]:
         """Extract error information from an AORP error response"""
         try:
             if error_response.startswith("AORP_ERROR: "):
@@ -264,7 +264,7 @@ class ResponseFormatter:
                 "recoverable": True,
             }
 
-    def format_perspective_summary(self, responses: Dict[str, str]) -> Dict[str, Any]:
+    def format_perspective_summary(self, responses: dict[str, str]) -> dict[str, Any]:
         """Create a summary of perspective responses for metrics and logging"""
         summary = {
             "total_perspectives": len(responses),

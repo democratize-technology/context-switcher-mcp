@@ -2,41 +2,41 @@
 
 import time
 from enum import Enum
-from typing import Any, Dict, Type
+from typing import Any
 
 from .exceptions import (
-    SessionError,
-    SessionNotFoundError,
-    SessionExpiredError,
-    CircuitBreakerError,
-    CircuitBreakerOpenError,
-    ModelBackendError,
-    ModelConnectionError,
-    ModelTimeoutError,
-    ModelRateLimitError,
-    ModelAuthenticationError,
-    ModelValidationError,
-    ConfigurationError,
-    StorageError,
-    SerializationError,
     AuthenticationError,
     AuthorizationError,
+    BusinessRuleValidationError,
+    CircuitBreakerError,
+    CircuitBreakerOpenError,
+    ConfigurationError,
+    CoTProcessingError,
+    CoTTimeoutError,
+    DeadlockError,
     InputValidationError,
-    SecurityConfigurationError,
-    NetworkTimeoutError,
+    LockTimeoutError,
+    ModelAuthenticationError,
+    ModelBackendError,
+    ModelConnectionError,
+    ModelRateLimitError,
+    ModelTimeoutError,
+    ModelValidationError,
     NetworkConnectivityError,
     NetworkProtocolError,
-    DeadlockError,
-    RaceConditionError,
-    LockTimeoutError,
-    SchemaValidationError,
+    NetworkTimeoutError,
     ParameterValidationError,
-    BusinessRuleValidationError,
-    PerformanceTimeoutError,
-    ResourceExhaustionError,
     PerformanceDegradationError,
-    CoTTimeoutError,
-    CoTProcessingError,
+    PerformanceTimeoutError,
+    RaceConditionError,
+    ResourceExhaustionError,
+    SchemaValidationError,
+    SecurityConfigurationError,
+    SerializationError,
+    SessionError,
+    SessionExpiredError,
+    SessionNotFoundError,
+    StorageError,
 )
 
 
@@ -63,7 +63,7 @@ class ErrorCategory(Enum):
 
 
 # Mapping of exception types to their classifications
-ERROR_CLASSIFICATIONS: Dict[Type[Exception], Dict[str, Any]] = {
+ERROR_CLASSIFICATIONS: dict[type[Exception], dict[str, Any]] = {
     # Session Errors
     SessionNotFoundError: {
         "severity": ErrorSeverity.MEDIUM,
@@ -358,7 +358,7 @@ ERROR_CLASSIFICATIONS: Dict[Type[Exception], Dict[str, Any]] = {
 }
 
 
-def classify_error(error: Exception) -> Dict[str, Any]:
+def classify_error(error: Exception) -> dict[str, Any]:
     """Classify an error and return its handling characteristics.
 
     Args:
@@ -468,7 +468,7 @@ def get_error_severity(error: Exception) -> ErrorSeverity:
     return classification.get("severity", ErrorSeverity.MEDIUM)
 
 
-def get_retry_parameters(error: Exception) -> Dict[str, Any]:
+def get_retry_parameters(error: Exception) -> dict[str, Any]:
     """Get retry parameters for an error.
 
     Args:
@@ -507,7 +507,7 @@ def get_security_risk_level(error: Exception) -> str:
 
     # Non-security errors
     if isinstance(
-        error, (InputValidationError, AuthenticationError, AuthorizationError)
+        error, InputValidationError | AuthenticationError | AuthorizationError
     ):
         return "medium_risk"
 
@@ -546,7 +546,7 @@ def should_alert_administrators(error: Exception) -> bool:
     return False
 
 
-def get_error_handling_strategy(error: Exception) -> Dict[str, Any]:
+def get_error_handling_strategy(error: Exception) -> dict[str, Any]:
     """Get comprehensive error handling strategy for an error.
 
     Args:
@@ -569,7 +569,7 @@ def get_error_handling_strategy(error: Exception) -> Dict[str, Any]:
     }
 
 
-def _get_recommended_log_level(classification: Dict[str, Any]) -> str:
+def _get_recommended_log_level(classification: dict[str, Any]) -> str:
     """Get recommended logging level based on error classification."""
     severity = classification["severity"]
     category = classification["category"]

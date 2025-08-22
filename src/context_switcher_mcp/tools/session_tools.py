@@ -1,11 +1,12 @@
 """Session management tools for Context-Switcher MCP Server"""
 
-from ..logging_config import get_logger
-from typing import Dict, Any
+from typing import Any
+
 from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
 from ..error_helpers import session_not_found_error
+from ..logging_config import get_logger
 from ..templates import PERSPECTIVE_TEMPLATES
 from ..validation import validate_session_id
 
@@ -16,7 +17,7 @@ def register_session_tools(mcp: FastMCP) -> None:
     """Register session management tools with the MCP server"""
 
     @mcp.tool(description="List all active context-switching sessions")
-    async def list_sessions() -> Dict[str, Any]:
+    async def list_sessions() -> dict[str, Any]:
         """List all active analysis sessions"""
         from .. import session_manager
 
@@ -45,7 +46,7 @@ def register_session_tools(mcp: FastMCP) -> None:
     @mcp.tool(
         description="See available perspective templates for common analysis patterns - architecture decisions, debugging, API design, and more"
     )
-    async def list_templates() -> Dict[str, Any]:
+    async def list_templates() -> dict[str, Any]:
         """List all available perspective templates"""
         template_info = {}
 
@@ -72,7 +73,7 @@ def register_session_tools(mcp: FastMCP) -> None:
     @mcp.tool(
         description="Quick check of your most recent analysis session - see perspectives and results without remembering session ID"
     )
-    async def current_session() -> Dict[str, Any]:
+    async def current_session() -> dict[str, Any]:
         """Get information about the most recent session"""
         from .. import session_manager
 
@@ -123,7 +124,7 @@ def register_session_tools(mcp: FastMCP) -> None:
         session_id: str = Field(description="Session ID to retrieve")
 
     @mcp.tool(description="Get details of a specific context-switching session")
-    async def get_session(request: GetSessionRequest) -> Dict[str, Any]:
+    async def get_session(request: GetSessionRequest) -> dict[str, Any]:
         """Get detailed information about a session"""
         # Validate session ID with client binding
         session_valid, session_error = await validate_session_id(

@@ -1,11 +1,11 @@
 """Tests for security enhancements in Context-Switcher MCP"""
 
 import asyncio
-import pytest
 from unittest.mock import patch
 
-from src.context_switcher_mcp.handlers.session_handler import generate_secure_session_id
+import pytest
 from src.context_switcher_mcp.circuit_breaker_manager import CircuitBreakerState
+from src.context_switcher_mcp.handlers.session_handler import generate_secure_session_id
 from src.context_switcher_mcp.models import ModelBackend
 
 

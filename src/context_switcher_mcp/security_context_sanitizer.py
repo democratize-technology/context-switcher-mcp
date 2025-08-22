@@ -4,11 +4,12 @@ This module provides comprehensive sanitization of sensitive context data
 before logging to prevent information disclosure vulnerabilities.
 """
 
-import re
 import hashlib
-from .logging_base import get_logger
-from typing import Any, Dict
+import re
 from datetime import datetime, timezone
+from typing import Any
+
+from .logging_base import get_logger
 
 logger = get_logger(__name__)
 
@@ -102,8 +103,8 @@ class SecurityContextSanitizer:
         }
 
     def sanitize_context_dict(
-        self, context: Dict[str, Any], context_type: str = "generic"
-    ) -> Dict[str, Any]:
+        self, context: dict[str, Any], context_type: str = "generic"
+    ) -> dict[str, Any]:
         """
         Sanitize a context dictionary for secure logging
 
@@ -123,7 +124,7 @@ class SecurityContextSanitizer:
 
         return self._sanitize_generic_context(context)
 
-    def sanitize_exception_context(self, exception: Exception) -> Dict[str, Any]:
+    def sanitize_exception_context(self, exception: Exception) -> dict[str, Any]:
         """
         Sanitize context from an exception object
 
@@ -157,7 +158,7 @@ class SecurityContextSanitizer:
 
         return sanitized
 
-    def _sanitize_generic_context(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    def _sanitize_generic_context(self, context: dict[str, Any]) -> dict[str, Any]:
         """Generic context sanitization"""
         sanitized = {}
 
@@ -182,7 +183,7 @@ class SecurityContextSanitizer:
 
         return sanitized
 
-    def _sanitize_security_context(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    def _sanitize_security_context(self, context: dict[str, Any]) -> dict[str, Any]:
         """Specialized sanitization for security context"""
         sanitized = {
             "context_type": "security",
@@ -211,7 +212,7 @@ class SecurityContextSanitizer:
 
         return sanitized
 
-    def _sanitize_network_context(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    def _sanitize_network_context(self, context: dict[str, Any]) -> dict[str, Any]:
         """Specialized sanitization for network context"""
         sanitized = {
             "context_type": "network",
@@ -237,7 +238,7 @@ class SecurityContextSanitizer:
 
         return sanitized
 
-    def _sanitize_performance_context(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    def _sanitize_performance_context(self, context: dict[str, Any]) -> dict[str, Any]:
         """Specialized sanitization for performance context"""
         sanitized = {
             "context_type": "performance",
@@ -268,7 +269,7 @@ class SecurityContextSanitizer:
 
         return sanitized
 
-    def _sanitize_validation_context(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    def _sanitize_validation_context(self, context: dict[str, Any]) -> dict[str, Any]:
         """Specialized sanitization for validation context"""
         sanitized = {
             "context_type": "validation",
@@ -294,7 +295,7 @@ class SecurityContextSanitizer:
 
         return sanitized
 
-    def _sanitize_concurrency_context(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    def _sanitize_concurrency_context(self, context: dict[str, Any]) -> dict[str, Any]:
         """Specialized sanitization for concurrency context"""
         sanitized = {
             "context_type": "concurrency",
@@ -326,7 +327,7 @@ class SecurityContextSanitizer:
             return [
                 self._sanitize_value(item) for item in value[:10]
             ]  # Limit list size
-        elif isinstance(value, (int, float, bool)):
+        elif isinstance(value, int | float | bool):
             return value
         else:
             value_str = str(value)
@@ -385,8 +386,8 @@ class SecurityContextSanitizer:
         return hashlib.sha256(data.encode()).hexdigest()[:8]
 
     def get_sanitization_summary(
-        self, original_context: Dict[str, Any], sanitized_context: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, original_context: dict[str, Any], sanitized_context: dict[str, Any]
+    ) -> dict[str, Any]:
         """Generate a summary of sanitization actions taken"""
         return {
             "original_keys": len(original_context)
@@ -414,15 +415,15 @@ def get_context_sanitizer() -> SecurityContextSanitizer:
     return _global_sanitizer
 
 
-def sanitize_exception_context(exception: Exception) -> Dict[str, Any]:
+def sanitize_exception_context(exception: Exception) -> dict[str, Any]:
     """Convenience function to sanitize exception context"""
     sanitizer = get_context_sanitizer()
     return sanitizer.sanitize_exception_context(exception)
 
 
 def sanitize_context_dict(
-    context: Dict[str, Any], context_type: str = "generic"
-) -> Dict[str, Any]:
+    context: dict[str, Any], context_type: str = "generic"
+) -> dict[str, Any]:
     """Convenience function to sanitize context dictionary"""
     sanitizer = get_context_sanitizer()
     return sanitizer.sanitize_context_dict(context, context_type)

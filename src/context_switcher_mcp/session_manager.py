@@ -1,17 +1,18 @@
 """Session management with automatic cleanup for Context-Switcher MCP"""
 
 import asyncio
-from datetime import datetime, timezone, timedelta
-from typing import Dict, Optional, Any, Tuple
+import logging
+from datetime import datetime, timedelta, timezone
+from typing import Any
 
-from .models import ContextSwitcherSession
 from .config import get_config
+from .error_context import suppress_and_log
+from .error_logging import log_error_with_context
 from .exceptions import (
     SessionCleanupError,
 )
-from .error_context import suppress_and_log
-from .error_logging import log_error_with_context
 from .logging_base import get_logger
+from .models import ContextSwitcherSession
 
 logger = get_logger(__name__)
 
@@ -33,7 +34,7 @@ class SessionManager:
             cleanup_interval_minutes: Minutes between cleanup runs (uses config default if None)
         """
         config = get_config()
-        self.sessions: Dict[str, ContextSwitcherSession] = {}
+        self.sessions: dict[str, ContextSwitcherSession] = {}
         self.max_sessions = (
             max_sessions
             if max_sessions is not None
@@ -48,7 +49,7 @@ class SessionManager:
             seconds=config.session.cleanup_interval_seconds
         )
         self._lock = asyncio.Lock()
-        self._cleanup_task: Optional[asyncio.Task] = None
+        self._cleanup_task: asyncio.Task | None = None
 
     async def add_session(self, session: ContextSwitcherSession) -> bool:
         """Add a new session
@@ -70,7 +71,7 @@ class SessionManager:
             )
             return True
 
-    async def get_session(self, session_id: str) -> Optional[ContextSwitcherSession]:
+    async def get_session(self, session_id: str) -> ContextSwitcherSession | None:
         """Get a session by ID, atomically handling expiration"""
         async with self._lock:
             session = self.sessions.get(session_id)
@@ -114,7 +115,7 @@ class SessionManager:
                 return True
             return False
 
-    async def list_active_sessions(self) -> Dict[str, ContextSwitcherSession]:
+    async def list_active_sessions(self) -> dict[str, ContextSwitcherSession]:
         """List all active (non-expired) sessions"""
         async with self._lock:
             await self._cleanup_expired_sessions()
@@ -217,7 +218,7 @@ class SessionManager:
 
     async def get_session_atomic(
         self, session_id: str
-    ) -> Tuple[Optional[ContextSwitcherSession], int]:
+    ) -> tuple[ContextSwitcherSession | None, int]:
         """Get a session atomically with its version for optimistic locking
 
         Returns:
@@ -320,7 +321,7 @@ class SessionManager:
                 # Sleep a bit extra to avoid tight error loops
                 await asyncio.sleep(10)
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """Get session manager statistics"""
         async with self._lock:
             active_sessions = len(self.sessions)

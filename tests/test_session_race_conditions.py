@@ -1,12 +1,12 @@
 """Tests for session manager race condition fixes"""
 
 import asyncio
-import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
-from context_switcher_mcp.session_manager import SessionManager
+import pytest
 from context_switcher_mcp.models import ContextSwitcherSession
+from context_switcher_mcp.session_manager import SessionManager
 
 
 @pytest.fixture

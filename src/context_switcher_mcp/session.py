@@ -8,33 +8,34 @@ import asyncio
 import hashlib
 import secrets
 import sys
-from datetime import datetime, timezone
-from typing import Dict, List, Optional, Any, Tuple, Callable
+from collections.abc import Callable
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+from typing import Any
 
 try:
-    from .session_types import (
-        SessionState,
-        Thread,
-        ClientBinding,
-        SecurityEvent,
-        AnalysisRecord,
-    )
     from .exceptions import (
+        SessionCleanupError,
+        SessionConcurrencyError,
         SessionError,
         SessionSecurityError,
-        SessionConcurrencyError,
-        SessionCleanupError,
     )
     from .logging_base import get_logger
+    from .session_types import (
+        AnalysisRecord,
+        ClientBinding,
+        SecurityEvent,
+        SessionState,
+        Thread,
+    )
 except ImportError:
     # Direct imports for standalone usage
     from session_types import (
-        SessionState,
-        Thread,
+        AnalysisRecord,
         ClientBinding,
         SecurityEvent,
-        AnalysisRecord,
+        SessionState,
+        Thread,
     )
 
     # Mock exceptions for standalone usage
@@ -81,8 +82,8 @@ class Session:
     def __init__(
         self,
         session_id: str,
-        topic: Optional[str] = None,
-        secret_key: Optional[str] = None,
+        topic: str | None = None,
+        secret_key: str | None = None,
         create_client_binding: bool = True,
     ):
         """Initialize a new session with built-in security and concurrency
@@ -105,7 +106,7 @@ class Session:
 
         # Built-in concurrency control - single lock per session
         self._lock = asyncio.Lock()
-        self._cleanup_callbacks: List[Callable[[], None]] = []
+        self._cleanup_callbacks: list[Callable[[], None]] = []
 
         # Create client binding for security if requested
         if create_client_binding:
@@ -173,7 +174,7 @@ class Session:
                     f"Completed operation '{operation_name}' in {operation_time:.3f}s"
                 )
 
-    async def validate_security(self, tool_name: Optional[str] = None) -> bool:
+    async def validate_security(self, tool_name: str | None = None) -> bool:
         """Validate session security and record access patterns
 
         Args:
@@ -240,7 +241,7 @@ class Session:
         ):
             self._state.client_binding.tool_usage_sequence.append(tool_name)
 
-    def _record_security_event(self, event_type: str, details: Dict[str, Any]) -> None:
+    def _record_security_event(self, event_type: str, details: dict[str, Any]) -> None:
         """Record a security event (internal, assumes lock held)"""
         event = SecurityEvent(
             event_type=event_type, timestamp=datetime.now(timezone.utc), details=details
@@ -279,7 +280,7 @@ class Session:
             logger.info(f"Added thread '{thread.name}' to session {self.session_id}")
             return True
 
-    async def get_thread(self, name: str) -> Optional[Thread]:
+    async def get_thread(self, name: str) -> Thread | None:
         """Get a thread by name
 
         Args:
@@ -313,7 +314,7 @@ class Session:
                 return True
             return False
 
-    async def get_all_threads(self) -> Dict[str, Thread]:
+    async def get_all_threads(self) -> dict[str, Thread]:
         """Get all threads in the session
 
         Returns:
@@ -325,7 +326,7 @@ class Session:
     async def record_analysis(
         self,
         prompt: str,
-        responses: Dict[str, str],
+        responses: dict[str, str],
         response_time: float = 0.0,
     ) -> None:
         """Record an analysis execution with metrics
@@ -355,7 +356,7 @@ class Session:
                 f"{active_count} active, {abstained_count} abstained responses"
             )
 
-    async def get_last_analysis(self) -> Optional[AnalysisRecord]:
+    async def get_last_analysis(self) -> AnalysisRecord | None:
         """Get the most recent analysis
 
         Returns:
@@ -364,7 +365,7 @@ class Session:
         async with self._atomic_operation("get_last_analysis"):
             return self._state.analyses[-1] if self._state.analyses else None
 
-    async def get_session_info(self) -> Dict[str, Any]:
+    async def get_session_info(self) -> dict[str, Any]:
         """Get comprehensive session information
 
         Returns:
@@ -401,7 +402,7 @@ class Session:
                 ],
             }
 
-    async def get_version_info(self) -> Tuple[int, datetime]:
+    async def get_version_info(self) -> tuple[int, datetime]:
         """Get current version and last access time for concurrency control
 
         Returns:
@@ -425,7 +426,7 @@ class Session:
     async def atomic_update(
         self,
         update_func: Callable,
-        expected_version: Optional[int] = None,
+        expected_version: int | None = None,
     ) -> Any:
         """Perform an atomic update with optional optimistic locking
 
@@ -522,7 +523,7 @@ class Session:
             else:
                 logger.info(f"Session {self.session_id} cleanup completed successfully")
 
-    async def export_state(self) -> Dict[str, Any]:
+    async def export_state(self) -> dict[str, Any]:
         """Export complete session state for persistence/backup
 
         Returns:
@@ -534,8 +535,8 @@ class Session:
     @classmethod
     async def restore_from_state(
         cls,
-        state_data: Dict[str, Any],
-        secret_key: Optional[str] = None,
+        state_data: dict[str, Any],
+        secret_key: str | None = None,
     ) -> "Session":
         """Restore session from exported state data
 

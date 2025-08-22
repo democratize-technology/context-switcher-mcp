@@ -1,9 +1,9 @@
 """Enhanced confidence calibration and quality metrics for Context Switcher MCP"""
 
 import re
-from typing import Any, Dict, Tuple
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 
 class ResponseQuality(Enum):
@@ -227,9 +227,9 @@ class ConfidenceCalibrator:
     def _calculate_relevance_score(self, response: str, prompt: str) -> float:
         """Measure how well response addresses the prompt"""
         # Extract key terms from prompt
-        prompt_words = set(
+        prompt_words = {
             word.lower() for word in prompt.split() if len(word) > 3 and word.isalnum()
-        )
+        }
 
         # Count prompt terms in response
         response_words = response.lower().split()
@@ -331,11 +331,11 @@ class ConfidenceCalibrator:
 
     def calculate_enhanced_confidence(
         self,
-        perspective_metrics: Dict[str, QualityMetrics],
+        perspective_metrics: dict[str, QualityMetrics],
         error_count: int,
         abstention_count: int,
         total_perspectives: int,
-    ) -> Tuple[float, Dict[str, Any]]:
+    ) -> tuple[float, dict[str, Any]]:
         """Calculate enhanced confidence score with detailed breakdown"""
         # Input validation
         validation_result = self._validate_confidence_inputs(
@@ -362,16 +362,16 @@ class ConfidenceCalibrator:
         return min(1.0, max(0.0, confidence)), breakdown
 
     def _validate_confidence_inputs(
-        self, perspective_metrics: Dict[str, QualityMetrics], total_perspectives: int
-    ) -> Tuple[float, Dict[str, str]] | None:
+        self, perspective_metrics: dict[str, QualityMetrics], total_perspectives: int
+    ) -> tuple[float, dict[str, str]] | None:
         """Validate inputs for confidence calculation"""
         if total_perspectives == 0:
             return 0.0, {"reason": "No perspectives available"}
         return None
 
     def _extract_active_metrics(
-        self, perspective_metrics: Dict[str, QualityMetrics]
-    ) -> Dict[str, QualityMetrics]:
+        self, perspective_metrics: dict[str, QualityMetrics]
+    ) -> dict[str, QualityMetrics]:
         """Extract metrics for non-abstaining perspectives"""
         return {
             k: v
@@ -380,8 +380,8 @@ class ConfidenceCalibrator:
         }
 
     def _build_confidence_breakdown(
-        self, components: Dict[str, float], active_metrics: Dict[str, QualityMetrics]
-    ) -> Dict[str, Any]:
+        self, components: dict[str, float], active_metrics: dict[str, QualityMetrics]
+    ) -> dict[str, Any]:
         """Build detailed breakdown of confidence calculation"""
         quality_dist_builder = QualityDistributionBuilder()
         quality_distribution = quality_dist_builder.build_distribution(active_metrics)
@@ -399,7 +399,7 @@ class ConfidenceCalibrator:
 
 def analyze_synthesis_quality(
     synthesis_text: str, perspectives_count: int, original_prompt: str
-) -> Tuple[float, Dict[str, Any]]:
+) -> tuple[float, dict[str, Any]]:
     """Analyze synthesis quality with detailed metrics"""
 
     calibrator = ConfidenceCalibrator()
@@ -487,11 +487,11 @@ class ConfidenceCalculator:
 
     def calculate_components(
         self,
-        active_metrics: Dict[str, QualityMetrics],
+        active_metrics: dict[str, QualityMetrics],
         error_count: int,
         abstention_count: int,
         total_perspectives: int,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """Calculate all confidence components"""
         coverage = self._calculate_coverage(active_metrics, total_perspectives)
         avg_quality = self._calculate_average_quality(active_metrics)
@@ -519,13 +519,13 @@ class ConfidenceCalculator:
         }
 
     def _calculate_coverage(
-        self, active_metrics: Dict[str, QualityMetrics], total_perspectives: int
+        self, active_metrics: dict[str, QualityMetrics], total_perspectives: int
     ) -> float:
         """Calculate coverage factor"""
         return len(active_metrics) / total_perspectives
 
     def _calculate_average_quality(
-        self, active_metrics: Dict[str, QualityMetrics]
+        self, active_metrics: dict[str, QualityMetrics]
     ) -> float:
         """Calculate average quality of active responses"""
         return sum(m.overall_score for m in active_metrics.values()) / len(
@@ -541,7 +541,7 @@ class ConfidenceCalculator:
         return max(0.7, 1.0 - (abstention_count * 0.05))
 
     def _calculate_consistency(
-        self, active_metrics: Dict[str, QualityMetrics], avg_quality: float
+        self, active_metrics: dict[str, QualityMetrics], avg_quality: float
     ) -> float:
         """Calculate consistency factor based on quality variance"""
         quality_scores = [m.overall_score for m in active_metrics.values()]
@@ -553,7 +553,7 @@ class ConfidenceCalculator:
         )
         return max(0.5, 1.0 - variance)
 
-    def compute_final_confidence(self, components: Dict[str, float]) -> float:
+    def compute_final_confidence(self, components: dict[str, float]) -> float:
         """Compute final confidence using weighted components"""
         return (
             components["coverage"] * 0.25
@@ -568,8 +568,8 @@ class QualityDistributionBuilder:
     """Builds quality distribution breakdown"""
 
     def build_distribution(
-        self, active_metrics: Dict[str, QualityMetrics]
-    ) -> Dict[str, int]:
+        self, active_metrics: dict[str, QualityMetrics]
+    ) -> dict[str, int]:
         """Build quality level distribution for active metrics"""
         quality_levels = [
             ResponseQuality.EXCELLENT,
@@ -585,7 +585,7 @@ class QualityDistributionBuilder:
         }
 
     def _count_by_quality_level(
-        self, active_metrics: Dict[str, QualityMetrics], quality_level: ResponseQuality
+        self, active_metrics: dict[str, QualityMetrics], quality_level: ResponseQuality
     ) -> int:
         """Count metrics at specific quality level"""
         return sum(

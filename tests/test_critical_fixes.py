@@ -1,19 +1,19 @@
 """Test suite for critical security and reliability fixes"""
 
 import asyncio
+import concurrent.futures
 import json
 import tempfile
 import threading
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from datetime import datetime, timezone, timedelta
-from unittest.mock import Mock, patch, MagicMock
-import pytest
-import concurrent.futures
+from unittest.mock import MagicMock, Mock, patch
 
+import pytest
 from context_switcher_mcp.circuit_breaker_store import CircuitBreakerStore
+from context_switcher_mcp.exceptions import SessionCleanupError
 from context_switcher_mcp.models import ContextSwitcherSession
 from context_switcher_mcp.session_manager import SessionManager
-from context_switcher_mcp.exceptions import SessionCleanupError
 
 
 class TestCircuitBreakerPathValidation:

@@ -1,24 +1,25 @@
 """Perspective management tools for Context-Switcher MCP Server"""
 
-from ..logging_config import get_logger
-from typing import Dict, Any, Optional
-from mcp.server.fastmcp import FastMCP
+from typing import Any
 from uuid import uuid4
+
+from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
 from ..aorp import create_error_response
+from ..exceptions import (
+    ModelBackendError,
+    SessionNotFoundError,
+)
+from ..logging_config import get_logger
 from ..models import ModelBackend, Thread
+from ..perspective_selector import SmartPerspectiveSelector
 from ..security import (
     log_security_event,
     sanitize_error_message,
     validate_perspective_data,
 )
 from ..validation import validate_session_id
-from ..perspective_selector import SmartPerspectiveSelector
-from ..exceptions import (
-    SessionNotFoundError,
-    ModelBackendError,
-)
 
 logger = get_logger(__name__)
 
@@ -29,20 +30,20 @@ class AddPerspectiveRequest(BaseModel):
     description: str = Field(
         description="Description of what this perspective should focus on"
     )
-    custom_prompt: Optional[str] = Field(
+    custom_prompt: str | None = Field(
         default=None, description="Custom system prompt for this perspective"
     )
 
 
 class RecommendPerspectivesRequest(BaseModel):
     topic: str = Field(description="The problem or topic to analyze")
-    context: Optional[str] = Field(
+    context: str | None = Field(
         default=None, description="Additional context about the problem"
     )
     max_recommendations: int = Field(
         default=5, description="Maximum number of recommendations"
     )
-    existing_session_id: Optional[str] = Field(
+    existing_session_id: str | None = Field(
         default=None, description="Session ID to add perspectives to"
     )
 
@@ -53,7 +54,7 @@ def register_perspective_tools(mcp: FastMCP) -> None:
     @mcp.tool(
         description="When the standard perspectives miss something crucial - add specialized lenses like 'performance', 'migration_path', 'customer_support', or any domain-specific viewpoint your problem needs"
     )
-    async def add_perspective(request: AddPerspectiveRequest) -> Dict[str, Any]:
+    async def add_perspective(request: AddPerspectiveRequest) -> dict[str, Any]:
         """Add a new perspective to an existing analysis session"""
         # Validate session ID with client binding
         session_valid, session_error = await validate_session_id(
@@ -144,7 +145,7 @@ def register_perspective_tools(mcp: FastMCP) -> None:
     )
     async def recommend_perspectives(
         request: RecommendPerspectivesRequest,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get AI-powered perspective recommendations for a topic"""
         try:
             selector = SmartPerspectiveSelector()

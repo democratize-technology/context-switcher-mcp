@@ -2,22 +2,24 @@
 Test suite for ClientValidationService security module.
 """
 
-import sys
 import os
-from datetime import datetime, timezone, timedelta
+import sys
+from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 import pytest  # noqa: E402
-
-from context_switcher_mcp.models import ClientBinding, ContextSwitcherSession  # noqa: E402
+from context_switcher_mcp.models import (  # noqa: E402
+    ClientBinding,
+    ContextSwitcherSession,
+)
 from context_switcher_mcp.security.client_validation_service import (  # noqa: E402
-    ClientValidationService,
     AccessPattern,
-    is_suspicious_access,
-    mark_session_suspicious,
+    ClientValidationService,
     cleanup_suspicious_sessions,
     get_security_metrics,
+    is_suspicious_access,
+    mark_session_suspicious,
 )
 
 
@@ -290,7 +292,7 @@ class TestClientValidationService:
 
     def test_update_validation_rule(self):
         """Test updating validation rules"""
-        original_value = self.service.validation_rules["suspicious_access_threshold"]
+        self.service.validation_rules["suspicious_access_threshold"]
         new_value = 150
 
         # Update rule

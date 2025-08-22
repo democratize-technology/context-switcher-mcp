@@ -1,7 +1,7 @@
 """Memory-efficient circular buffer for metrics storage"""
 
-from typing import Generic, TypeVar, List, Optional
 from collections import deque
+from typing import Generic, TypeVar
 
 T = TypeVar("T")
 
@@ -32,11 +32,11 @@ class CircularBuffer(Generic[T]):
         """
         self._buffer.append(item)
 
-    def extend(self, items: List[T]) -> None:
+    def extend(self, items: list[T]) -> None:
         """Add multiple items to the buffer"""
         self._buffer.extend(items)
 
-    def get_recent(self, n: Optional[int] = None) -> List[T]:
+    def get_recent(self, n: int | None = None) -> list[T]:
         """Get the n most recent items
 
         Args:
@@ -49,7 +49,7 @@ class CircularBuffer(Generic[T]):
             return list(self._buffer)
         return list(self._buffer)[-n:] if n > 0 else []
 
-    def get_all(self) -> List[T]:
+    def get_all(self) -> list[T]:
         """Get all items in the buffer"""
         return list(self._buffer)
 

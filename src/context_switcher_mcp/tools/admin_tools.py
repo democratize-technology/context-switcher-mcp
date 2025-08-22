@@ -1,10 +1,11 @@
 """Administrative tools for Context-Switcher MCP Server"""
 
-from ..logging_config import get_logger
-from typing import Dict, Any
+from typing import Any
+
 from mcp.server.fastmcp import FastMCP
 
 from ..client_binding import client_binding_manager
+from ..logging_config import get_logger
 
 logger = get_logger(__name__)
 
@@ -13,7 +14,7 @@ def register_admin_tools(mcp: FastMCP) -> None:
     """Register administrative tools with the MCP server"""
 
     @mcp.tool(description="Get performance metrics and operational health status")
-    async def get_performance_metrics() -> Dict[str, Any]:
+    async def get_performance_metrics() -> dict[str, Any]:
         """Get performance metrics for monitoring operational health"""
         from .. import orchestrator
 
@@ -36,7 +37,7 @@ def register_admin_tools(mcp: FastMCP) -> None:
         }
 
     @mcp.tool(description="Reset circuit breakers for model backends (admin operation)")
-    async def reset_circuit_breakers() -> Dict[str, Any]:
+    async def reset_circuit_breakers() -> dict[str, Any]:
         """Reset all circuit breakers to restore backend availability"""
         from .. import orchestrator
 
@@ -49,7 +50,7 @@ def register_admin_tools(mcp: FastMCP) -> None:
         }
 
     @mcp.tool(description="Get session security metrics and client binding status")
-    async def get_security_metrics() -> Dict[str, Any]:
+    async def get_security_metrics() -> dict[str, Any]:
         """Get comprehensive security metrics for monitoring session security"""
         binding_metrics = client_binding_manager.get_security_metrics()
 

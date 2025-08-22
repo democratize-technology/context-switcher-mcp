@@ -3,22 +3,22 @@ Comprehensive tests for security context sanitization
 Tests ensure sensitive context data is properly sanitized before logging
 """
 
-import pytest
 from unittest.mock import patch
 
+import pytest
+from context_switcher_mcp.error_logging import StructuredErrorLogger
+from context_switcher_mcp.exceptions import (
+    ModelAuthenticationError,
+    NetworkError,
+    PerformanceError,
+    SecurityError,
+)
 from context_switcher_mcp.security_context_sanitizer import (
     SecurityContextSanitizer,
     get_context_sanitizer,
-    sanitize_exception_context,
     sanitize_context_dict,
+    sanitize_exception_context,
 )
-from context_switcher_mcp.exceptions import (
-    SecurityError,
-    NetworkError,
-    ModelAuthenticationError,
-    PerformanceError,
-)
-from context_switcher_mcp.error_logging import StructuredErrorLogger
 
 
 class TestSecurityContextSanitizer:
@@ -105,7 +105,7 @@ class TestSecurityContextSanitizer:
         sanitized = self.sanitizer.sanitize_context_dict(context)
 
         # User paths should be masked
-        for key, value in sanitized.items():
+        for _key, value in sanitized.items():
             if isinstance(value, str):
                 assert "testuser" not in value
                 assert (

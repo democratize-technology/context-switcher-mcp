@@ -1,18 +1,17 @@
 """Circuit breaker state persistence for production reliability"""
 
-import json
 import asyncio
-from .logging_base import get_logger
-from typing import Dict, Optional, Any
+import json
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from .exceptions import (
     CircuitBreakerStateError,
-    StorageError,
     SerializationError,
+    StorageError,
 )
-
+from .logging_base import get_logger
 
 logger = get_logger(__name__)
 
@@ -24,7 +23,7 @@ class CircuitBreakerStore:
     Can be extended to support Redis or other backends in the future.
     """
 
-    def __init__(self, storage_path: Optional[str] = None):
+    def __init__(self, storage_path: str | None = None):
         """Initialize circuit breaker store
 
         Args:
@@ -32,13 +31,13 @@ class CircuitBreakerStore:
         """
         validated_path = self._resolve_and_validate_storage_path(storage_path)
         self.storage_path = Path(validated_path)
-        self._lock: Optional[asyncio.Lock] = None
-        self._auto_save_task: Optional[asyncio.Task] = None
+        self._lock: asyncio.Lock | None = None
+        self._auto_save_task: asyncio.Task | None = None
 
         # Ensure parent directory exists
         self.storage_path.parent.mkdir(parents=True, exist_ok=True)
 
-    def _resolve_and_validate_storage_path(self, storage_path: Optional[str]) -> Path:
+    def _resolve_and_validate_storage_path(self, storage_path: str | None) -> Path:
         """Resolve and validate the storage path with security checks"""
         if storage_path is None:
             return self._get_default_storage_path()
@@ -137,7 +136,7 @@ class CircuitBreakerStore:
                     f"Hidden directories not allowed except {safe_hidden_dirs}: {part}"
                 )
 
-    async def save_state(self, backend: str, state_data: Dict[str, Any]) -> None:
+    async def save_state(self, backend: str, state_data: dict[str, Any]) -> None:
         """Save circuit breaker state for a backend
 
         Args:
@@ -161,7 +160,7 @@ class CircuitBreakerStore:
                 await self._save_all_states(all_states)
                 logger.debug(f"Saved circuit breaker state for {backend}")
 
-            except (OSError, IOError) as e:
+            except OSError as e:
                 logger.error(f"Failed to save circuit breaker state for {backend}: {e}")
                 raise StorageError(f"Failed to save state for {backend}: {e}") from e
             except Exception as e:
@@ -173,7 +172,7 @@ class CircuitBreakerStore:
                     f"Unexpected error saving state: {e}"
                 ) from e
 
-    async def load_state(self, backend: str) -> Optional[Dict[str, Any]]:
+    async def load_state(self, backend: str) -> dict[str, Any] | None:
         """Load circuit breaker state for a backend
 
         Args:
@@ -195,7 +194,7 @@ class CircuitBreakerStore:
 
                 return None
 
-            except (OSError, IOError, json.JSONDecodeError) as e:
+            except (OSError, json.JSONDecodeError) as e:
                 logger.error(f"Failed to load circuit breaker state for {backend}: {e}")
                 return None
             except Exception as e:
@@ -221,7 +220,7 @@ class CircuitBreakerStore:
                     await self._save_all_states(all_states)
                     logger.debug(f"Cleared circuit breaker state for {backend}")
 
-            except (OSError, IOError) as e:
+            except OSError as e:
                 logger.error(
                     f"Failed to clear circuit breaker state for {backend}: {e}"
                 )
@@ -244,7 +243,7 @@ class CircuitBreakerStore:
                 await self._save_all_states({})
                 logger.info("Cleared all circuit breaker states")
 
-            except (OSError, IOError) as e:
+            except OSError as e:
                 logger.error(f"Failed to clear all circuit breaker states: {e}")
                 raise StorageError(f"Failed to clear all states: {e}") from e
             except Exception as e:
@@ -256,7 +255,7 @@ class CircuitBreakerStore:
                     f"Unexpected error clearing all states: {e}"
                 ) from e
 
-    async def get_all_states(self) -> Dict[str, Dict[str, Any]]:
+    async def get_all_states(self) -> dict[str, dict[str, Any]]:
         """Get all circuit breaker states
 
         Returns:
@@ -291,7 +290,7 @@ class CircuitBreakerStore:
                 pass
             logger.info("Stopped circuit breaker auto-save")
 
-    async def _load_all_states(self) -> Dict[str, Dict[str, Any]]:
+    async def _load_all_states(self) -> dict[str, dict[str, Any]]:
         """Load all circuit breaker states from storage"""
         try:
             if not self.storage_path.exists():
@@ -309,7 +308,7 @@ class CircuitBreakerStore:
             logger.warning(f"Could not load circuit breaker states: {e}")
             return {}
 
-    async def _save_all_states(self, states: Dict[str, Dict[str, Any]]) -> None:
+    async def _save_all_states(self, states: dict[str, dict[str, Any]]) -> None:
         """Save all circuit breaker states to storage using atomic write"""
         try:
             content = json.dumps(states, indent=2, default=str)
@@ -341,7 +340,7 @@ class CircuitBreakerStore:
                 except Exception:
                     pass  # Best effort cleanup
 
-        except (OSError, IOError) as e:
+        except OSError as e:
             logger.error(f"Failed to save circuit breaker states: {e}")
             raise StorageError(f"Failed to write state file: {e}") from e
         except (TypeError, ValueError) as e:
@@ -374,7 +373,7 @@ class CircuitBreakerStore:
 
 
 # Global store instance
-_store: Optional[CircuitBreakerStore] = None
+_store: CircuitBreakerStore | None = None
 
 
 def get_circuit_breaker_store() -> CircuitBreakerStore:
@@ -386,7 +385,7 @@ def get_circuit_breaker_store() -> CircuitBreakerStore:
 
 
 async def save_circuit_breaker_state(
-    backend: str, failure_count: int, last_failure_time: Optional[datetime], state: str
+    backend: str, failure_count: int, last_failure_time: datetime | None, state: str
 ) -> None:
     """Helper function to save circuit breaker state
 
@@ -407,7 +406,7 @@ async def save_circuit_breaker_state(
     await store.save_state(backend, state_data)
 
 
-async def load_circuit_breaker_state(backend: str) -> Optional[Dict[str, Any]]:
+async def load_circuit_breaker_state(backend: str) -> dict[str, Any] | None:
     """Helper function to load circuit breaker state
 
     Args:

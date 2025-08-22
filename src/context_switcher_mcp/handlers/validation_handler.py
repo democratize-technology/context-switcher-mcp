@@ -1,9 +1,9 @@
 """Validation handler for Context-Switcher MCP Server"""
 
-from ..logging_config import get_logger
-from typing import Dict, Any
+from typing import Any
 
-from ..error_helpers import validation_error, rate_limit_error
+from ..error_helpers import rate_limit_error, validation_error
+from ..logging_config import get_logger
 from ..rate_limiter import SessionRateLimiter
 from ..security import (
     log_security_event,
@@ -23,7 +23,7 @@ class ValidationHandler:
     @staticmethod
     def validate_session_creation_request(
         topic: str, initial_perspectives=None
-    ) -> tuple[bool, Dict[str, Any]]:
+    ) -> tuple[bool, dict[str, Any]]:
         """Validate session creation request
 
         Args:

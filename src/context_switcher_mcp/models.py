@@ -1,11 +1,11 @@
 """Data models for Context-Switcher MCP"""
 
+import hashlib
+import secrets
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Dict, List, Optional, Any
-import hashlib
-import secrets
+from typing import Any
 
 
 class ModelBackend(str, Enum):
@@ -24,8 +24,8 @@ class Thread:
     name: str
     system_prompt: str
     model_backend: ModelBackend
-    model_name: Optional[str]
-    conversation_history: List[Dict[str, str]] = field(default_factory=list)
+    model_name: str | None
+    conversation_history: list[dict[str, str]] = field(default_factory=list)
 
     def add_message(self, role: str, content: str) -> None:
         """Add a message to the conversation history"""
@@ -49,14 +49,14 @@ class ClientBinding:
 
     # Behavioral fingerprint
     access_pattern_hash: str  # Hash of initial access patterns
-    tool_usage_sequence: List[str] = field(
+    tool_usage_sequence: list[str] = field(
         default_factory=list
     )  # Initial tool usage pattern
 
     # Security metadata
     validation_failures: int = 0  # Count of validation failures
     last_validated: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    security_flags: List[str] = field(default_factory=list)  # Security event flags
+    security_flags: list[str] = field(default_factory=list)  # Security event flags
 
     def generate_binding_signature(self, secret_key: str) -> str:
         """Generate HMAC signature for binding validation"""
@@ -90,15 +90,15 @@ class ContextSwitcherSession:
 
     session_id: str
     created_at: datetime
-    client_binding: Optional[ClientBinding] = None
-    threads: Dict[str, Thread] = field(default_factory=dict)
-    analyses: List[Dict[str, Any]] = field(default_factory=list)
-    topic: Optional[str] = None
+    client_binding: ClientBinding | None = None
+    threads: dict[str, Thread] = field(default_factory=dict)
+    analyses: list[dict[str, Any]] = field(default_factory=list)
+    topic: str | None = None
 
     # Session security metadata
     access_count: int = 0
     last_accessed: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    security_events: List[Dict[str, Any]] = field(default_factory=list)
+    security_events: list[dict[str, Any]] = field(default_factory=list)
 
     # Concurrency control
     version: int = 0  # Version for optimistic locking and race condition detection
@@ -115,7 +115,7 @@ class ContextSwitcherSession:
         """Add a perspective thread to the session"""
         self.threads[thread.name] = thread
 
-    def get_thread(self, name: str) -> Optional[Thread]:
+    def get_thread(self, name: str) -> Thread | None:
         """Get a thread by name"""
         return self.threads.get(name)
 
@@ -136,7 +136,7 @@ class ContextSwitcherSession:
             ):
                 self.client_binding.tool_usage_sequence.append(tool_name)
 
-    def record_security_event(self, event_type: str, details: Dict[str, Any]) -> None:
+    def record_security_event(self, event_type: str, details: dict[str, Any]) -> None:
         """Record a security event for this session"""
         event = {
             "type": event_type,
@@ -161,7 +161,7 @@ class ContextSwitcherSession:
     def record_analysis(
         self,
         prompt: str,
-        responses: Dict[str, str],
+        responses: dict[str, str],
         active_count: int,
         abstained_count: int,
     ) -> None:
@@ -178,6 +178,6 @@ class ContextSwitcherSession:
 
         # Note: Analysis access tracking moved to async contexts
 
-    def get_last_analysis(self) -> Optional[Dict[str, Any]]:
+    def get_last_analysis(self) -> dict[str, Any] | None:
         """Get the most recent analysis"""
         return self.analyses[-1] if self.analyses else None

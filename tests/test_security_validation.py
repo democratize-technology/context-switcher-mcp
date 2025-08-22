@@ -3,23 +3,23 @@
 Comprehensive security validation tests for the Context Switcher MCP server
 """
 
-import sys
 import os
+import sys
 
 # Add src to path for testing
 sys.path.insert(
     0, os.path.join(os.path.dirname(__file__), "..", "src", "context_switcher_mcp")
 )
 
-import pytest  # noqa: E402
 from unittest.mock import patch  # noqa: E402
 
+import pytest  # noqa: E402
 from context_switcher_mcp.security import (  # noqa: E402
-    validate_user_content,
-    validate_perspective_data,
-    validate_analysis_prompt,
     detect_advanced_prompt_injection,
     sanitize_for_llm,
+    validate_analysis_prompt,
+    validate_perspective_data,
+    validate_user_content,
 )
 
 
@@ -276,12 +276,12 @@ class TestSecurityEdgeCases:
         content = "This is a test message"
 
         # First few requests should work
-        for i in range(5):
+        for _i in range(5):
             result = validate_user_content(content, "test", client_id="test_client")
             assert result.is_valid is True
 
         # After many requests, should hit rate limit
-        for i in range(50):
+        for _i in range(50):
             result = validate_user_content(content, "test", client_id="test_client")
 
         # Next request should be rate limited

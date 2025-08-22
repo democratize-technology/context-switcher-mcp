@@ -1,13 +1,13 @@
 """Comprehensive tests for streaming coordinator functionality"""
 
-import pytest
 import asyncio
 import time
-from unittest.mock import Mock, AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
-from context_switcher_mcp.streaming_coordinator import StreamingCoordinator
-from context_switcher_mcp.models import Thread, ModelBackend
+import pytest
 from context_switcher_mcp.exceptions import ModelBackendError
+from context_switcher_mcp.models import ModelBackend, Thread
+from context_switcher_mcp.streaming_coordinator import StreamingCoordinator
 
 
 class MockAsyncGenerator:
@@ -297,7 +297,7 @@ class TestStreamingCoordinator:
                 events.append(event)
 
         # Should have events from all threads
-        thread_names = set(event["thread_name"] for event in events)
+        thread_names = {event["thread_name"] for event in events}
         assert len(thread_names) == 3
         assert all(f"perspective_{i}" in thread_names for i in range(3))
 
@@ -413,7 +413,7 @@ class TestStreamingCoordinator:
         ):
             # Should propagate CancelledError
             with pytest.raises(asyncio.CancelledError):
-                async for event in streaming_coordinator._stream_from_thread(
+                async for _event in streaming_coordinator._stream_from_thread(
                     sample_thread, thread_name
                 ):
                     pass
@@ -656,12 +656,12 @@ class TestStreamingCoordinatorIntegration:
                 all_events.append(event)
 
         # Verify we got events from both threads
-        thread_names = set(event["thread_name"] for event in all_events)
+        thread_names = {event["thread_name"] for event in all_events}
         assert "technical" in thread_names
         assert "business" in thread_names
 
         # Verify we got all expected event types
-        event_types = set(event["type"] for event in all_events)
+        event_types = {event["type"] for event in all_events}
         assert "start" in event_types
         assert "chunk" in event_types
         assert "complete" in event_types
@@ -721,9 +721,9 @@ class TestStreamingCoordinatorPerformance:
         assert elapsed_time < 5.0  # Should complete within 5 seconds
 
         # Should have events from all threads - check start events which are always generated
-        start_thread_names = set(
+        start_thread_names = {
             event["thread_name"] for event in events if event["type"] == "start"
-        )
+        }
         assert len(start_thread_names) == thread_count
 
         # Should have expected number of start events

@@ -1,11 +1,11 @@
 """Helper functions for analysis operations"""
 
-from ..logging_config import get_logger
-from typing import Dict, Any, Tuple
 from datetime import datetime
+from typing import Any
 
 from ..aorp import AORPBuilder, create_error_response, generate_analysis_next_steps
 from ..constants import NO_RESPONSE
+from ..logging_config import get_logger
 from ..rate_limiter import SessionRateLimiter
 from ..security import (
     log_security_event,
@@ -19,7 +19,7 @@ logger = get_logger(__name__)
 
 async def validate_analysis_request(
     session_id: str, prompt: str, rate_limiter: SessionRateLimiter
-) -> Tuple[bool, Dict[str, Any]]:
+) -> tuple[bool, dict[str, Any]]:
     """Validate analysis request including rate limits, session, and prompt
 
     Args:
@@ -91,7 +91,7 @@ async def validate_analysis_request(
 
 def build_analysis_aorp_response(
     prompt: str, results: Any, session: Any, confidence: float
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Build AORP response for analysis results
 
     Args:

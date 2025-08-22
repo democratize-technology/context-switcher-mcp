@@ -1,14 +1,14 @@
 """Comprehensive tests for session data models"""
 
-import pytest
 from datetime import datetime, timezone
 from unittest.mock import patch
 
+import pytest
+from context_switcher_mcp.models import ModelBackend, Thread
 from context_switcher_mcp.session_data import (
     AnalysisRecord,
     SessionData,
 )
-from context_switcher_mcp.models import Thread, ModelBackend
 
 
 class TestAnalysisRecord:

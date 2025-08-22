@@ -4,13 +4,14 @@ This module provides transparent profiling integration with existing backend int
 It wraps backend calls with profiling logic while maintaining full compatibility.
 """
 
-from .logging_base import get_logger
 import time
-from typing import Dict, Any, AsyncGenerator
+from collections.abc import AsyncGenerator
 from functools import wraps
+from typing import Any
 
 from .backend_interface import ModelBackendInterface, ModelCallConfig
-from .llm_profiler import get_global_profiler, LLMCallMetrics
+from .llm_profiler import LLMCallMetrics, get_global_profiler
+from .logging_base import get_logger
 from .models import Thread
 
 logger = get_logger(__name__)
@@ -70,7 +71,7 @@ class ProfilingBackendWrapper(ModelBackendInterface):
 
     async def call_model_stream(
         self, thread: Thread
-    ) -> AsyncGenerator[Dict[str, Any], None]:
+    ) -> AsyncGenerator[dict[str, Any], None]:
         """Profile a streaming model call"""
         model_config = self.get_model_config(thread)
         session_id = getattr(thread, "session_id", "unknown")
@@ -82,7 +83,7 @@ class ProfilingBackendWrapper(ModelBackendInterface):
             model_name=model_config.model_name,
             streaming=True,
         ) as metrics:
-            start_time = time.time()
+            time.time()
             first_token_time = None
             accumulated_response = ""
             chunk_count = 0

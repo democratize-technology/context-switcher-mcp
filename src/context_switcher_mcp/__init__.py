@@ -4,10 +4,10 @@ Context-Switcher MCP Server
 Multi-perspective analysis using thread orchestration
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Any, Optional
 
 # Basic imports that don't require MCP/Pydantic
-from .logging_base import setup_logging, get_logger
+from .logging_base import get_logger, setup_logging
 
 __all__ = ["main", "create_server"]
 
@@ -32,16 +32,16 @@ def create_server():
         from pydantic import BaseModel, Field
 
         from .config import get_config
-        from .models import ModelBackend
-        from .session_manager import SessionManager
         from .handlers.session_handler import SessionHandler
         from .handlers.validation_handler import ValidationHandler
-        from .tools.session_tools import register_session_tools
+        from .models import ModelBackend
+        from .perspective_orchestrator import PerspectiveOrchestrator
+        from .session_manager import SessionManager
+        from .tools.admin_tools import register_admin_tools
         from .tools.analysis_tools import register_analysis_tools
         from .tools.perspective_tools import register_perspective_tools
-        from .tools.admin_tools import register_admin_tools
         from .tools.profiling_tools import register_profiling_tools
-        from .perspective_orchestrator import PerspectiveOrchestrator
+        from .tools.session_tools import register_session_tools
 
         # Initialize server components
         mcp = FastMCP("context-switcher")
@@ -56,18 +56,18 @@ def create_server():
         # Request models for tools
         class StartContextAnalysisRequest(BaseModel):
             topic: str = Field(description="The decision topic or question to analyze")
-            initial_perspectives: Optional[List[str]] = Field(
+            initial_perspectives: list[str] | None = Field(
                 default=None,
                 description="List of perspective names to use (defaults to: technical, business, user, risk)",
             )
-            template: Optional[str] = Field(
+            template: str | None = Field(
                 default=None,
                 description="Pre-configured perspective template: architecture_decision, feature_evaluation, debugging_analysis, api_design, security_review",
             )
             model_backend: ModelBackend = Field(
                 default=ModelBackend.BEDROCK, description="LLM backend to use"
             )
-            model_name: Optional[str] = Field(
+            model_name: str | None = Field(
                 default=None, description="Specific model to use"
             )
 
@@ -88,7 +88,7 @@ def create_server():
         )
         async def start_context_analysis(
             request: StartContextAnalysisRequest,
-        ) -> Dict[str, Any]:
+        ) -> dict[str, Any]:
             """Initialize a new context-switching analysis session"""
             (
                 is_valid,

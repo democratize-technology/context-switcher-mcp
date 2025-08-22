@@ -1,16 +1,16 @@
 """Tests for ThreadManager component"""
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime, timezone
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from context_switcher_mcp.thread_manager import ThreadManager
+import pytest
+from context_switcher_mcp.circuit_breaker_manager import CircuitBreakerState
 from context_switcher_mcp.metrics_manager import (
     ThreadMetrics,
     ThreadOrchestrationMetrics,
 )
-from context_switcher_mcp.circuit_breaker_manager import CircuitBreakerState
-from context_switcher_mcp.models import Thread, ModelBackend
+from context_switcher_mcp.models import ModelBackend, Thread
+from context_switcher_mcp.thread_manager import ThreadManager
 
 
 @pytest.fixture
@@ -34,7 +34,7 @@ def mock_thread():
 def mock_threads():
     """Create dictionary of mock threads"""
     threads = {}
-    for i, name in enumerate(["thread1", "thread2", "thread3"]):
+    for _i, name in enumerate(["thread1", "thread2", "thread3"]):
         thread = MagicMock(spec=Thread)
         thread.name = name
         thread.model_backend = ModelBackend.BEDROCK

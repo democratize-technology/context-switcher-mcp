@@ -1,12 +1,12 @@
 """Tests for ResponseFormatter component"""
 
-import pytest
 import json
 from unittest.mock import AsyncMock, patch
 
-from context_switcher_mcp.response_formatter import ResponseFormatter
-from context_switcher_mcp.models import ModelBackend
+import pytest
 from context_switcher_mcp.exceptions import ModelBackendError
+from context_switcher_mcp.models import ModelBackend
+from context_switcher_mcp.response_formatter import ResponseFormatter
 
 
 @pytest.fixture

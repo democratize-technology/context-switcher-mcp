@@ -5,9 +5,10 @@ This module provides comprehensive client validation including suspicious
 access pattern detection, behavioral analysis, and security rule enforcement.
 """
 
+from datetime import datetime, timedelta, timezone
+from typing import Any
+
 from ..logging_base import get_logger
-from datetime import datetime, timezone, timedelta
-from typing import Dict, Any, List
 from ..models import ContextSwitcherSession
 
 logger = get_logger(__name__)
@@ -32,7 +33,7 @@ class AccessPattern:
         self,
         is_suspicious: bool,
         reason: str,
-        metrics: Dict[str, Any],
+        metrics: dict[str, Any],
         severity: str = "medium",
     ):
         """Initialize access pattern result.
@@ -70,7 +71,7 @@ class ClientValidationService:
 
     def __init__(self):
         """Initialize client validation service."""
-        self.suspicious_sessions: Dict[str, datetime] = {}
+        self.suspicious_sessions: dict[str, datetime] = {}
         self.validation_rules = {
             "max_validation_failures": MAX_VALIDATION_FAILURES,
             "max_security_flags": MAX_SECURITY_FLAGS,
@@ -130,7 +131,7 @@ class ClientValidationService:
         )
 
     def _analyze_access_rate(
-        self, session: ContextSwitcherSession, now: datetime, metrics: Dict[str, Any]
+        self, session: ContextSwitcherSession, now: datetime, metrics: dict[str, Any]
     ) -> AccessPattern:
         """Analyze session access rate for suspicious patterns.
 
@@ -166,7 +167,7 @@ class ClientValidationService:
         )
 
     def _analyze_tool_usage_patterns(
-        self, session: ContextSwitcherSession, metrics: Dict[str, Any]
+        self, session: ContextSwitcherSession, metrics: dict[str, Any]
     ) -> AccessPattern:
         """Analyze tool usage patterns for automation indicators.
 
@@ -187,7 +188,7 @@ class ClientValidationService:
 
         # Check recent analyses for repeated patterns
         recent_analyses = session.analyses[-RAPID_TOOL_SWITCHING_THRESHOLD:]
-        unique_prompts = set(a.get("prompt", "") for a in recent_analyses)
+        unique_prompts = {a.get("prompt", "") for a in recent_analyses}
         unique_prompts.discard("")  # Remove empty prompts
 
         metrics["recent_analyses_count"] = len(recent_analyses)
@@ -232,7 +233,7 @@ class ClientValidationService:
         )
 
     def _analyze_binding_security(
-        self, session: ContextSwitcherSession, metrics: Dict[str, Any]
+        self, session: ContextSwitcherSession, metrics: dict[str, Any]
     ) -> AccessPattern:
         """Analyze client binding security flags.
 
@@ -274,7 +275,7 @@ class ClientValidationService:
         )
 
     def _analyze_session_age_patterns(
-        self, session: ContextSwitcherSession, now: datetime, metrics: Dict[str, Any]
+        self, session: ContextSwitcherSession, now: datetime, metrics: dict[str, Any]
     ) -> AccessPattern:
         """Analyze session age vs activity patterns.
 
@@ -368,7 +369,7 @@ class ClientValidationService:
 
         return cleaned_count
 
-    def get_validation_metrics(self) -> Dict[str, Any]:
+    def get_validation_metrics(self) -> dict[str, Any]:
         """Get comprehensive validation metrics for monitoring.
 
         Returns:
@@ -411,7 +412,7 @@ class ClientValidationService:
         logger.warning(f"Unknown validation rule: {rule_name}")
         return False
 
-    def get_suspicious_sessions_info(self) -> List[Dict[str, Any]]:
+    def get_suspicious_sessions_info(self) -> list[dict[str, Any]]:
         """Get detailed information about suspicious sessions.
 
         Returns:
@@ -475,7 +476,7 @@ def cleanup_suspicious_sessions() -> int:
     return client_validation_service.cleanup_suspicious_sessions()
 
 
-def get_security_metrics() -> Dict[str, Any]:
+def get_security_metrics() -> dict[str, Any]:
     """Get security metrics for monitoring (backward compatibility function).
 
     Returns:

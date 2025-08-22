@@ -8,36 +8,36 @@ import json
 import logging
 import os
 import time
-from unittest.mock import patch, MagicMock
-import pytest
+from unittest.mock import MagicMock, patch
 
+import pytest
 from context_switcher_mcp.logging_config import (
-    LoggingConfig,
-    setup_logging,
-    get_logger,
-    set_correlation_id,
-    get_correlation_id,
     ContextSwitcherLogFormatter,
     JSONLogFormatter,
+    LoggingConfig,
+    conditional_log,
+    get_correlation_id,
+    get_logger,
     # New performance optimization features
     lazy_log,
+    log_function_performance,
     log_performance,
     log_security_event,
     log_structured,
     log_with_context,
-    conditional_log,
-    log_function_performance,
+    set_correlation_id,
+    setup_logging,
     validate_logging_migration,
 )
 from context_switcher_mcp.logging_utils import (
-    log_operation,
-    logged_operation,
-    correlation_context,
-    performance_timer,
     RequestLogger,
-    mcp_tool_logger,
-    log_session_event,
+    correlation_context,
+    log_operation,
     log_performance_metric,
+    log_session_event,
+    logged_operation,
+    mcp_tool_logger,
+    performance_timer,
 )
 from context_switcher_mcp.security.secure_logging import get_secure_logger
 
@@ -429,7 +429,7 @@ class TestErrorConditions:
 
     def test_exception_logging(self):
         """Test exception logging with correlation IDs"""
-        with correlation_context("error-test") as correlation_id:
+        with correlation_context("error-test"):
             try:
                 raise ValueError("Test exception")
             except Exception:
@@ -445,13 +445,13 @@ class TestPerformanceOptimizations:
         """Test lazy log evaluation for performance"""
         # Mock an expensive function
         expensive_func = MagicMock(return_value="expensive_result")
-        
+
         # Create lazy log string
         lazy_string = lazy_log(expensive_func, "arg1", key="value")
-        
+
         # Function should not be called yet
         expensive_func.assert_not_called()
-        
+
         # Function should be called when string is evaluated
         result = str(lazy_string)
         expensive_func.assert_called_once_with("arg1", key="value")
@@ -462,12 +462,12 @@ class TestPerformanceOptimizations:
         with patch("context_switcher_mcp.logging_config.get_logger") as mock_get_logger:
             mock_logger = MagicMock()
             mock_get_logger.return_value = mock_logger
-            
+
             logger = get_logger("test.performance")
-            
+
             # Test performance logging
             log_performance(logger, "test_operation", 1.234, extra_metric=100)
-            
+
             # Should have logged performance info
             mock_logger.info.assert_called_once()
             args, kwargs = mock_logger.info.call_args
@@ -480,32 +480,32 @@ class TestPerformanceOptimizations:
         with patch("context_switcher_mcp.logging_config.get_logger") as mock_get_logger:
             mock_logger = MagicMock()
             mock_get_logger.return_value = mock_logger
-            
+
             # Mock security logger
             with patch("logging.getLogger") as mock_get_security_logger:
                 mock_security_logger = MagicMock()
                 mock_get_security_logger.return_value = mock_security_logger
-                
+
                 logger = get_logger("test.security")
-                
+
                 # Test security event with sensitive data
                 details = {
                     "user_id": "user123",
                     "password": "secret123",  # Should be redacted
-                    "action": "login_attempt"
+                    "action": "login_attempt",
                 }
-                
+
                 log_security_event(logger, "authentication", details, level="WARNING")
-                
+
                 # Security logger should have been called
                 mock_security_logger.log.assert_called_once()
                 args, kwargs = mock_security_logger.log.call_args
-                
+
                 # Check that sensitive data was redacted
                 extra_data = kwargs.get("extra", {})
                 security_event = extra_data.get("security_event", {})
                 details_data = security_event.get("details", {})
-                
+
                 assert details_data.get("password") == "[REDACTED]"
                 assert details_data.get("user_id") == "user123"
 
@@ -514,9 +514,9 @@ class TestPerformanceOptimizations:
         with patch("context_switcher_mcp.logging_config.get_logger") as mock_get_logger:
             mock_logger = MagicMock()
             mock_get_logger.return_value = mock_logger
-            
+
             logger = get_logger("test.structured")
-            
+
             # Test structured logging with sensitive data
             log_structured(
                 logger,
@@ -525,15 +525,15 @@ class TestPerformanceOptimizations:
                 session_id="session_123",
                 user_id="user_456",
                 password="secret",  # Should be redacted
-                api_key=None  # Should be filtered out
+                api_key=None,  # Should be filtered out
             )
-            
+
             mock_logger.log.assert_called_once()
             args, kwargs = mock_logger.log.call_args
-            
+
             # Check message
             assert args[1] == "Processing request"
-            
+
             # Check extra data filtering
             extra_data = kwargs.get("extra", {})
             assert extra_data.get("password") == "[REDACTED]"
@@ -546,23 +546,23 @@ class TestPerformanceOptimizations:
             mock_logger = MagicMock()
             mock_logger.isEnabledFor.return_value = True
             mock_get_logger.return_value = mock_logger
-            
+
             logger = get_logger("test.conditional")
-            
+
             # Mock condition functions
             condition_true = MagicMock(return_value=True)
             condition_false = MagicMock(return_value=False)
-            
+
             # Test with true condition
             conditional_log(logger, condition_true, "Should log", level="DEBUG")
-            
+
             # Test with false condition
             conditional_log(logger, condition_false, "Should not log", level="DEBUG")
-            
+
             # Both conditions should be checked (since level is enabled)
             condition_true.assert_called_once()
             condition_false.assert_called_once()
-            
+
             # Only true condition should result in log
             assert mock_logger.log.call_count == 1
 
@@ -571,17 +571,17 @@ class TestPerformanceOptimizations:
         with patch("context_switcher_mcp.logging_config.get_logger") as mock_get_logger:
             mock_logger = MagicMock()
             mock_get_logger.return_value = mock_logger
-            
+
             logger = get_logger("test.decorator")
-            
+
             @log_function_performance(logger)
             def test_sync_function(value: int):
                 time.sleep(0.01)  # Small delay for testing
                 return value * 2
-            
+
             # Call the decorated function
             result = test_sync_function(5)
-            
+
             assert result == 10
             # Should have logged performance (via log_performance function)
             mock_logger.info.assert_called()
@@ -590,21 +590,21 @@ class TestPerformanceOptimizations:
     async def test_log_function_performance_decorator_async(self):
         """Test performance logging decorator for async functions"""
         import asyncio
-        
+
         with patch("context_switcher_mcp.logging_config.get_logger") as mock_get_logger:
             mock_logger = MagicMock()
             mock_get_logger.return_value = mock_logger
-            
+
             logger = get_logger("test.decorator")
-            
+
             @log_function_performance(logger)
             async def test_async_function(delay: float):
                 await asyncio.sleep(delay)
                 return "async_result"
-            
+
             # Call the decorated function
             result = await test_async_function(0.01)
-            
+
             assert result == "async_result"
             # Should have logged performance
             mock_logger.info.assert_called()
@@ -614,19 +614,19 @@ class TestPerformanceOptimizations:
         with patch("context_switcher_mcp.logging_config.get_logger") as mock_get_logger:
             mock_logger = MagicMock()
             mock_get_logger.return_value = mock_logger
-            
+
             logger = get_logger("test.context")
-            
+
             # Set correlation ID
             set_correlation_id("context-test-123")
-            
+
             # Test context logging
             context_data = {"operation": "test", "step": 1}
             log_with_context(logger, "Processing step", context_data, level="INFO")
-            
+
             mock_logger.log.assert_called_once()
             args, kwargs = mock_logger.log.call_args
-            
+
             # Check message and context data
             assert args[1] == "Processing step"
             extra_data = kwargs.get("extra", {})
@@ -642,7 +642,7 @@ class TestMigrationValidation:
         """Test the migration validation function"""
         # This test validates the function exists and can be called
         # Real validation would run against the actual codebase
-        
+
         try:
             # This should not crash
             issues = validate_logging_migration()
@@ -659,12 +659,12 @@ class TestPerformanceBenchmarks:
         """Benchmark lazy vs eager evaluation performance"""
         logger = get_logger("benchmark.lazy")
         logger.setLevel(logging.WARNING)  # Disable debug logs
-        
+
         def expensive_operation():
             """Simulate expensive operation"""
             time.sleep(0.001)
             return "expensive_result"
-        
+
         # Benchmark eager evaluation (bad pattern)
         iterations = 50  # Reduced for test speed
         start_time = time.perf_counter()
@@ -672,22 +672,22 @@ class TestPerformanceBenchmarks:
             result = expensive_operation()
             logger.debug(f"Debug info: {result}")
         eager_time = time.perf_counter() - start_time
-        
+
         # Benchmark lazy evaluation (good pattern)
         start_time = time.perf_counter()
         for _ in range(iterations):
             logger.debug("Debug info: %s", lazy_log(expensive_operation))
         lazy_time = time.perf_counter() - start_time
-        
+
         print(f"\nPerformance Benchmark ({iterations} iterations):")
         print(f"  Eager evaluation: {eager_time:.4f}s")
         print(f"  Lazy evaluation:  {lazy_time:.4f}s")
-        
+
         # Lazy evaluation should be significantly faster when logs are disabled
         if eager_time > 0:
-            improvement = eager_time / lazy_time if lazy_time > 0 else float('inf')
+            improvement = eager_time / lazy_time if lazy_time > 0 else float("inf")
             print(f"  Improvement:      {improvement:.2f}x faster")
-            
+
             # Lazy should be at least 5x faster when logs are disabled (reduced for test stability)
             assert lazy_time < eager_time / 5
 
@@ -695,31 +695,35 @@ class TestPerformanceBenchmarks:
         """Benchmark string formatting approaches"""
         logger = get_logger("benchmark.formatting")
         logger.setLevel(logging.INFO)
-        
+
         iterations = 500  # Reduced for test speed
         session_id = "session_12345"
         user_id = "user_67890"
-        
+
         # Capture output to avoid console spam
         with patch("logging.StreamHandler.emit"):
             # Benchmark string concatenation (bad pattern)
             start_time = time.perf_counter()
             for _ in range(iterations):
-                logger.info("Processing for user " + user_id + " in session " + session_id)
+                logger.info(
+                    "Processing for user " + user_id + " in session " + session_id
+                )
             concat_time = time.perf_counter() - start_time
-            
+
             # Benchmark parameter substitution (good pattern)
             start_time = time.perf_counter()
             for _ in range(iterations):
                 logger.info("Processing for user %s in session %s", user_id, session_id)
             param_time = time.perf_counter() - start_time
-            
+
             # Benchmark structured logging
             start_time = time.perf_counter()
             for _ in range(iterations):
-                log_structured(logger, "Processing request", user_id=user_id, session_id=session_id)
+                log_structured(
+                    logger, "Processing request", user_id=user_id, session_id=session_id
+                )
             structured_time = time.perf_counter() - start_time
-        
+
         print(f"\nString Formatting Benchmark ({iterations} iterations):")
         print(f"  Concatenation:    {concat_time:.4f}s")
         print(f"  Parameter sub:    {param_time:.4f}s")

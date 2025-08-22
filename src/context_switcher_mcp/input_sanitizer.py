@@ -1,8 +1,8 @@
 """Content sanitization utilities for LLM input processing"""
 
 import re
+
 from .logging_base import get_logger
-from typing import Tuple, List
 
 logger = get_logger(__name__)
 
@@ -11,7 +11,7 @@ class ContentSanitizer:
     """Sanitizes content for safe LLM consumption"""
 
     @staticmethod
-    def sanitize_for_llm(content: str) -> Tuple[str, List[str]]:
+    def sanitize_for_llm(content: str) -> tuple[str, list[str]]:
         """
         Sanitize content specifically for LLM consumption
 
@@ -95,7 +95,7 @@ class ContentStructureValidator:
     """Validates content structure for security issues"""
 
     @staticmethod
-    def validate_content_structure(content: str) -> Tuple[bool, List[str]]:
+    def validate_content_structure(content: str) -> tuple[bool, list[str]]:
         """Validate content structure for suspicious patterns"""
         issues = []
 
@@ -128,7 +128,7 @@ structure_validator = ContentStructureValidator()
 
 
 # Legacy function wrappers for backward compatibility
-def sanitize_for_llm(content: str) -> Tuple[str, List[str]]:
+def sanitize_for_llm(content: str) -> tuple[str, list[str]]:
     """Legacy wrapper for ContentSanitizer.sanitize_for_llm"""
     return content_sanitizer.sanitize_for_llm(content)
 

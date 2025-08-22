@@ -2,21 +2,24 @@
 Test suite for client binding security features
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-import pytest  # noqa: E402
 import secrets  # noqa: E402
-from datetime import datetime, timezone, timedelta  # noqa: E402
+from datetime import datetime, timedelta, timezone  # noqa: E402
 
-from context_switcher_mcp.models import ClientBinding, ContextSwitcherSession  # noqa: E402
+import pytest  # noqa: E402
 from context_switcher_mcp.client_binding import (  # noqa: E402
     ClientBindingManager,
     create_secure_session_with_binding,
-    validate_session_access,
     log_security_event_with_binding,
+    validate_session_access,
+)
+from context_switcher_mcp.models import (  # noqa: E402
+    ClientBinding,
+    ContextSwitcherSession,
 )
 
 

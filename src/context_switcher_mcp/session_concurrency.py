@@ -1,9 +1,11 @@
 """Concurrency control for session access management"""
 
 import asyncio
-from .logging_base import get_logger
-from typing import Any, Callable, Dict, Optional
+from collections.abc import Callable
 from datetime import datetime, timezone
+from typing import Any
+
+from .logging_base import get_logger
 
 logger = get_logger(__name__)
 
@@ -28,7 +30,7 @@ class SessionConcurrency:
 
         return get_session_lock_manager()
 
-    async def record_access(self, tool_name: Optional[str] = None) -> None:
+    async def record_access(self, tool_name: str | None = None) -> None:
         """Record session access in a thread-safe manner
 
         Args:
@@ -54,7 +56,7 @@ class SessionConcurrency:
         """
         return self.version != expected_version
 
-    def get_access_stats(self) -> Dict[str, Any]:
+    def get_access_stats(self) -> dict[str, Any]:
         """Get access statistics for the session
 
         Returns:
@@ -68,7 +70,7 @@ class SessionConcurrency:
         }
 
     async def synchronized_update(
-        self, update_func: Callable, expected_version: Optional[int] = None
+        self, update_func: Callable, expected_version: int | None = None
     ) -> None:
         """Perform a synchronized update with optional version checking
 

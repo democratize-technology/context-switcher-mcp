@@ -9,16 +9,18 @@ import functools
 import logging
 import time
 import uuid
+from collections.abc import Callable
 from contextlib import contextmanager
-from typing import Any, Callable, Dict, Optional, Union, TypeVar
 from dataclasses import dataclass
-from .logging_base import (
-    get_logger,
-    set_correlation_id,
-    get_correlation_id,
-    is_performance_logging_enabled,
-)
+from typing import Any, TypeVar
+
 from .error_logging import log_error_with_context
+from .logging_base import (
+    get_correlation_id,
+    get_logger,
+    is_performance_logging_enabled,
+    set_correlation_id,
+)
 
 # Type variable for decorated functions
 F = TypeVar("F", bound=Callable[..., Any])
@@ -32,8 +34,8 @@ class OperationMetrics:
     duration: float
     success: bool
     correlation_id: str
-    error: Optional[Exception] = None
-    metadata: Optional[Dict[str, Any]] = None
+    error: Exception | None = None
+    metadata: dict[str, Any] | None = None
 
 
 class OperationLogger:
@@ -42,11 +44,11 @@ class OperationLogger:
     def __init__(self, logger: logging.Logger, operation_name: str):
         self.logger = logger
         self.operation_name = operation_name
-        self.start_time: Optional[float] = None
-        self.correlation_id: Optional[str] = None
-        self.metadata: Dict[str, Any] = {}
+        self.start_time: float | None = None
+        self.correlation_id: str | None = None
+        self.metadata: dict[str, Any] = {}
 
-    def start(self, correlation_id: Optional[str] = None, **metadata) -> str:
+    def start(self, correlation_id: str | None = None, **metadata) -> str:
         """Start operation logging"""
         if correlation_id is None:
             correlation_id = str(uuid.uuid4())[:8]
@@ -70,7 +72,7 @@ class OperationLogger:
         return correlation_id
 
     def success(
-        self, result_metadata: Optional[Dict[str, Any]] = None
+        self, result_metadata: dict[str, Any] | None = None
     ) -> OperationMetrics:
         """Log successful operation completion"""
         duration = time.time() - (self.start_time or 0)
@@ -108,7 +110,7 @@ class OperationLogger:
         return metrics
 
     def error(
-        self, error: Exception, additional_context: Optional[Dict[str, Any]] = None
+        self, error: Exception, additional_context: dict[str, Any] | None = None
     ) -> OperationMetrics:
         """Log operation error"""
         duration = time.time() - (self.start_time or 0)
@@ -152,8 +154,8 @@ class OperationLogger:
 @contextmanager
 def log_operation(
     operation_name: str,
-    logger: Optional[logging.Logger] = None,
-    correlation_id: Optional[str] = None,
+    logger: logging.Logger | None = None,
+    correlation_id: str | None = None,
     **metadata,
 ):
     """Context manager for logging operations with timing and error handling"""
@@ -172,11 +174,11 @@ def log_operation(
 
 
 def logged_operation(
-    operation_name: Optional[str] = None,
-    logger: Optional[logging.Logger] = None,
+    operation_name: str | None = None,
+    logger: logging.Logger | None = None,
     include_args: bool = False,
     include_result: bool = False,
-    correlation_id_arg: Optional[str] = None,
+    correlation_id_arg: str | None = None,
 ) -> Callable[[F], F]:
     """Decorator for logging function/method operations"""
 
@@ -213,11 +215,11 @@ def logged_operation(
 
 
 def async_logged_operation(
-    operation_name: Optional[str] = None,
-    logger: Optional[logging.Logger] = None,
+    operation_name: str | None = None,
+    logger: logging.Logger | None = None,
     include_args: bool = False,
     include_result: bool = False,
-    correlation_id_arg: Optional[str] = None,
+    correlation_id_arg: str | None = None,
 ) -> Callable[[F], F]:
     """Async decorator for logging async function/method operations"""
 
@@ -254,7 +256,7 @@ def async_logged_operation(
 
 
 @contextmanager
-def correlation_context(correlation_id: Optional[str] = None):
+def correlation_context(correlation_id: str | None = None):
     """Context manager for correlation ID tracking"""
     if correlation_id is None:
         correlation_id = str(uuid.uuid4())[:8]
@@ -272,7 +274,7 @@ def correlation_context(correlation_id: Optional[str] = None):
 
 def performance_timer(
     operation_name: str,
-    logger: Optional[logging.Logger] = None,
+    logger: logging.Logger | None = None,
     threshold_seconds: float = 1.0,
     warn_threshold_seconds: float = 5.0,
 ) -> Callable[[F], F]:
@@ -351,14 +353,14 @@ def performance_timer(
 class RequestLogger:
     """Logger for MCP tool requests and responses"""
 
-    def __init__(self, logger: Optional[logging.Logger] = None):
+    def __init__(self, logger: logging.Logger | None = None):
         self.logger = logger or get_logger("mcp.tools")
 
     def log_request(
         self,
         tool_name: str,
-        request_data: Dict[str, Any],
-        correlation_id: Optional[str] = None,
+        request_data: dict[str, Any],
+        correlation_id: str | None = None,
     ) -> str:
         """Log MCP tool request"""
         if correlation_id is None:
@@ -388,9 +390,9 @@ class RequestLogger:
         tool_name: str,
         success: bool,
         duration: float,
-        result_metadata: Optional[Dict[str, Any]] = None,
-        error: Optional[Exception] = None,
-        correlation_id: Optional[str] = None,
+        result_metadata: dict[str, Any] | None = None,
+        error: Exception | None = None,
+        correlation_id: str | None = None,
     ):
         """Log MCP tool response"""
         correlation_id = correlation_id or get_correlation_id() or "unknown"
@@ -423,7 +425,7 @@ class RequestLogger:
                 exc_info=error is not None,
             )
 
-    def _sanitize_request_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def _sanitize_request_data(self, data: dict[str, Any]) -> dict[str, Any]:
         """Sanitize request data for safe logging"""
         sanitized = {}
 
@@ -450,7 +452,7 @@ class RequestLogger:
 
 
 def mcp_tool_logger(
-    tool_name: Optional[str] = None,
+    tool_name: str | None = None,
     include_request_data: bool = True,
     include_response_data: bool = True,
 ) -> Callable[[F], F]:
@@ -562,8 +564,8 @@ def get_request_logger() -> RequestLogger:
 def log_session_event(
     event_type: str,
     session_id: str,
-    details: Optional[Dict[str, Any]] = None,
-    logger: Optional[logging.Logger] = None,
+    details: dict[str, Any] | None = None,
+    logger: logging.Logger | None = None,
 ):
     """Log session lifecycle events"""
     session_logger = logger or get_logger("session")
@@ -584,10 +586,10 @@ def log_session_event(
 
 def log_performance_metric(
     metric_name: str,
-    value: Union[int, float],
+    value: int | float,
     unit: str = "count",
-    metadata: Optional[Dict[str, Any]] = None,
-    logger: Optional[logging.Logger] = None,
+    metadata: dict[str, Any] | None = None,
+    logger: logging.Logger | None = None,
 ):
     """Log performance metrics"""
     perf_logger = logger or get_logger("performance")

@@ -2,9 +2,9 @@
 
 import hashlib
 import secrets
-from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from typing import Any
 
 
 @dataclass
@@ -18,14 +18,14 @@ class ClientBinding:
 
     # Behavioral fingerprint
     access_pattern_hash: str  # Hash of initial access patterns
-    tool_usage_sequence: List[str] = field(
+    tool_usage_sequence: list[str] = field(
         default_factory=list
     )  # Initial tool usage pattern
 
     # Security metadata
     validation_failures: int = 0  # Count of validation failures
     last_validated: datetime = field(default_factory=datetime.utcnow)
-    security_flags: List[str] = field(default_factory=list)  # Security event flags
+    security_flags: list[str] = field(default_factory=list)  # Security event flags
 
     def generate_binding_signature(self, secret_key: str) -> str:
         """Generate HMAC signature for binding validation"""
@@ -59,9 +59,9 @@ class SecurityEvent:
 
     event_type: str
     timestamp: datetime
-    details: Dict[str, Any]
+    details: dict[str, Any]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert security event to dictionary"""
         return {
             "type": self.event_type,
@@ -73,7 +73,7 @@ class SecurityEvent:
 class SessionSecurity:
     """Manages security aspects of sessions"""
 
-    def __init__(self, session_id: str, client_binding: Optional[ClientBinding] = None):
+    def __init__(self, session_id: str, client_binding: ClientBinding | None = None):
         """Initialize session security manager
 
         Args:
@@ -82,10 +82,10 @@ class SessionSecurity:
         """
         self.session_id = session_id
         self.client_binding = client_binding
-        self.security_events: List[SecurityEvent] = []
+        self.security_events: list[SecurityEvent] = []
 
     def create_client_binding(
-        self, secret_key: str, access_pattern_hash: Optional[str] = None
+        self, secret_key: str, access_pattern_hash: str | None = None
     ) -> ClientBinding:
         """Create a new client binding for this session
 
@@ -140,7 +140,7 @@ class SessionSecurity:
 
         return is_valid
 
-    def record_security_event(self, event_type: str, details: Dict[str, Any]) -> None:
+    def record_security_event(self, event_type: str, details: dict[str, Any]) -> None:
         """Record a security event for this session
 
         Args:
@@ -184,7 +184,7 @@ class SessionSecurity:
 
         return len(recent_events) > 10
 
-    def get_security_summary(self) -> Dict[str, Any]:
+    def get_security_summary(self) -> dict[str, Any]:
         """Get a summary of security status
 
         Returns:

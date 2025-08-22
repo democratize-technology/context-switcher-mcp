@@ -1,15 +1,15 @@
 """Tests for Chain of Thought reasoning integration"""
 
 import asyncio
-import pytest
-from unittest.mock import Mock, AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
+import pytest
+from src.context_switcher_mcp.models import ModelBackend, Thread
 from src.context_switcher_mcp.reasoning_orchestrator import (
-    PerspectiveReasoningOrchestrator,
-    CoTTimeoutError,
     CoTProcessingError,
+    CoTTimeoutError,
+    PerspectiveReasoningOrchestrator,
 )
-from src.context_switcher_mcp.models import Thread, ModelBackend
 
 
 @pytest.fixture

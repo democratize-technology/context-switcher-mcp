@@ -1,16 +1,17 @@
 """Structured error logging utilities for consistent error reporting"""
 
 import logging
-from .logging_base import get_logger
 import time
 import uuid
-from typing import Any, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any
 
-from .error_classification import classify_error, ErrorSeverity
+from .error_classification import ErrorSeverity, classify_error
 from .input_sanitizer import sanitize_error_message
+from .logging_base import get_logger
 from .security_context_sanitizer import (
-    sanitize_exception_context,
     sanitize_context_dict,
+    sanitize_exception_context,
 )
 
 
@@ -19,10 +20,10 @@ class StructuredErrorLogger:
 
     def __init__(
         self,
-        logger: Optional[logging.Logger] = None,
+        logger: logging.Logger | None = None,
         include_stack_trace: bool = True,
         include_performance_metrics: bool = True,
-        correlation_id_generator: Optional[callable] = None,
+        correlation_id_generator: Callable | None = None,
     ):
         """Initialize structured error logger.
 
@@ -51,11 +52,11 @@ class StructuredErrorLogger:
         self,
         error: Exception,
         operation_name: str = "unknown_operation",
-        session_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        additional_context: Optional[Dict[str, Any]] = None,
-        correlation_id: Optional[str] = None,
-        duration: Optional[float] = None,
+        session_id: str | None = None,
+        user_id: str | None = None,
+        additional_context: dict[str, Any] | None = None,
+        correlation_id: str | None = None,
+        duration: float | None = None,
     ) -> str:
         """Log an error with structured context information.
 
@@ -107,8 +108,8 @@ class StructuredErrorLogger:
         self,
         error: Exception,
         operation_name: str = "unknown_operation",
-        session_id: Optional[str] = None,
-        additional_context: Optional[Dict[str, Any]] = None,
+        session_id: str | None = None,
+        additional_context: dict[str, Any] | None = None,
     ) -> str:
         """Log an error and its entire exception chain.
 
@@ -175,8 +176,8 @@ class StructuredErrorLogger:
         operation_name: str,
         duration: float,
         performance_threshold: float,
-        session_id: Optional[str] = None,
-        performance_context: Optional[Dict[str, Any]] = None,
+        session_id: str | None = None,
+        performance_context: dict[str, Any] | None = None,
     ) -> str:
         """Log a performance-related error with timing context.
 
@@ -228,14 +229,14 @@ class StructuredErrorLogger:
         self,
         error: Exception,
         operation_name: str,
-        session_id: Optional[str],
-        user_id: Optional[str] = None,
-        additional_context: Optional[Dict[str, Any]] = None,
+        session_id: str | None,
+        user_id: str | None = None,
+        additional_context: dict[str, Any] | None = None,
         correlation_id: str = None,
-        classification: Optional[Dict[str, Any]] = None,
-        duration: Optional[float] = None,
-        error_chain: Optional[List[Dict[str, Any]]] = None,
-    ) -> Dict[str, Any]:
+        classification: dict[str, Any] | None = None,
+        duration: float | None = None,
+        error_chain: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         """Build structured log entry."""
         log_entry = {
             "timestamp": time.time(),
@@ -295,7 +296,7 @@ class StructuredErrorLogger:
 
         return log_entry
 
-    def _extract_exception_chain(self, error: Exception) -> List[Dict[str, Any]]:
+    def _extract_exception_chain(self, error: Exception) -> list[dict[str, Any]]:
         """Extract the full exception chain."""
         chain = []
         current = error
@@ -312,7 +313,7 @@ class StructuredErrorLogger:
 
         return chain
 
-    def _update_error_metrics(self, classification: Dict[str, Any]):
+    def _update_error_metrics(self, classification: dict[str, Any]):
         """Update internal error metrics."""
         self.error_metrics["total_errors"] += 1
 
@@ -326,7 +327,7 @@ class StructuredErrorLogger:
             self.error_metrics["errors_by_severity"].get(severity, 0) + 1
         )
 
-    def _get_log_level(self, classification: Dict[str, Any]) -> int:
+    def _get_log_level(self, classification: dict[str, Any]) -> int:
         """Get appropriate logging level for error."""
         severity = classification.get("severity", ErrorSeverity.MEDIUM)
 
@@ -341,7 +342,7 @@ class StructuredErrorLogger:
         else:
             return logging.DEBUG
 
-    def get_error_metrics(self) -> Dict[str, Any]:
+    def get_error_metrics(self) -> dict[str, Any]:
         """Get current error metrics."""
         return self.error_metrics.copy()
 
@@ -395,9 +396,9 @@ def get_structured_logger() -> StructuredErrorLogger:
 def log_error_with_context(
     error: Exception,
     operation_name: str = "unknown_operation",
-    session_id: Optional[str] = None,
-    additional_context: Optional[Dict[str, Any]] = None,
-    logger_instance: Optional[StructuredErrorLogger] = None,
+    session_id: str | None = None,
+    additional_context: dict[str, Any] | None = None,
+    logger_instance: StructuredErrorLogger | None = None,
 ) -> str:
     """Convenience function to log an error with context.
 
@@ -425,9 +426,9 @@ def log_performance_error_with_context(
     operation_name: str,
     duration: float,
     threshold: float,
-    session_id: Optional[str] = None,
-    performance_context: Optional[Dict[str, Any]] = None,
-    logger_instance: Optional[StructuredErrorLogger] = None,
+    session_id: str | None = None,
+    performance_context: dict[str, Any] | None = None,
+    logger_instance: StructuredErrorLogger | None = None,
 ) -> str:
     """Convenience function to log a performance error.
 

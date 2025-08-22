@@ -4,19 +4,19 @@ Ensures that context sanitization does not cause memory leaks
 """
 
 import gc
-import psutil
-import pytest
 import threading
 
+import psutil
+import pytest
+from context_switcher_mcp.error_logging import StructuredErrorLogger
+from context_switcher_mcp.exceptions import (
+    ModelAuthenticationError,
+    SecurityError,
+)
 from context_switcher_mcp.security_context_sanitizer import (
     SecurityContextSanitizer,
     get_context_sanitizer,
 )
-from context_switcher_mcp.exceptions import (
-    SecurityError,
-    ModelAuthenticationError,
-)
-from context_switcher_mcp.error_logging import StructuredErrorLogger
 
 
 class TestMemoryLeakPrevention:

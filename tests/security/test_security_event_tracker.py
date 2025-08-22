@@ -2,20 +2,22 @@
 Test suite for SecurityEventTracker security module.
 """
 
-import sys
-import os
 import logging
+import os
+import sys
 from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 import pytest  # noqa: E402
-
-from context_switcher_mcp.models import ClientBinding, ContextSwitcherSession  # noqa: E402
+from context_switcher_mcp.models import (  # noqa: E402
+    ClientBinding,
+    ContextSwitcherSession,
+)
 from context_switcher_mcp.security.security_event_tracker import (  # noqa: E402
     SecurityEventTracker,
-    log_security_event_with_binding,
     log_binding_validation_failure,
+    log_security_event_with_binding,
     log_suspicious_access_pattern,
 )
 

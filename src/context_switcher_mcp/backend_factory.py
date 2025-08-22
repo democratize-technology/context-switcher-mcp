@@ -1,11 +1,9 @@
 """Factory for creating backend instances without duplication"""
 
-from .logging_base import get_logger
-from typing import Dict, Optional
-
-from .models import ModelBackend, Thread
-from .backend_interface import ModelBackendInterface, BedrockBackend
+from .backend_interface import BedrockBackend, ModelBackendInterface
 from .exceptions import ConfigurationError, ModelBackendError
+from .logging_base import get_logger
+from .models import ModelBackend, Thread
 from .profiling_wrapper import create_profiling_wrapper
 
 logger = get_logger(__name__)
@@ -92,7 +90,7 @@ class OllamaBackend(ModelBackendInterface):
 class BackendFactory:
     """Factory for creating and managing backend instances"""
 
-    _instances: Dict[ModelBackend, Optional[ModelBackendInterface]] = {}
+    _instances: dict[ModelBackend, ModelBackendInterface | None] = {}
     _config = None
 
     @classmethod
@@ -120,7 +118,7 @@ class BackendFactory:
     @classmethod
     def _create_backend(
         cls, backend_type: ModelBackend
-    ) -> Optional[ModelBackendInterface]:
+    ) -> ModelBackendInterface | None:
         """Create a new backend instance
 
         Args:

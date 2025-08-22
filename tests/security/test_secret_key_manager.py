@@ -2,23 +2,23 @@
 Test suite for SecretKeyManager security module.
 """
 
-import sys
 import os
-import tempfile
 import shutil
-from pathlib import Path
+import sys
+import tempfile
 from datetime import datetime, timezone
+from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
-import pytest  # noqa: E402
-import secrets  # noqa: E402
 import json  # noqa: E402
+import secrets  # noqa: E402
 
+import pytest  # noqa: E402
 from context_switcher_mcp.security.secret_key_manager import (  # noqa: E402
     SecretKeyManager,
-    load_or_generate_secret_key,
     _save_key_data_atomically,
+    load_or_generate_secret_key,
 )
 
 
@@ -82,7 +82,7 @@ class TestSecretKeyManager:
         keys_history = [manager.current_key]
 
         # Rotate 7 times (more than the 5-key limit)
-        for i in range(7):
+        for _i in range(7):
             new_key = manager.rotate_key()
             keys_history.append(new_key)
 
@@ -264,7 +264,7 @@ class TestLoadOrGenerateSecretKey:
         assert len(key) > 0
 
         # Should have overwritten the corrupted file
-        with open(secret_file, "r") as f:
+        with open(secret_file) as f:
             data = json.load(f)
             assert data["current_key"] == key
 
@@ -286,7 +286,7 @@ class TestLoadOrGenerateSecretKey:
         assert secret_file.exists()
 
         # Verify data was saved correctly
-        with open(secret_file, "r") as f:
+        with open(secret_file) as f:
             saved_data = json.load(f)
             assert saved_data == test_data
 

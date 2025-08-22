@@ -9,7 +9,7 @@ import secrets
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Dict, List, Optional, Any, Union
+from typing import Any
 
 
 class ModelBackend(str, Enum):
@@ -28,8 +28,8 @@ class Thread:
     name: str
     system_prompt: str
     model_backend: ModelBackend
-    model_name: Optional[str] = None
-    conversation_history: List[Dict[str, str]] = field(default_factory=list)
+    model_name: str | None = None
+    conversation_history: list[dict[str, str]] = field(default_factory=list)
 
     def add_message(self, role: str, content: str) -> None:
         """Add a message to the conversation history"""
@@ -41,7 +41,7 @@ class Thread:
             }
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert thread to dictionary for serialization"""
         return {
             "id": self.id,
@@ -53,7 +53,7 @@ class Thread:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Thread":
+    def from_dict(cls, data: dict[str, Any]) -> "Thread":
         """Create thread from dictionary"""
         return cls(
             id=data["id"],
@@ -76,12 +76,12 @@ class ClientBinding:
 
     # Behavioral fingerprint
     access_pattern_hash: str  # Hash of initial access patterns
-    tool_usage_sequence: List[str] = field(default_factory=list)
+    tool_usage_sequence: list[str] = field(default_factory=list)
 
     # Security metadata
     validation_failures: int = 0
     last_validated: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    security_flags: List[str] = field(default_factory=list)
+    security_flags: list[str] = field(default_factory=list)
 
     def generate_binding_signature(self, secret_key: str) -> str:
         """Generate HMAC signature for binding validation"""
@@ -108,7 +108,7 @@ class ClientBinding:
             or "multiple_failed_validations" in self.security_flags
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert client binding to dictionary for serialization"""
         return {
             "session_entropy": self.session_entropy,
@@ -122,7 +122,7 @@ class ClientBinding:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ClientBinding":
+    def from_dict(cls, data: dict[str, Any]) -> "ClientBinding":
         """Create client binding from dictionary"""
         return cls(
             session_entropy=data["session_entropy"],
@@ -144,9 +144,9 @@ class SecurityEvent:
 
     event_type: str
     timestamp: datetime
-    details: Dict[str, Any]
+    details: dict[str, Any]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert security event to dictionary"""
         return {
             "type": self.event_type,
@@ -155,7 +155,7 @@ class SecurityEvent:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SecurityEvent":
+    def from_dict(cls, data: dict[str, Any]) -> "SecurityEvent":
         """Create security event from dictionary"""
         return cls(
             event_type=data["type"],
@@ -170,11 +170,11 @@ class AnalysisRecord:
 
     prompt: str
     timestamp: datetime
-    responses: Dict[str, str]
+    responses: dict[str, str]
     active_count: int
     abstained_count: int
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert analysis record to dictionary"""
         return {
             "prompt": self.prompt,
@@ -185,7 +185,7 @@ class AnalysisRecord:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "AnalysisRecord":
+    def from_dict(cls, data: dict[str, Any]) -> "AnalysisRecord":
         """Create analysis record from dictionary"""
         return cls(
             prompt=data["prompt"],
@@ -229,7 +229,7 @@ class SessionMetrics:
         """Record a security event"""
         self.security_event_count += 1
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert metrics to dictionary"""
         return {
             "access_count": self.access_count,
@@ -243,7 +243,7 @@ class SessionMetrics:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SessionMetrics":
+    def from_dict(cls, data: dict[str, Any]) -> "SessionMetrics":
         """Create metrics from dictionary"""
         return cls(
             access_count=data.get("access_count", 0),
@@ -265,36 +265,40 @@ class SessionState:
 
     session_id: str
     created_at: datetime
-    topic: Optional[str] = None
+    topic: str | None = None
     version: int = 0  # Version for optimistic concurrency control
 
     # Core data
-    threads: Dict[str, Thread] = field(default_factory=dict)
-    analyses: List[AnalysisRecord] = field(default_factory=list)
-    security_events: List[SecurityEvent] = field(default_factory=list)
+    threads: dict[str, Thread] = field(default_factory=dict)
+    analyses: list[AnalysisRecord] = field(default_factory=list)
+    security_events: list[SecurityEvent] = field(default_factory=list)
 
     # Security
-    client_binding: Optional[ClientBinding] = None
+    client_binding: ClientBinding | None = None
 
     # Metrics
     metrics: SessionMetrics = field(default_factory=SessionMetrics)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert complete session state to dictionary for serialization"""
         return {
             "session_id": self.session_id,
             "created_at": self.created_at.isoformat(),
             "topic": self.topic,
             "version": self.version,
-            "threads": {name: thread.to_dict() for name, thread in self.threads.items()},
+            "threads": {
+                name: thread.to_dict() for name, thread in self.threads.items()
+            },
             "analyses": [analysis.to_dict() for analysis in self.analyses],
             "security_events": [event.to_dict() for event in self.security_events],
-            "client_binding": self.client_binding.to_dict() if self.client_binding else None,
+            "client_binding": self.client_binding.to_dict()
+            if self.client_binding
+            else None,
             "metrics": self.metrics.to_dict(),
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SessionState":
+    def from_dict(cls, data: dict[str, Any]) -> "SessionState":
         """Create session state from dictionary"""
         # Reconstruct threads
         threads = {}

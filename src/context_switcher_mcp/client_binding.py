@@ -10,26 +10,28 @@ to ensure zero breaking changes for existing code.
 """
 
 # Import all functionality from the new modular security components
+from .security.client_binding_core import (
+    ClientBindingManager,
+    create_secure_session_with_binding,
+    get_client_binding_manager,
+    validate_session_access,
+)
+from .security.client_validation_service import (
+    BINDING_VALIDATION_WINDOW,
+    MAX_SECURITY_FLAGS,
+    MAX_VALIDATION_FAILURES,
+    SUSPICIOUS_ACCESS_THRESHOLD,
+    ClientValidationService,
+)
 from .security.secret_key_manager import (
     SecretKeyManager,
+)
+from .security.secret_key_manager import (
     load_or_generate_secret_key as _load_or_generate_secret_key,
 )
 from .security.security_event_tracker import (
     SecurityEventTracker,
     log_security_event_with_binding,
-)
-from .security.client_validation_service import (
-    ClientValidationService,
-    MAX_VALIDATION_FAILURES,
-    MAX_SECURITY_FLAGS,
-    BINDING_VALIDATION_WINDOW,
-    SUSPICIOUS_ACCESS_THRESHOLD,
-)
-from .security.client_binding_core import (
-    ClientBindingManager,
-    get_client_binding_manager,
-    create_secure_session_with_binding,
-    validate_session_access,
 )
 
 # Backward compatibility exports - maintain original API surface

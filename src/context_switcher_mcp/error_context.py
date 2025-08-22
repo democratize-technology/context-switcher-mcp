@@ -3,16 +3,17 @@
 import asyncio
 import contextlib
 import logging
-from .logging_base import get_logger
 import time
 import uuid
-from typing import Any, AsyncGenerator, Callable, Dict, Generator, List, Optional, Type
+from collections.abc import AsyncGenerator, Callable, Generator
+from typing import Any
 
 from .exceptions import (
     OrchestrationError,
     PerformanceError,
 )
 from .input_sanitizer import sanitize_error_message
+from .logging_base import get_logger
 from .security_context_sanitizer import sanitize_exception_context
 
 logger = get_logger(__name__)
@@ -21,11 +22,11 @@ logger = get_logger(__name__)
 @contextlib.asynccontextmanager
 async def error_context(
     operation_name: str,
-    session_id: Optional[str] = None,
-    user_context: Optional[Dict[str, Any]] = None,
+    session_id: str | None = None,
+    user_context: dict[str, Any] | None = None,
     log_success: bool = True,
     performance_threshold: float = 1.0,
-) -> AsyncGenerator[Dict[str, Any], None]:
+) -> AsyncGenerator[dict[str, Any], None]:
     """Async context manager for structured error handling and logging.
 
     Args:
@@ -109,11 +110,11 @@ async def error_context(
 @contextlib.contextmanager
 def error_context_sync(
     operation_name: str,
-    session_id: Optional[str] = None,
-    user_context: Optional[Dict[str, Any]] = None,
+    session_id: str | None = None,
+    user_context: dict[str, Any] | None = None,
     log_success: bool = True,
     performance_threshold: float = 1.0,
-) -> Generator[Dict[str, Any], None, None]:
+) -> Generator[dict[str, Any], None, None]:
     """Synchronous context manager for structured error handling and logging.
 
     Same functionality as error_context but for synchronous operations.
@@ -182,8 +183,8 @@ def error_context_sync(
 
 @contextlib.asynccontextmanager
 async def suppress_and_log(
-    *exception_types: Type[Exception],
-    fallback_action: Optional[Callable] = None,
+    *exception_types: type[Exception],
+    fallback_action: Callable | None = None,
     log_level: int = logging.WARNING,
     operation_name: str = "unknown_operation",
 ) -> AsyncGenerator[None, None]:
@@ -229,8 +230,8 @@ async def suppress_and_log(
 
 @contextlib.contextmanager
 def suppress_and_log_sync(
-    *exception_types: Type[Exception],
-    fallback_action: Optional[Callable] = None,
+    *exception_types: type[Exception],
+    fallback_action: Callable | None = None,
     log_level: int = logging.WARNING,
     operation_name: str = "unknown_operation",
 ) -> Generator[None, None, None]:
@@ -262,10 +263,10 @@ def suppress_and_log_sync(
 
 @contextlib.asynccontextmanager
 async def resource_cleanup_context(
-    cleanup_actions: List[Callable],
+    cleanup_actions: list[Callable],
     operation_name: str = "resource_operation",
     ignore_cleanup_errors: bool = True,
-) -> AsyncGenerator[Dict[str, Any], None]:
+) -> AsyncGenerator[dict[str, Any], None]:
     """Context manager that ensures resource cleanup even if operation fails.
 
     Args:
@@ -323,7 +324,7 @@ async def resource_cleanup_context(
 def timeout_context(
     timeout_seconds: float,
     operation_name: str = "timed_operation",
-    timeout_error_class: Type[Exception] = PerformanceError,
+    timeout_error_class: type[Exception] = PerformanceError,
 ) -> Generator[None, None, None]:
     """Context manager that raises timeout error if operation takes too long.
 
@@ -358,7 +359,7 @@ class ErrorAccumulator:
     def __init__(
         self,
         operation_name: str = "batch_operation",
-        max_errors: Optional[int] = None,
+        max_errors: int | None = None,
         log_individual_errors: bool = True,
     ):
         """Initialize error accumulator.
@@ -371,7 +372,7 @@ class ErrorAccumulator:
         self.operation_name = operation_name
         self.max_errors = max_errors
         self.log_individual_errors = log_individual_errors
-        self.errors: List[Dict[str, Any]] = []
+        self.errors: list[dict[str, Any]] = []
 
     def __enter__(self):
         return self
@@ -418,7 +419,7 @@ class ErrorAccumulator:
         """Check if any errors were accumulated."""
         return len(self.errors) > 0
 
-    def get_error_summary(self) -> Dict[str, Any]:
+    def get_error_summary(self) -> dict[str, Any]:
         """Get a summary of accumulated errors."""
         error_types = {}
         for error in self.errors:

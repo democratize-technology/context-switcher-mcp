@@ -1,8 +1,6 @@
 """Model validation utilities for validating model IDs and configurations"""
 
 from .logging_base import get_logger
-from typing import Tuple
-
 from .security_patterns import SecurityPatternMatcher
 
 logger = get_logger(__name__)
@@ -12,7 +10,7 @@ class ModelIdValidator:
     """Validates model IDs against security patterns"""
 
     @staticmethod
-    def validate_model_id(model_id: str) -> Tuple[bool, str]:
+    def validate_model_id(model_id: str) -> tuple[bool, str]:
         """
         Validate model ID against allowed patterns
 
@@ -41,7 +39,7 @@ class ModelIdValidator:
 _model_validator = ModelIdValidator()
 
 
-def validate_model_id(model_id: str) -> Tuple[bool, str]:
+def validate_model_id(model_id: str) -> tuple[bool, str]:
     """
     Validate model ID against allowed patterns
 

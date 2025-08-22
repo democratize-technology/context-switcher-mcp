@@ -1,16 +1,16 @@
 """Tests for PerspectiveOrchestrator component"""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from context_switcher_mcp.perspective_orchestrator import (
-    PerspectiveOrchestrator,
-    PerspectiveMetrics,
-)
-from context_switcher_mcp.thread_manager import ThreadManager
-from context_switcher_mcp.response_formatter import ResponseFormatter
-from context_switcher_mcp.models import Thread, ModelBackend
+import pytest
 from context_switcher_mcp.exceptions import OrchestrationError
+from context_switcher_mcp.models import ModelBackend, Thread
+from context_switcher_mcp.perspective_orchestrator import (
+    PerspectiveMetrics,
+    PerspectiveOrchestrator,
+)
+from context_switcher_mcp.response_formatter import ResponseFormatter
+from context_switcher_mcp.thread_manager import ThreadManager
 
 
 @pytest.fixture

@@ -1,8 +1,9 @@
 """Security event logging and monitoring utilities"""
 
 import time
+from typing import Any
+
 from .logging_base import get_logger
-from typing import Any, Dict, Optional
 
 logger = get_logger(__name__)
 
@@ -16,9 +17,9 @@ class SecurityEventLogger:
     def log_security_event(
         self,
         event_type: str,
-        details: Dict[str, Any],
-        session_id: Optional[str] = None,
-        client_id: Optional[str] = None,
+        details: dict[str, Any],
+        session_id: str | None = None,
+        client_id: str | None = None,
     ):
         """
         Enhanced logging for security-related events
@@ -62,9 +63,9 @@ _security_event_logger = SecurityEventLogger()
 
 def log_security_event(
     event_type: str,
-    details: Dict[str, Any],
-    session_id: Optional[str] = None,
-    client_id: Optional[str] = None,
+    details: dict[str, Any],
+    session_id: str | None = None,
+    client_id: str | None = None,
 ):
     """
     Log a security event
@@ -80,7 +81,7 @@ def log_security_event(
     )
 
 
-def get_security_metrics(client_id: str = "default") -> Dict[str, Any]:
+def get_security_metrics(client_id: str = "default") -> dict[str, Any]:
     """
     Get security metrics for monitoring
 

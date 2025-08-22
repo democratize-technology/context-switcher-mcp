@@ -3,17 +3,18 @@
 import asyncio
 import functools
 import logging
-from .logging_base import get_logger
 import time
-from typing import Any, Callable, List, Optional, Type, TypeVar
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 from .exceptions import (
-    ModelBackendError,
-    SessionError,
-    NetworkError,
     ConcurrencyError,
+    ModelBackendError,
+    NetworkError,
+    SessionError,
     ValidationError,
 )
+from .logging_base import get_logger
 from .security import sanitize_error_message
 
 logger = get_logger(__name__)
@@ -164,7 +165,7 @@ def retry_on_transient_errors(
     base_delay: float = 1.0,
     max_delay: float = 60.0,
     backoff_multiplier: float = 2.0,
-    transient_errors: Optional[List[Type[Exception]]] = None,
+    transient_errors: list[type[Exception]] | None = None,
 ) -> Callable[[F], F]:
     """Decorator to retry operations on transient errors with exponential backoff.
 
@@ -262,7 +263,7 @@ def retry_on_transient_errors(
 
 
 def log_errors_with_context(
-    logger_instance: Optional[logging.Logger] = None,
+    logger_instance: logging.Logger | None = None,
     log_level: int = logging.ERROR,
     include_performance: bool = False,
 ) -> Callable[[F], F]:

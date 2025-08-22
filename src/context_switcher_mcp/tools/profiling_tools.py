@@ -1,12 +1,12 @@
 """MCP tools for LLM profiling and performance monitoring"""
 
-from ..logging_config import get_logger
-from typing import Dict, Any, Optional
-from mcp.server.fastmcp import FastMCP
+from typing import Any
 
+from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
 from ..llm_profiler import get_global_profiler
+from ..logging_config import get_logger
 from ..performance_dashboard import get_performance_dashboard
 from ..validation import validate_session_id
 
@@ -55,21 +55,19 @@ class SessionProfilingRequest(BaseModel):
 
 
 class ProfilingConfigRequest(BaseModel):
-    enabled: Optional[bool] = Field(
-        default=None, description="Enable/disable profiling"
-    )
-    sampling_rate: Optional[float] = Field(
+    enabled: bool | None = Field(default=None, description="Enable/disable profiling")
+    sampling_rate: float | None = Field(
         default=None, description="Sampling rate (0.0 to 1.0)"
     )
-    track_costs: Optional[bool] = Field(
+    track_costs: bool | None = Field(
         default=None, description="Enable/disable cost tracking"
     )
-    track_memory: Optional[bool] = Field(
+    track_memory: bool | None = Field(
         default=None, description="Enable/disable memory tracking"
     )
 
 
-async def get_llm_profiling_status() -> Dict[str, Any]:
+async def get_llm_profiling_status() -> dict[str, Any]:
     """Get current LLM profiling configuration and status
 
     Returns:
@@ -85,7 +83,7 @@ async def get_llm_profiling_status() -> Dict[str, Any]:
 
 async def get_performance_dashboard_data(
     hours_back: int = 24, include_cache_stats: bool = True
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get comprehensive performance dashboard data
 
     Args:
@@ -113,7 +111,7 @@ async def get_performance_dashboard_data(
         return {"error": "Failed to get dashboard data", "message": str(e)}
 
 
-async def get_cost_analysis(hours_back: int = 24) -> Dict[str, Any]:
+async def get_cost_analysis(hours_back: int = 24) -> dict[str, Any]:
     """Get detailed cost analysis and breakdown
 
     Args:
@@ -144,7 +142,7 @@ async def get_cost_analysis(hours_back: int = 24) -> Dict[str, Any]:
         return {"error": "Failed to get cost analysis", "message": str(e)}
 
 
-async def get_performance_metrics(hours_back: int = 24) -> Dict[str, Any]:
+async def get_performance_metrics(hours_back: int = 24) -> dict[str, Any]:
     """Get performance metrics and latency analysis
 
     Args:
@@ -176,7 +174,7 @@ async def get_performance_metrics(hours_back: int = 24) -> Dict[str, Any]:
         return {"error": "Failed to get performance metrics", "message": str(e)}
 
 
-async def get_optimization_recommendations(hours_back: int = 24) -> Dict[str, Any]:
+async def get_optimization_recommendations(hours_back: int = 24) -> dict[str, Any]:
     """Get AI-powered optimization recommendations
 
     Args:
@@ -205,7 +203,7 @@ async def get_optimization_recommendations(hours_back: int = 24) -> Dict[str, An
 
 async def get_detailed_performance_report(
     hours_back: int = 24, format: str = "json"
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Export comprehensive performance report
 
     Args:
@@ -236,7 +234,7 @@ async def get_detailed_performance_report(
         return {"error": "Failed to generate performance report", "message": str(e)}
 
 
-async def get_session_profiling_data(session_id: str) -> Dict[str, Any]:
+async def get_session_profiling_data(session_id: str) -> dict[str, Any]:
     """Get profiling data for a specific session
 
     Args:
@@ -354,7 +352,7 @@ async def get_session_profiling_data(session_id: str) -> Dict[str, Any]:
         return {"error": "Failed to get session profiling data", "message": str(e)}
 
 
-async def reset_profiling_data() -> Dict[str, Any]:
+async def reset_profiling_data() -> dict[str, Any]:
     """Reset all profiling data (admin operation)
 
     WARNING: This will clear all collected profiling metrics!
@@ -396,11 +394,11 @@ async def reset_profiling_data() -> Dict[str, Any]:
 
 
 async def configure_profiling(
-    enabled: Optional[bool] = None,
-    sampling_rate: Optional[float] = None,
-    track_costs: Optional[bool] = None,
-    track_memory: Optional[bool] = None,
-) -> Dict[str, Any]:
+    enabled: bool | None = None,
+    sampling_rate: float | None = None,
+    track_costs: bool | None = None,
+    track_memory: bool | None = None,
+) -> dict[str, Any]:
     """Update profiling configuration
 
     Args:
@@ -451,7 +449,7 @@ def register_profiling_tools(mcp: FastMCP) -> None:
         description="Get current LLM profiling configuration and status - "
         "shows sampling rates, feature flags, storage utilization, and statistics"
     )
-    async def get_profiling_status() -> Dict[str, Any]:
+    async def get_profiling_status() -> dict[str, Any]:
         """Get profiling status and configuration"""
         return await get_llm_profiling_status()
 
@@ -462,7 +460,7 @@ def register_profiling_tools(mcp: FastMCP) -> None:
     )
     async def get_performance_dashboard(
         request: PerformanceDashboardRequest,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get comprehensive performance dashboard data"""
         return await get_performance_dashboard_data(
             request.hours_back, request.include_cache_stats
@@ -472,7 +470,7 @@ def register_profiling_tools(mcp: FastMCP) -> None:
         description="Deep dive into cost breakdown by backend, model, and session - "
         "identify expensive operations and track daily burn rates for budget control"
     )
-    async def get_cost_analysis_data(request: CostAnalysisRequest) -> Dict[str, Any]:
+    async def get_cost_analysis_data(request: CostAnalysisRequest) -> dict[str, Any]:
         """Get detailed cost analysis and breakdown"""
         return await get_cost_analysis(request.hours_back)
 
@@ -482,7 +480,7 @@ def register_profiling_tools(mcp: FastMCP) -> None:
     )
     async def get_performance_analysis(
         request: PerformanceMetricsRequest,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get performance metrics and latency analysis"""
         return await get_performance_metrics(request.hours_back)
 
@@ -490,7 +488,7 @@ def register_profiling_tools(mcp: FastMCP) -> None:
         description="Get AI-powered optimization recommendations based on usage patterns - "
         "discover cost savings, performance improvements, and efficiency gains"
     )
-    async def get_optimization_insights(request: OptimizationRequest) -> Dict[str, Any]:
+    async def get_optimization_insights(request: OptimizationRequest) -> dict[str, Any]:
         """Get optimization recommendations and insights"""
         return await get_optimization_recommendations(request.hours_back)
 
@@ -500,7 +498,7 @@ def register_profiling_tools(mcp: FastMCP) -> None:
     )
     async def export_performance_report(
         request: DetailedReportRequest,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Export detailed performance report"""
         return await get_detailed_performance_report(request.hours_back, request.format)
 
@@ -510,7 +508,7 @@ def register_profiling_tools(mcp: FastMCP) -> None:
     )
     async def get_session_profiling_analysis(
         request: SessionProfilingRequest,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get profiling data for specific session"""
         return await get_session_profiling_data(request.session_id)
 
@@ -520,7 +518,7 @@ def register_profiling_tools(mcp: FastMCP) -> None:
     )
     async def configure_profiling_settings(
         request: ProfilingConfigRequest,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Update profiling configuration"""
         return await configure_profiling(
             request.enabled,
@@ -533,6 +531,6 @@ def register_profiling_tools(mcp: FastMCP) -> None:
         description="ADMIN: Reset all profiling data - WARNING: This permanently "
         "deletes all collected metrics and cannot be undone!"
     )
-    async def reset_profiling_metrics() -> Dict[str, Any]:
+    async def reset_profiling_metrics() -> dict[str, Any]:
         """Reset all profiling data (admin operation)"""
         return await reset_profiling_data()

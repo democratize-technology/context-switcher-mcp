@@ -7,12 +7,12 @@ and config_migration modules.
 """
 
 import os
-from .logging_base import get_logger
-from typing import Any, Dict, List
 from dataclasses import dataclass
+from typing import Any
 
-from .types import ModelBackend, ConfigurationData
-from .protocols import ConfigurationProvider, ConfigurationMigrator
+from .logging_base import get_logger
+from .protocols import ConfigurationMigrator, ConfigurationProvider
+from .types import ConfigurationData, ModelBackend
 
 logger = get_logger(__name__)
 
@@ -44,13 +44,13 @@ class BackendConfiguration:
     timeout_seconds: float = 30.0
     max_retries: int = 3
     retry_delay_seconds: float = 1.0
-    model_specific_config: Dict[str, Any] = None
+    model_specific_config: dict[str, Any] = None
 
     def __post_init__(self):
         if self.model_specific_config is None:
             self.model_specific_config = {}
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation"""
         return {
             "backend_type": self.backend_type.value,
@@ -74,7 +74,7 @@ class SecurityConfiguration:
     enable_access_pattern_analysis: bool = True
     suspicious_activity_threshold: int = 5
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation"""
         return {
             "enable_client_binding": self.enable_client_binding,
@@ -92,7 +92,7 @@ class BaseConfigurationProvider(ConfigurationProvider):
 
     def __init__(self):
         self.session_config = ConfigurationData()
-        self.backend_configs: Dict[ModelBackend, BackendConfiguration] = {}
+        self.backend_configs: dict[ModelBackend, BackendConfiguration] = {}
         self.security_config = SecurityConfiguration()
         self._validated = False
 
@@ -100,7 +100,7 @@ class BaseConfigurationProvider(ConfigurationProvider):
         """Get session configuration"""
         return self.session_config
 
-    def get_backend_config(self, backend: ModelBackend) -> Dict[str, Any]:
+    def get_backend_config(self, backend: ModelBackend) -> dict[str, Any]:
         """Get backend-specific configuration"""
         if backend in self.backend_configs:
             return self.backend_configs[backend].to_dict()
@@ -109,7 +109,7 @@ class BaseConfigurationProvider(ConfigurationProvider):
         default_config = BackendConfiguration(backend_type=backend)
         return default_config.to_dict()
 
-    def get_security_config(self) -> Dict[str, Any]:
+    def get_security_config(self) -> dict[str, Any]:
         """Get security configuration"""
         return self.security_config.to_dict()
 
@@ -193,7 +193,7 @@ class ConfigurationFactory:
     """Factory for creating configuration providers"""
 
     @staticmethod
-    def create_from_dict(config_dict: Dict[str, Any]) -> BaseConfigurationProvider:
+    def create_from_dict(config_dict: dict[str, Any]) -> BaseConfigurationProvider:
         """Create configuration provider from dictionary"""
         provider = BaseConfigurationProvider()
 
@@ -296,7 +296,7 @@ class BaseMigrator(ConfigurationMigrator):
     """Base implementation of configuration migrator"""
 
     def __init__(self):
-        self.migration_rules: List[Dict[str, Any]] = []
+        self.migration_rules: list[dict[str, Any]] = []
 
     def add_migration_rule(
         self, from_version: str, to_version: str, migration_func: callable
@@ -310,7 +310,7 @@ class BaseMigrator(ConfigurationMigrator):
             }
         )
 
-    def migrate_config(self, old_config: Dict[str, Any]) -> Dict[str, Any]:
+    def migrate_config(self, old_config: dict[str, Any]) -> dict[str, Any]:
         """Migrate old configuration to new format"""
         current_config = old_config.copy()
         current_version = self._get_config_version(current_config)
@@ -326,7 +326,7 @@ class BaseMigrator(ConfigurationMigrator):
 
         return current_config
 
-    def is_migration_needed(self, config: Dict[str, Any]) -> bool:
+    def is_migration_needed(self, config: dict[str, Any]) -> bool:
         """Check if migration is needed"""
         current_version = self._get_config_version(config)
 
@@ -338,7 +338,7 @@ class BaseMigrator(ConfigurationMigrator):
         return False
 
     def validate_migration(
-        self, old_config: Dict[str, Any], new_config: Dict[str, Any]
+        self, old_config: dict[str, Any], new_config: dict[str, Any]
     ) -> bool:
         """Validate that migration was successful"""
         try:
@@ -352,15 +352,15 @@ class BaseMigrator(ConfigurationMigrator):
             logger.error(f"Migration validation failed: {e}")
             return False
 
-    def _get_config_version(self, config: Dict[str, Any]) -> str:
+    def _get_config_version(self, config: dict[str, Any]) -> str:
         """Get configuration version"""
         return config.get("version", "unknown")
 
 
 # Utility functions for working with configurations
 def merge_configurations(
-    base_config: Dict[str, Any], override_config: Dict[str, Any]
-) -> Dict[str, Any]:
+    base_config: dict[str, Any], override_config: dict[str, Any]
+) -> dict[str, Any]:
     """Merge two configuration dictionaries"""
     merged = base_config.copy()
 
@@ -373,7 +373,7 @@ def merge_configurations(
     return merged
 
 
-def validate_configuration_dict(config_dict: Dict[str, Any]) -> List[str]:
+def validate_configuration_dict(config_dict: dict[str, Any]) -> list[str]:
     """Validate configuration dictionary and return list of errors"""
     errors = []
 
@@ -387,7 +387,7 @@ def validate_configuration_dict(config_dict: Dict[str, Any]) -> List[str]:
     return errors
 
 
-def get_default_backend_config(backend: ModelBackend) -> Dict[str, Any]:
+def get_default_backend_config(backend: ModelBackend) -> dict[str, Any]:
     """Get default configuration for a backend"""
     config = BackendConfiguration(backend_type=backend)
     return config.to_dict()

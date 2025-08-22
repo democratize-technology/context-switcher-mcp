@@ -5,18 +5,19 @@ Tracks timing, token usage, costs, memory usage, and provides optimization insig
 """
 
 import asyncio
-from .logging_base import get_logger
 import time
-import psutil
-from typing import Dict, Any, Optional, List
-from dataclasses import dataclass, field
-from enum import Enum
-from datetime import datetime, timezone
-from contextlib import asynccontextmanager
 import uuid
+from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from enum import Enum
+from typing import Any
+
+import psutil
 
 from .circular_buffer import CircularBuffer
 from .config import get_config
+from .logging_base import get_logger
 
 logger = get_logger(__name__)
 
@@ -44,50 +45,50 @@ class LLMCallMetrics:
 
     # Timing metrics (seconds)
     start_time: float = field(default_factory=time.time)
-    end_time: Optional[float] = None
-    network_latency: Optional[float] = None  # Time to first token/response
-    processing_time: Optional[float] = None  # Total - network latency
-    queue_time: Optional[float] = None  # Time waiting for circuit breaker
+    end_time: float | None = None
+    network_latency: float | None = None  # Time to first token/response
+    processing_time: float | None = None  # Total - network latency
+    queue_time: float | None = None  # Time waiting for circuit breaker
 
     # Token metrics
-    input_tokens: Optional[int] = None
-    output_tokens: Optional[int] = None
-    total_tokens: Optional[int] = None
-    estimated_cost_usd: Optional[float] = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    total_tokens: int | None = None
+    estimated_cost_usd: float | None = None
 
     # Performance metrics
     success: bool = False
-    error_type: Optional[str] = None
-    error_message: Optional[str] = None
+    error_type: str | None = None
+    error_message: str | None = None
     retry_count: int = 0
     circuit_breaker_triggered: bool = False
     streaming_enabled: bool = False
 
     # Resource metrics
-    peak_memory_mb: Optional[float] = None
-    cpu_usage_percent: Optional[float] = None
+    peak_memory_mb: float | None = None
+    cpu_usage_percent: float | None = None
 
     # Additional context
-    prompt_length: Optional[int] = None
-    response_length: Optional[int] = None
-    context_length: Optional[int] = None
+    prompt_length: int | None = None
+    response_length: int | None = None
+    context_length: int | None = None
 
     @property
-    def total_latency(self) -> Optional[float]:
+    def total_latency(self) -> float | None:
         """Calculate total call latency"""
         if self.end_time is None:
             return None
         return self.end_time - self.start_time
 
     @property
-    def tokens_per_second(self) -> Optional[float]:
+    def tokens_per_second(self) -> float | None:
         """Calculate token generation rate"""
         if not self.total_latency or not self.output_tokens:
             return None
         return self.output_tokens / self.total_latency
 
     @property
-    def cost_per_token(self) -> Optional[float]:
+    def cost_per_token(self) -> float | None:
         """Calculate cost efficiency"""
         if not self.estimated_cost_usd or not self.total_tokens:
             return None
@@ -147,7 +148,7 @@ class CostCalculator:
     @classmethod
     def calculate_cost(
         self, backend: str, model_name: str, input_tokens: int, output_tokens: int
-    ) -> Optional[float]:
+    ) -> float | None:
         """Calculate cost in USD for a model call"""
         try:
             pricing_table = None
@@ -227,7 +228,7 @@ class MemoryProfiler:
 class LLMProfiler:
     """Main LLM profiling orchestrator"""
 
-    def __init__(self, config: Optional[ProfilingConfig] = None):
+    def __init__(self, config: ProfilingConfig | None = None):
         """Initialize LLM profiler with configuration"""
         self.config = config or ProfilingConfig()
 
@@ -342,11 +343,11 @@ class LLMProfiler:
 
     def record_token_usage(
         self,
-        metrics: Optional[LLMCallMetrics],
+        metrics: LLMCallMetrics | None,
         input_tokens: int,
         output_tokens: int,
-        prompt_length: Optional[int] = None,
-        response_length: Optional[int] = None,
+        prompt_length: int | None = None,
+        response_length: int | None = None,
     ) -> None:
         """Record token usage and calculate costs"""
         if not metrics or not self.config.track_tokens:
@@ -365,7 +366,7 @@ class LLMProfiler:
             )
 
     def record_network_timing(
-        self, metrics: Optional[LLMCallMetrics], first_token_time: float
+        self, metrics: LLMCallMetrics | None, first_token_time: float
     ) -> None:
         """Record network latency (time to first token)"""
         if not metrics or not self.config.track_network_timing:
@@ -431,7 +432,7 @@ class LLMProfiler:
         for alert in alerts:
             logger.warning(f"PROFILER ALERT [{metrics.thread_name}]: {alert}")
 
-    async def get_performance_metrics(self, last_n: int = 100) -> Dict[str, Any]:
+    async def get_performance_metrics(self, last_n: int = 100) -> dict[str, Any]:
         """Get comprehensive performance metrics"""
         async with self.metrics_lock:
             if self.metrics_history.is_empty():
@@ -443,8 +444,8 @@ class LLMProfiler:
         return self._calculate_performance_statistics(recent_metrics)
 
     def _calculate_performance_statistics(
-        self, metrics_list: List[LLMCallMetrics]
-    ) -> Dict[str, Any]:
+        self, metrics_list: list[LLMCallMetrics]
+    ) -> dict[str, Any]:
         """Calculate detailed performance statistics"""
 
         if not metrics_list:
@@ -501,8 +502,8 @@ class LLMProfiler:
         }
 
     def _calculate_backend_breakdown(
-        self, metrics_list: List[LLMCallMetrics]
-    ) -> Dict[str, Any]:
+        self, metrics_list: list[LLMCallMetrics]
+    ) -> dict[str, Any]:
         """Calculate performance breakdown by backend"""
         backend_data = {}
 
@@ -541,8 +542,8 @@ class LLMProfiler:
         return backend_data
 
     def _generate_performance_insights(
-        self, metrics_list: List[LLMCallMetrics]
-    ) -> List[str]:
+        self, metrics_list: list[LLMCallMetrics]
+    ) -> list[str]:
         """Generate actionable performance insights"""
         insights = []
 
@@ -594,7 +595,7 @@ class LLMProfiler:
 
         return insights
 
-    def get_configuration_status(self) -> Dict[str, Any]:
+    def get_configuration_status(self) -> dict[str, Any]:
         """Get current profiler configuration status"""
         return {
             "enabled": self.config.enabled,
@@ -632,7 +633,7 @@ class LLMProfiler:
 
 
 # Global profiler instance
-_global_profiler: Optional[LLMProfiler] = None
+_global_profiler: LLMProfiler | None = None
 
 
 def get_global_profiler() -> LLMProfiler:

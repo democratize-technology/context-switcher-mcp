@@ -5,26 +5,25 @@ while validating the simplified design's correctness and performance.
 """
 
 import asyncio
+from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
+
 import pytest
-from datetime import datetime, timezone, timedelta
-from unittest.mock import AsyncMock, Mock, patch
+from src.context_switcher_mcp.exceptions import (
+    SessionConcurrencyError,
+    SessionError,
+    SessionSecurityError,
+)
 
 # Import the new simplified session architecture
 from src.context_switcher_mcp.session import Session
 from src.context_switcher_mcp.session_manager_new import SimpleSessionManager
 from src.context_switcher_mcp.session_types import (
-    Thread,
-    ClientBinding,
-    SecurityEvent,
     AnalysisRecord,
-    SessionMetrics,
-    SessionState,
+    ClientBinding,
     ModelBackend,
-)
-from src.context_switcher_mcp.exceptions import (
-    SessionError,
-    SessionSecurityError,
-    SessionConcurrencyError,
+    SessionState,
+    Thread,
 )
 
 
@@ -40,23 +39,23 @@ class TestSessionTypes:
             model_backend=ModelBackend.BEDROCK,
             model_name="claude-3-sonnet",
         )
-        
+
         assert thread.id == "test_thread_1"
         assert thread.name == "technical"
         assert thread.model_backend == ModelBackend.BEDROCK
         assert len(thread.conversation_history) == 0
-        
+
         # Test message addition
         thread.add_message("user", "Test message")
         assert len(thread.conversation_history) == 1
         assert thread.conversation_history[0]["role"] == "user"
         assert thread.conversation_history[0]["content"] == "Test message"
-        
+
         # Test serialization
         data = thread.to_dict()
         assert data["name"] == "technical"
         assert data["model_backend"] == "bedrock"
-        
+
         # Test deserialization
         restored_thread = Thread.from_dict(data)
         assert restored_thread.name == thread.name
@@ -66,7 +65,7 @@ class TestSessionTypes:
     def test_client_binding_security(self):
         """Test ClientBinding security features"""
         secret_key = "test_secret_key"
-        
+
         # Create client binding
         binding = ClientBinding(
             session_entropy="test_entropy",
@@ -74,17 +73,17 @@ class TestSessionTypes:
             binding_signature="",
             access_pattern_hash="test_hash",
         )
-        
+
         # Generate and validate signature
         binding.binding_signature = binding.generate_binding_signature(secret_key)
         assert binding.validate_binding(secret_key) is True
         assert binding.validate_binding("wrong_key") is False
-        
+
         # Test security flags
         assert not binding.is_suspicious()
         binding.add_security_flag("test_flag")
         assert "test_flag" in binding.security_flags
-        
+
         # Test suspicious detection
         binding.validation_failures = 5
         assert binding.is_suspicious()
@@ -98,7 +97,7 @@ class TestSessionTypes:
             system_prompt="Test prompt",
             model_backend=ModelBackend.LITELLM,
         )
-        
+
         analysis = AnalysisRecord(
             prompt="test prompt",
             timestamp=datetime.now(timezone.utc),
@@ -106,7 +105,7 @@ class TestSessionTypes:
             active_count=1,
             abstained_count=0,
         )
-        
+
         state = SessionState(
             session_id="test_session",
             created_at=datetime.now(timezone.utc),
@@ -114,14 +113,14 @@ class TestSessionTypes:
             threads={"technical": thread},
             analyses=[analysis],
         )
-        
+
         # Test serialization
         data = state.to_dict()
         assert data["session_id"] == "test_session"
         assert data["topic"] == "test topic"
         assert "technical" in data["threads"]
         assert len(data["analyses"]) == 1
-        
+
         # Test deserialization
         restored_state = SessionState.from_dict(data)
         assert restored_state.session_id == state.session_id
@@ -141,7 +140,7 @@ class TestUnifiedSession:
     async def test_session_creation_and_basic_info(self, session):
         """Test session creation and basic information"""
         assert session.session_id == "test_session"
-        
+
         info = await session.get_session_info()
         assert info["session_id"] == "test_session"
         assert info["topic"] == "test topic"
@@ -154,7 +153,7 @@ class TestUnifiedSession:
         # Should pass validation with valid binding
         assert await session.validate_security() is True
         assert await session.validate_security("test_tool") is True
-        
+
         # Test tool usage tracking
         info = await session.get_session_info()
         assert info["client_binding"]["tool_usage_count"] == 1
@@ -162,11 +161,11 @@ class TestUnifiedSession:
     async def test_security_validation_failure(self):
         """Test security validation failure scenarios"""
         session = Session("test_session")
-        
+
         # Corrupt the binding signature to simulate failure
         if session._state.client_binding:
             session._state.client_binding.binding_signature = "invalid_signature"
-            
+
             with pytest.raises(SessionSecurityError):
                 await session.validate_security("test_tool")
 
@@ -179,20 +178,20 @@ class TestUnifiedSession:
             system_prompt="You are technical",
             model_backend=ModelBackend.BEDROCK,
         )
-        
+
         assert await session.add_thread(thread) is True
         assert await session.add_thread(thread) is False  # Duplicate
-        
+
         # Get thread
         retrieved = await session.get_thread("technical")
         assert retrieved is not None
         assert retrieved.name == "technical"
-        
+
         # Get all threads
         all_threads = await session.get_all_threads()
         assert len(all_threads) == 1
         assert "technical" in all_threads
-        
+
         # Remove thread
         assert await session.remove_thread("technical") is True
         assert await session.remove_thread("technical") is False  # Not found
@@ -200,15 +199,15 @@ class TestUnifiedSession:
     async def test_analysis_recording(self, session):
         """Test analysis recording and retrieval"""
         responses = {"tech": "Technical response", "business": "[NO_RESPONSE]"}
-        
+
         await session.record_analysis("test prompt", responses, response_time=1.5)
-        
+
         last_analysis = await session.get_last_analysis()
         assert last_analysis is not None
         assert last_analysis.prompt == "test prompt"
         assert last_analysis.active_count == 1
         assert last_analysis.abstained_count == 1
-        
+
         # Check metrics were updated
         info = await session.get_session_info()
         metrics = info["metrics"]
@@ -220,28 +219,29 @@ class TestUnifiedSession:
         # Get initial version
         version, last_accessed = await session.get_version_info()
         assert version == 0
-        
+
         # Perform atomic update
         async def test_update():
             return "updated"
-        
+
         result = await session.atomic_update(test_update)
         assert result == "updated"
-        
+
         # Version should be incremented
         new_version, _ = await session.get_version_info()
         assert new_version > version
-        
+
         # Test version validation
         assert await session.validate_version(new_version) is True
         assert await session.validate_version(version) is False
-        
+
         # Test optimistic locking
         with pytest.raises(SessionConcurrencyError):
             await session.atomic_update(test_update, expected_version=version)
 
     async def test_concurrent_operations(self, session):
         """Test thread safety of concurrent operations"""
+
         async def add_threads():
             for i in range(5):
                 thread = Thread(
@@ -251,10 +251,10 @@ class TestUnifiedSession:
                     model_backend=ModelBackend.BEDROCK,
                 )
                 await session.add_thread(thread)
-        
+
         # Run concurrent thread additions
         await asyncio.gather(add_threads(), add_threads())
-        
+
         # Should have 5 threads (duplicates rejected)
         all_threads = await session.get_all_threads()
         assert len(all_threads) == 5
@@ -263,18 +263,18 @@ class TestUnifiedSession:
         """Test self-contained session cleanup"""
         # Add some cleanup callbacks
         cleanup_called = []
-        
+
         def cleanup_callback():
             cleanup_called.append("callback_1")
-        
+
         session.add_cleanup_callback(cleanup_callback)
-        
+
         # Perform cleanup
         await session.cleanup()
-        
+
         # Callback should have been called
         assert "callback_1" in cleanup_called
-        
+
         # Threads should be cleared
         all_threads = await session.get_all_threads()
         assert len(all_threads) == 0
@@ -290,17 +290,17 @@ class TestUnifiedSession:
         )
         await session.add_thread(thread)
         await session.record_analysis("test", {"technical": "response"})
-        
+
         # Export state
         state_data = await session.export_state()
-        
+
         # Restore from state
         restored_session = await Session.restore_from_state(state_data)
-        
+
         # Validate restoration
         restored_info = await restored_session.get_session_info()
         original_info = await session.get_session_info()
-        
+
         assert restored_info["session_id"] == original_info["session_id"]
         assert restored_info["thread_count"] == original_info["thread_count"]
         assert restored_info["analysis_count"] == original_info["analysis_count"]
@@ -309,7 +309,7 @@ class TestUnifiedSession:
         """Test session expiration logic"""
         # Fresh session should not be expired
         assert not session.is_expired(ttl_hours=1.0)
-        
+
         # Manually set creation time to past
         session._state.created_at = datetime.now(timezone.utc) - timedelta(hours=2)
         assert session.is_expired(ttl_hours=1.0)
@@ -328,28 +328,30 @@ class TestSimpleSessionManager:
         # Create session
         session = await manager.create_session("test_session", topic="test")
         assert session.session_id == "test_session"
-        
+
         # Retrieve session
         retrieved = await manager.get_session("test_session")
         assert retrieved is not None
         assert retrieved.session_id == "test_session"
-        
+
         # Remove session
         assert await manager.remove_session("test_session") is True
         assert await manager.get_session("test_session") is None
 
     async def test_session_with_perspectives(self, manager):
         """Test session creation with initial perspectives"""
-        with patch("src.context_switcher_mcp.session_manager_new.get_perspective_system_prompt") as mock_prompt:
+        with patch(
+            "src.context_switcher_mcp.session_manager_new.get_perspective_system_prompt"
+        ) as mock_prompt:
             mock_prompt.return_value = "Test system prompt"
-            
+
             session = await manager.create_session(
                 "test_session",
                 topic="test",
                 initial_perspectives=["technical", "business"],
                 model_backend=ModelBackend.LITELLM,
             )
-            
+
             # Should have created threads for perspectives
             all_threads = await session.get_all_threads()
             assert len(all_threads) == 2
@@ -361,7 +363,7 @@ class TestSimpleSessionManager:
         # Fill up to capacity
         for i in range(5):
             await manager.create_session(f"session_{i}")
-        
+
         # Should reject new session when at capacity
         with pytest.raises(SessionError, match="capacity exceeded"):
             await manager.create_session("overflow_session")
@@ -370,14 +372,14 @@ class TestSimpleSessionManager:
         """Test session expiration and automatic cleanup"""
         # Create session
         session = await manager.create_session("test_session")
-        
+
         # Manually expire the session
         session._state.created_at = datetime.now(timezone.utc) - timedelta(hours=2)
-        
+
         # Should return None for expired session and clean it up
         retrieved = await manager.get_session("test_session")
         assert retrieved is None
-        
+
         # Manual cleanup should work
         cleanup_count = await manager.cleanup_expired_sessions()
         assert cleanup_count == 0  # Already cleaned up
@@ -387,7 +389,7 @@ class TestSimpleSessionManager:
         # Create some sessions
         await manager.create_session("session_1", topic="topic_1")
         await manager.create_session("session_2", topic="topic_2")
-        
+
         stats = await manager.get_stats()
         assert stats["active_sessions"] == 2
         assert stats["max_sessions"] == 5
@@ -398,12 +400,12 @@ class TestSimpleSessionManager:
     async def test_most_recent_session(self, manager):
         """Test getting the most recent session"""
         assert await manager.get_most_recent_session() is None
-        
+
         # Create sessions with delay to ensure different timestamps
         await manager.create_session("session_1")
         await asyncio.sleep(0.01)
         await manager.create_session("session_2")
-        
+
         most_recent = await manager.get_most_recent_session()
         assert most_recent is not None
         assert most_recent.session_id == "session_2"
@@ -413,7 +415,7 @@ class TestSimpleSessionManager:
         async with manager.session_context("temp_session", topic="temp") as session:
             assert session.session_id == "temp_session"
             assert await manager.get_session("temp_session") is not None
-        
+
         # Session should be automatically removed
         assert await manager.get_session("temp_session") is None
 
@@ -422,7 +424,7 @@ class TestSimpleSessionManager:
         await manager.start_background_cleanup()
         assert manager._cleanup_task is not None
         assert not manager._cleanup_task.done()
-        
+
         await manager.stop_background_cleanup()
         assert manager._cleanup_task.done()
 
@@ -431,12 +433,12 @@ class TestSimpleSessionManager:
         # Create some sessions
         await manager.create_session("session_1")
         await manager.create_session("session_2")
-        
+
         await manager.start_background_cleanup()
-        
+
         # Shutdown should clean everything up
         await manager.shutdown()
-        
+
         stats = await manager.get_stats()
         assert stats["active_sessions"] == 0
         assert not stats["cleanup_task_running"]
@@ -448,10 +450,12 @@ class TestPerformanceAndConcurrency:
     async def test_concurrent_session_operations(self):
         """Test concurrent operations across multiple sessions"""
         manager = SimpleSessionManager(max_sessions=50)
-        
+
         async def create_and_use_session(session_id: str):
-            session = await manager.create_session(session_id, topic=f"topic_{session_id}")
-            
+            session = await manager.create_session(
+                session_id, topic=f"topic_{session_id}"
+            )
+
             # Add threads
             thread = Thread(
                 id=f"thread_{session_id}",
@@ -460,32 +464,32 @@ class TestPerformanceAndConcurrency:
                 model_backend=ModelBackend.BEDROCK,
             )
             await session.add_thread(thread)
-            
+
             # Record analysis
             await session.record_analysis("test", {"technical": "response"})
-            
+
             return session
-        
+
         # Create multiple sessions concurrently
         tasks = [create_and_use_session(f"session_{i}") for i in range(20)]
         sessions = await asyncio.gather(*tasks)
-        
+
         assert len(sessions) == 20
-        
+
         # Verify all sessions were created correctly
         for i, session in enumerate(sessions):
             info = await session.get_session_info()
             assert info["session_id"] == f"session_{i}"
             assert info["thread_count"] == 1
             assert info["analysis_count"] == 1
-        
+
         # Cleanup
         await manager.shutdown()
 
     async def test_session_lock_contention(self):
         """Test session behavior under lock contention"""
         session = Session("contention_test")
-        
+
         async def concurrent_operations():
             results = []
             for i in range(10):
@@ -499,18 +503,18 @@ class TestPerformanceAndConcurrency:
                 added = await session.add_thread(thread)
                 results.append(added)
             return results
-        
+
         # Run concurrent operations
         results_list = await asyncio.gather(
             concurrent_operations(),
             concurrent_operations(),
             concurrent_operations(),
         )
-        
+
         # Should have created threads successfully
         all_threads = await session.get_all_threads()
         assert len(all_threads) == 10  # Only unique names should exist
-        
+
         # Some operations in each batch should have succeeded
         for results in results_list:
             assert any(results), "Each batch should have some successful operations"

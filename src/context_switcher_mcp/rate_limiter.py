@@ -1,10 +1,11 @@
 """Rate limiting for session operations"""
 
 import time
-from .logging_base import get_logger
-from typing import Any, Dict
 from dataclasses import dataclass
 from threading import Lock
+from typing import Any
+
+from .logging_base import get_logger
 
 logger = get_logger(__name__)
 
@@ -67,7 +68,7 @@ class SessionRateLimiter:
         self.session_creation_per_minute = session_creation_per_minute
 
         # Per-session buckets
-        self.session_buckets: Dict[str, Dict[str, RateLimitBucket]] = {}
+        self.session_buckets: dict[str, dict[str, RateLimitBucket]] = {}
 
         # Global session creation bucket
         self.session_creation_bucket = RateLimitBucket(
@@ -161,7 +162,7 @@ class SessionRateLimiter:
                 del self.session_buckets[session_id]
                 logger.debug(f"Cleaned up rate limit state for session {session_id}")
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get rate limiter statistics"""
         with self._lock:
             active_sessions = len(self.session_buckets)

@@ -5,11 +5,10 @@ Analyzes import dependencies and identifies circular imports
 """
 
 import ast
+import json
 import re
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Optional
-import json
 
 from ..logging_config import get_logger
 
@@ -74,7 +73,7 @@ class DependencyAnalyzer:
         self.file_to_module = {}
         self.module_to_file = {}
 
-    def analyze_project(self) -> Dict:
+    def analyze_project(self) -> dict:
         """Analyze the entire project for dependencies"""
         logger.info(f"Starting dependency analysis for project at: {self.project_root}")
         logger.info(f"Package path: {self.package_path}")
@@ -96,7 +95,7 @@ class DependencyAnalyzer:
         # Generate analysis report
         return self._generate_report(cycles)
 
-    def _find_python_files(self) -> List[Path]:
+    def _find_python_files(self) -> list[Path]:
         """Find all Python files in the package"""
         python_files = []
         if self.package_path.exists():
@@ -109,7 +108,7 @@ class DependencyAnalyzer:
     def _analyze_file(self, file_path: Path):
         """Analyze imports in a single file"""
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 content = f.read()
 
             # Parse AST
@@ -182,8 +181,8 @@ class DependencyAnalyzer:
             self.module_graph[module_name] = dependencies
 
     def _resolve_relative_import(
-        self, current_module: str, import_info: Dict
-    ) -> Optional[str]:
+        self, current_module: str, import_info: dict
+    ) -> str | None:
         """Resolve relative import to absolute module name"""
         level = import_info["level"]
         module = import_info["module"]
@@ -202,7 +201,7 @@ class DependencyAnalyzer:
 
         return ".".join(target_parts)
 
-    def _find_circular_dependencies(self) -> List[List[str]]:
+    def _find_circular_dependencies(self) -> list[list[str]]:
         """Find all circular dependencies using DFS"""
 
         def dfs(node, path, visited, rec_stack):
@@ -243,7 +242,7 @@ class DependencyAnalyzer:
 
         return unique_cycles
 
-    def _generate_report(self, cycles: List[List[str]]) -> Dict:
+    def _generate_report(self, cycles: list[list[str]]) -> dict:
         """Generate comprehensive dependency analysis report"""
         # Calculate metrics
         total_modules = len(self.module_graph)
@@ -304,7 +303,7 @@ class DependencyAnalyzer:
 
         return report
 
-    def _analyze_import_patterns(self) -> Dict:
+    def _analyze_import_patterns(self) -> dict:
         """Analyze import patterns for potential issues"""
         patterns = {
             "conditional_imports": [],
@@ -317,7 +316,7 @@ class DependencyAnalyzer:
             file_path = details["file_path"]
 
             try:
-                with open(file_path, "r") as f:
+                with open(file_path) as f:
                     content = f.read()
 
                 # Look for conditional imports (if statements with imports)
@@ -350,7 +349,7 @@ class DependencyAnalyzer:
 
         return patterns
 
-    def _assess_cycle_severity(self, cycle: List[str]) -> str:
+    def _assess_cycle_severity(self, cycle: list[str]) -> str:
         """Assess the severity of a circular dependency"""
         if len(cycle) == 2:
             return "HIGH"  # Direct circular dependency
@@ -360,8 +359,8 @@ class DependencyAnalyzer:
             return "LOW"  # Long cycle, might be manageable
 
     def _generate_recommendations(
-        self, cycles: List[List[str]], patterns: Dict
-    ) -> List[str]:
+        self, cycles: list[list[str]], patterns: dict
+    ) -> list[str]:
         """Generate recommendations for fixing dependency issues"""
         recommendations = []
 

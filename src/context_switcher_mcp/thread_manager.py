@@ -1,10 +1,10 @@
 """Refactored Thread management with extracted components"""
 
-from .logging_base import get_logger
-from typing import Any, Dict
+from typing import Any
 
 from .circuit_breaker_manager import CircuitBreakerManager
 from .constants import NO_RESPONSE
+from .logging_base import get_logger
 from .metrics_manager import MetricsManager
 from .models import Thread
 from .streaming_coordinator import StreamingCoordinator
@@ -34,8 +34,8 @@ class ThreadManager:
         )
 
     async def broadcast_message(
-        self, threads: Dict[str, Thread], message: str, session_id: str = "unknown"
-    ) -> Dict[str, str]:
+        self, threads: dict[str, Thread], message: str, session_id: str = "unknown"
+    ) -> dict[str, str]:
         """Broadcast message to all threads and collect responses"""
         # Create metrics tracking
         metrics = self.metrics_manager.create_orchestration_metrics(
@@ -76,7 +76,7 @@ class ThreadManager:
         return result
 
     async def broadcast_message_stream(
-        self, threads: Dict[str, Thread], message: str, session_id: str = "unknown"
+        self, threads: dict[str, Thread], message: str, session_id: str = "unknown"
     ):
         """
         Broadcast message to all threads with streaming responses
@@ -112,15 +112,15 @@ class ThreadManager:
     # Metrics storage now handled by MetricsManager
     # This method is no longer needed in this class
 
-    async def get_thread_metrics(self, last_n: int = 10) -> Dict[str, Any]:
+    async def get_thread_metrics(self, last_n: int = 10) -> dict[str, Any]:
         """Get thread-level performance metrics"""
         return await self.metrics_manager.get_performance_metrics(last_n)
 
-    def get_circuit_breaker_status(self) -> Dict[str, Dict[str, Any]]:
+    def get_circuit_breaker_status(self) -> dict[str, dict[str, Any]]:
         """Get current circuit breaker status for all backends"""
         return self.circuit_breaker_manager.get_status_summary()
 
-    def reset_circuit_breakers(self) -> Dict[str, str]:
+    def reset_circuit_breakers(self) -> dict[str, str]:
         """Reset all circuit breakers to CLOSED state"""
         return self.circuit_breaker_manager.reset_all_circuit_breakers()
 

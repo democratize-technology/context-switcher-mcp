@@ -8,17 +8,17 @@ and operators ensure their configuration is correct before deployment.
 import json
 import os
 import sys
-from typing import Dict, List, Optional, Any
+from typing import Any
 
+from .config import ContextSwitcherConfig as LegacyConfig
+from .config_migration import (
+    generate_migration_report,
+)
+from .logging_base import get_logger
 from .validated_config import (
     ConfigurationError,
     load_validated_config,
 )
-from .config_migration import (
-    generate_migration_report,
-)
-from .config import ContextSwitcherConfig as LegacyConfig
-from .logging_base import get_logger
 
 logger = get_logger(__name__)
 
@@ -26,16 +26,16 @@ logger = get_logger(__name__)
 class ConfigurationValidator:
     """Comprehensive configuration validator and reporting tool"""
 
-    def __init__(self, config_file: Optional[str] = None):
+    def __init__(self, config_file: str | None = None):
         """Initialize validator
 
         Args:
             config_file: Optional path to configuration file to validate
         """
         self.config_file = config_file
-        self.validation_results: Dict[str, Any] = {}
+        self.validation_results: dict[str, Any] = {}
 
-    def validate_all(self) -> Dict[str, Any]:
+    def validate_all(self) -> dict[str, Any]:
         """Run comprehensive validation suite
 
         Returns:
@@ -94,7 +94,7 @@ class ConfigurationValidator:
         self.validation_results = results
         return results
 
-    def _validate_config_loading(self) -> Dict[str, Any]:
+    def _validate_config_loading(self) -> dict[str, Any]:
         """Validate configuration can be loaded successfully"""
         result = {
             "success": False,
@@ -108,7 +108,7 @@ class ConfigurationValidator:
         start_time = time.time()
 
         try:
-            config = load_validated_config(
+            load_validated_config(
                 config_file=self.config_file, validate_dependencies=False
             )
             result["success"] = True
@@ -122,7 +122,7 @@ class ConfigurationValidator:
 
             # Try legacy configuration
             try:
-                legacy_config = LegacyConfig()
+                LegacyConfig()
                 result["config_type"] = "legacy_fallback"
                 logger.info("Fell back to legacy configuration system")
             except Exception as legacy_error:
@@ -138,7 +138,7 @@ class ConfigurationValidator:
         result["load_time_ms"] = round((time.time() - start_time) * 1000, 2)
         return result
 
-    def _validate_parameters(self) -> Dict[str, Any]:
+    def _validate_parameters(self) -> dict[str, Any]:
         """Validate individual parameter values"""
         result = {"issues": [], "warnings": [], "parameter_count": 0}
 
@@ -165,7 +165,7 @@ class ConfigurationValidator:
 
         return result
 
-    def _validate_constraints(self) -> Dict[str, Any]:
+    def _validate_constraints(self) -> dict[str, Any]:
         """Validate cross-parameter constraints and logical relationships"""
         result = {"issues": [], "warnings": []}
 
@@ -211,7 +211,7 @@ class ConfigurationValidator:
 
         return result
 
-    def _validate_dependencies(self) -> Dict[str, Any]:
+    def _validate_dependencies(self) -> dict[str, Any]:
         """Validate external dependencies and service availability"""
         result = {"warnings": [], "services": {}}
 
@@ -248,7 +248,7 @@ class ConfigurationValidator:
 
         return result
 
-    def _validate_security(self) -> Dict[str, Any]:
+    def _validate_security(self) -> dict[str, Any]:
         """Validate security-related configuration"""
         result = {"issues": [], "warnings": [], "security_score": 100}
 
@@ -298,7 +298,7 @@ class ConfigurationValidator:
 
         return result
 
-    def _assess_production_readiness(self) -> Dict[str, Any]:
+    def _assess_production_readiness(self) -> dict[str, Any]:
         """Assess if configuration is suitable for production use"""
         result = {"ready": False, "issues": [], "recommendations": []}
 
@@ -345,7 +345,7 @@ class ConfigurationValidator:
 
         return result
 
-    def _calculate_overall_success(self, results: Dict[str, Any]) -> bool:
+    def _calculate_overall_success(self, results: dict[str, Any]) -> bool:
         """Calculate overall validation success"""
         return (
             results["validation_summary"]["loading_success"]
@@ -354,7 +354,7 @@ class ConfigurationValidator:
             and results["validation_summary"]["security_issues"] == 0
         )
 
-    def _generate_recommendations(self, results: Dict[str, Any]) -> List[str]:
+    def _generate_recommendations(self, results: dict[str, Any]) -> list[str]:
         """Generate actionable recommendations based on validation results"""
         recommendations = []
 
@@ -383,7 +383,7 @@ class ConfigurationValidator:
 
         return recommendations
 
-    def _count_parameters(self, config_dict: Dict[str, Any], prefix: str = "") -> int:
+    def _count_parameters(self, config_dict: dict[str, Any], prefix: str = "") -> int:
         """Recursively count configuration parameters"""
         count = 0
         for key, value in config_dict.items():

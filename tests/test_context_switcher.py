@@ -1,15 +1,15 @@
 """Tests for Context-Switcher MCP"""
 
-import pytest
 from datetime import datetime, timezone
 from unittest.mock import patch
 
-from src.context_switcher_mcp.models import Thread, ContextSwitcherSession, ModelBackend
-from src.context_switcher_mcp.perspective_orchestrator import PerspectiveOrchestrator
-from src.context_switcher_mcp.session_manager import SessionManager
+import pytest
 from src.context_switcher_mcp import (
     session_manager,
 )
+from src.context_switcher_mcp.models import ContextSwitcherSession, ModelBackend, Thread
+from src.context_switcher_mcp.perspective_orchestrator import PerspectiveOrchestrator
+from src.context_switcher_mcp.session_manager import SessionManager
 
 
 @pytest.fixture
@@ -112,7 +112,7 @@ class TestPerspectiveOrchestrator:
 
             # Test proper HALF_OPEN -> CLOSED transition
             # First, wait for timeout to transition to HALF_OPEN (simulate time passage)
-            from datetime import datetime, timezone, timedelta
+            from datetime import datetime, timedelta, timezone
 
             cb.last_failure_time = datetime.now(timezone.utc) - timedelta(
                 minutes=6
@@ -164,8 +164,8 @@ class TestMCPTools:
     async def test_validation_functions(self):
         """Test input validation functions"""
         from src.context_switcher_mcp.validation import (
-            validate_topic,
             validate_session_id,
+            validate_topic,
         )
 
         # Test topic validation
@@ -432,9 +432,10 @@ class TestSessionEnhancements:
     @pytest.mark.asyncio
     async def test_session_cleanup_integration(self):
         """Test that session cleanup properly integrates with rate limiter"""
-        from src.context_switcher_mcp.session_manager import SessionManager
+        from datetime import datetime, timedelta, timezone
+
         from src.context_switcher_mcp.models import ContextSwitcherSession
-        from datetime import datetime, timezone, timedelta
+        from src.context_switcher_mcp.session_manager import SessionManager
 
         # Create a session manager and add an expired session
         sm = SessionManager(session_ttl_hours=1)

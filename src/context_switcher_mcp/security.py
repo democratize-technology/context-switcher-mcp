@@ -1,17 +1,16 @@
 """Security utilities for input sanitization and validation"""
 
-from .logging_base import get_logger
-from typing import Optional
+from .input_sanitizer import sanitize_error_message, sanitize_for_llm
 
 # Import from focused modules
 from .input_validators import (
-    ValidationResult,
     InjectionAttempt,
+    ValidationResult,
     _validation_orchestrator,
     detect_advanced_prompt_injection,
     sanitize_user_input,
 )
-from .input_sanitizer import sanitize_for_llm, sanitize_error_message
+from .logging_base import get_logger
 from .model_validators import validate_model_id
 from .security_events import log_security_event
 
@@ -58,7 +57,7 @@ def validate_user_content(
 
 
 def validate_perspective_data(
-    name: str, description: str, custom_prompt: Optional[str] = None
+    name: str, description: str, custom_prompt: str | None = None
 ) -> ValidationResult:
     """
     Validate perspective-specific data
@@ -108,7 +107,7 @@ def validate_perspective_data(
 
 
 def validate_analysis_prompt(
-    prompt: str, session_context: Optional[str] = None
+    prompt: str, session_context: str | None = None
 ) -> ValidationResult:
     """
     Validate analysis prompts with context awareness

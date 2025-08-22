@@ -1,23 +1,23 @@
 """Core thread lifecycle and execution management"""
 
 import asyncio
-from .logging_base import get_logger
-from typing import Dict, Optional, Tuple, Any
 from dataclasses import dataclass
+from typing import Any
 
-from .models import Thread
-from .config import get_config
-from .backend_factory import BackendFactory
 from .aorp import create_error_response
+from .backend_factory import BackendFactory
+from .config import get_config
 from .exceptions import (
-    OrchestrationError,
+    ModelAuthenticationError,
     ModelBackendError,
     ModelConnectionError,
-    ModelTimeoutError,
     ModelRateLimitError,
-    ModelAuthenticationError,
+    ModelTimeoutError,
     ModelValidationError,
+    OrchestrationError,
 )
+from .logging_base import get_logger
+from .models import Thread
 
 logger = get_logger(__name__)
 
@@ -51,12 +51,12 @@ class ErrorClassifier:
         return any(term in error_str.lower() for term in non_retryable_terms)
 
     @staticmethod
-    def classify_exception(exception: Exception) -> Tuple[bool, bool]:
+    def classify_exception(exception: Exception) -> tuple[bool, bool]:
         """Classify exception as (is_retryable, should_record_in_circuit_breaker)"""
-        if isinstance(exception, (ModelAuthenticationError, ModelValidationError)):
+        if isinstance(exception, ModelAuthenticationError | ModelValidationError):
             return False, False  # Non-retryable, don't record
         elif isinstance(
-            exception, (ModelConnectionError, ModelTimeoutError, ModelRateLimitError)
+            exception, ModelConnectionError | ModelTimeoutError | ModelRateLimitError
         ):
             return True, True  # Retryable, record failure
         elif isinstance(exception, ModelBackendError):
@@ -149,8 +149,8 @@ class ThreadLifecycleManager:
     def __init__(
         self,
         circuit_breaker_manager=None,
-        max_retries: Optional[int] = None,
-        retry_delay: Optional[float] = None,
+        max_retries: int | None = None,
+        retry_delay: float | None = None,
     ):
         """Initialize thread lifecycle manager
 
@@ -164,7 +164,9 @@ class ThreadLifecycleManager:
             max_retries if max_retries is not None else config.models.max_retries
         )
         self.retry_delay = (
-            retry_delay if retry_delay is not None else config.models.retry_delay_seconds
+            retry_delay
+            if retry_delay is not None
+            else config.models.retry_delay_seconds
         )
 
         self.circuit_breaker_manager = circuit_breaker_manager
@@ -235,7 +237,7 @@ class ThreadLifecycleManager:
 
                 # Handle non-retryable errors immediately
                 if not is_retryable:
-                    if isinstance(e, (ModelAuthenticationError, ModelValidationError)):
+                    if isinstance(e, ModelAuthenticationError | ModelValidationError):
                         logger.warning(f"Non-retryable error from backend: {e}")
                         raise
                     else:
@@ -295,8 +297,8 @@ class ThreadLifecycleManager:
         return True
 
     async def execute_threads_parallel(
-        self, threads: Dict[str, Thread], message: Optional[str] = None
-    ) -> Dict[str, str]:
+        self, threads: dict[str, Thread], message: str | None = None
+    ) -> dict[str, str]:
         """Execute multiple threads in parallel
 
         Args:
@@ -326,7 +328,7 @@ class ThreadLifecycleManager:
 
         # Build response dictionary
         result = {}
-        for name, response in zip(thread_names, responses):
+        for name, response in zip(thread_names, responses, strict=False):
             if isinstance(response, Exception):
                 from .security import sanitize_error_message
 

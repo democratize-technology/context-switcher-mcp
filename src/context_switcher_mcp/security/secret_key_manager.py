@@ -6,15 +6,15 @@ functionality with atomic file operations and cross-platform compatibility.
 """
 
 import hashlib
-import secrets
-import os
 import json
-import tempfile
+import os
 import platform
+import secrets
 import stat
+import tempfile
 from datetime import datetime, timezone
-from typing import List, Optional
 from pathlib import Path
+
 from ..logging_base import get_logger
 
 logger = get_logger(__name__)
@@ -49,12 +49,12 @@ def load_or_generate_secret_key() -> str:
 
     if secret_file.exists():
         try:
-            with open(secret_file, "r") as f:
+            with open(secret_file) as f:
                 data = json.load(f)
                 if "current_key" in data:
                     logger.info("Loaded secret key from file")
                     return data["current_key"]
-        except (json.JSONDecodeError, IOError) as e:
+        except (OSError, json.JSONDecodeError) as e:
             logger.warning(f"Failed to load secret key from file: {e}")
 
     # Generate new key and save it with atomic operations
@@ -81,7 +81,7 @@ def load_or_generate_secret_key() -> str:
         _save_key_data_atomically(data, config_dir, secret_file)
         logger.info("Generated and saved new secret key")
 
-    except IOError as e:
+    except OSError as e:
         logger.warning(f"Failed to save secret key to file: {e}")
 
     return new_key
@@ -153,7 +153,7 @@ class SecretKeyManager:
         - Constant-time signature comparison to prevent timing attacks
     """
 
-    def __init__(self, initial_key: Optional[str] = None):
+    def __init__(self, initial_key: str | None = None):
         """Initialize secret key manager.
 
         Args:
@@ -161,7 +161,7 @@ class SecretKeyManager:
                         uses the global key loading mechanism.
         """
         self.current_key = initial_key or load_or_generate_secret_key()
-        self.previous_keys: List[str] = []
+        self.previous_keys: list[str] = []
         self._load_previous_keys()
 
     def _load_previous_keys(self) -> None:
@@ -173,12 +173,12 @@ class SecretKeyManager:
         secret_file = Path.home() / ".context_switcher" / "secret_key.json"
         if secret_file.exists():
             try:
-                with open(secret_file, "r") as f:
+                with open(secret_file) as f:
                     data = json.load(f)
                     self.previous_keys = data.get("previous_keys", [])[
                         :5
                     ]  # Keep last 5 keys
-            except (json.JSONDecodeError, IOError) as e:
+            except (OSError, json.JSONDecodeError) as e:
                 logger.warning(f"Failed to load previous keys: {e}")
 
     def rotate_key(self) -> str:
@@ -216,7 +216,7 @@ class SecretKeyManager:
             _save_key_data_atomically(data, config_dir, secret_file)
             logger.info(f"Successfully rotated secret key (previous: {old_key_hash})")
 
-        except IOError as e:
+        except OSError as e:
             logger.error(f"Failed to save rotated key: {e}")
             # Revert the rotation on failure
             self.current_key = (

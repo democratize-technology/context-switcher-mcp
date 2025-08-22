@@ -1,9 +1,9 @@
 """Comprehensive tests for session security management"""
 
-import pytest
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
-from datetime import datetime, timezone, timedelta
 
+import pytest
 from context_switcher_mcp.session_security import (
     ClientBinding,
     SecurityEvent,

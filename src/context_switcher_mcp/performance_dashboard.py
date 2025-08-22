@@ -5,15 +5,15 @@ based on collected LLM profiling data.
 """
 
 import asyncio
-from .logging_base import get_logger
-import time
-from typing import Dict, Any, List, Optional, Tuple
-from dataclasses import dataclass
-from datetime import datetime, timezone, timedelta
-from collections import defaultdict, Counter
 import statistics
+import time
+from collections import Counter, defaultdict
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+from typing import Any
 
-from .llm_profiler import get_global_profiler, LLMCallMetrics
+from .llm_profiler import LLMCallMetrics, get_global_profiler
+from .logging_base import get_logger
 
 logger = get_logger(__name__)
 
@@ -23,11 +23,11 @@ class CostBreakdown:
     """Detailed cost analysis breakdown"""
 
     total_cost_usd: float
-    cost_by_backend: Dict[str, float]
-    cost_by_model: Dict[str, float]
-    cost_by_session: Dict[str, float]
+    cost_by_backend: dict[str, float]
+    cost_by_model: dict[str, float]
+    cost_by_session: dict[str, float]
     avg_cost_per_call: float
-    most_expensive_call: Optional[LLMCallMetrics]
+    most_expensive_call: LLMCallMetrics | None
     daily_burn_rate: float
     projected_monthly_cost: float
 
@@ -42,7 +42,7 @@ class PerformanceAnalysis:
     median_latency: float
     p95_latency: float
     p99_latency: float
-    slowest_calls: List[LLMCallMetrics]
+    slowest_calls: list[LLMCallMetrics]
     fastest_backend: str
     slowest_backend: str
     throughput_calls_per_minute: float
@@ -56,8 +56,8 @@ class EfficiencyMetrics:
     cost_per_token: float
     most_efficient_backend: str
     least_efficient_backend: str
-    optimization_opportunities: List[str]
-    token_usage_distribution: Dict[str, int]
+    optimization_opportunities: list[str]
+    token_usage_distribution: dict[str, int]
 
 
 @dataclass
@@ -69,7 +69,7 @@ class AlertSummary:
     error_calls: int
     memory_alerts: int
     circuit_breaker_triggers: int
-    recent_alerts: List[Dict[str, Any]]
+    recent_alerts: list[dict[str, Any]]
 
 
 class PerformanceDashboard:
@@ -80,11 +80,11 @@ class PerformanceDashboard:
         self.profiler = get_global_profiler()
 
         # Caching for expensive calculations
-        self._cache: Dict[str, Tuple[float, Any]] = {}
+        self._cache: dict[str, tuple[float, Any]] = {}
         self._cache_ttl = 60.0  # Cache for 1 minute
 
     def _get_cached_or_compute(
-        self, cache_key: str, compute_func, ttl_override: Optional[float] = None
+        self, cache_key: str, compute_func, ttl_override: float | None = None
     ) -> Any:
         """Get cached result or compute if expired"""
         now = time.time()
@@ -102,7 +102,7 @@ class PerformanceDashboard:
 
     async def get_comprehensive_dashboard(
         self, hours_back: int = 24, include_cache_stats: bool = True
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get comprehensive dashboard data"""
 
         # Get recent metrics
@@ -169,7 +169,7 @@ class PerformanceDashboard:
 
         return dashboard
 
-    async def _get_metrics_for_timeframe(self, hours_back: int) -> List[LLMCallMetrics]:
+    async def _get_metrics_for_timeframe(self, hours_back: int) -> list[LLMCallMetrics]:
         """Get metrics for specified timeframe"""
 
         def compute_metrics():
@@ -194,7 +194,7 @@ class PerformanceDashboard:
         )
 
     async def _compute_cost_breakdown(
-        self, metrics: List[LLMCallMetrics]
+        self, metrics: list[LLMCallMetrics]
     ) -> CostBreakdown:
         """Compute detailed cost breakdown"""
 
@@ -251,7 +251,7 @@ class PerformanceDashboard:
         )
 
     async def _compute_performance_analysis(
-        self, metrics: List[LLMCallMetrics]
+        self, metrics: list[LLMCallMetrics]
     ) -> PerformanceAnalysis:
         """Compute comprehensive performance analysis"""
 
@@ -333,7 +333,7 @@ class PerformanceDashboard:
         )
 
     async def _compute_efficiency_metrics(
-        self, metrics: List[LLMCallMetrics]
+        self, metrics: list[LLMCallMetrics]
     ) -> EfficiencyMetrics:
         """Compute efficiency and optimization metrics"""
 
@@ -425,7 +425,7 @@ class PerformanceDashboard:
         )
 
     async def _compute_alert_summary(
-        self, metrics: List[LLMCallMetrics]
+        self, metrics: list[LLMCallMetrics]
     ) -> AlertSummary:
         """Compute alert summary and recent issues"""
 
@@ -482,8 +482,8 @@ class PerformanceDashboard:
         )
 
     async def _compute_backend_comparison(
-        self, metrics: List[LLMCallMetrics]
-    ) -> Dict[str, Any]:
+        self, metrics: list[LLMCallMetrics]
+    ) -> dict[str, Any]:
         """Compare performance across backends"""
 
         backend_stats = defaultdict(
@@ -537,8 +537,8 @@ class PerformanceDashboard:
         return comparison
 
     async def _compute_trends_analysis(
-        self, metrics: List[LLMCallMetrics], hours_back: int
-    ) -> Dict[str, Any]:
+        self, metrics: list[LLMCallMetrics], hours_back: int
+    ) -> dict[str, Any]:
         """Analyze trends over time"""
 
         if len(metrics) < 2:
@@ -628,7 +628,7 @@ class PerformanceDashboard:
             ],
         }
 
-    def _percentile(self, data: List[float], percentile: float) -> float:
+    def _percentile(self, data: list[float], percentile: float) -> float:
         """Calculate percentile of a dataset"""
         if not data:
             return 0.0
@@ -647,7 +647,7 @@ class PerformanceDashboard:
                 + sorted_data[upper_index] * weight
             )
 
-    def _get_cache_statistics(self) -> Dict[str, Any]:
+    def _get_cache_statistics(self) -> dict[str, Any]:
         """Get cache performance statistics"""
         now = time.time()
 
@@ -671,7 +671,7 @@ class PerformanceDashboard:
 
     async def get_optimization_recommendations(
         self, hours_back: int = 24
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get specific optimization recommendations"""
 
         metrics = await self._get_metrics_for_timeframe(hours_back)
@@ -748,7 +748,7 @@ class PerformanceDashboard:
 
     async def export_detailed_report(
         self, hours_back: int = 24, format: str = "json"
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Export detailed performance report"""
 
         dashboard_data = await self.get_comprehensive_dashboard(hours_back)
@@ -790,7 +790,7 @@ class PerformanceDashboard:
 
 
 # Global dashboard instance
-_dashboard_instance: Optional[PerformanceDashboard] = None
+_dashboard_instance: PerformanceDashboard | None = None
 
 
 def get_performance_dashboard() -> PerformanceDashboard:

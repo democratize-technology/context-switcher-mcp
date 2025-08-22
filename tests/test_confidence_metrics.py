@@ -1,14 +1,14 @@
 """Comprehensive tests for confidence_metrics module"""
 
-import pytest
 from unittest.mock import Mock
 
+import pytest
 from context_switcher_mcp.confidence_metrics import (
-    ResponseQuality,
-    QualityMetrics,
-    ConfidenceCalibrator,
     ConfidenceCalculator,
+    ConfidenceCalibrator,
     QualityDistributionBuilder,
+    QualityMetrics,
+    ResponseQuality,
     analyze_synthesis_quality,
 )
 

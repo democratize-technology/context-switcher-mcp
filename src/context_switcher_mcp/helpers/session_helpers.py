@@ -1,12 +1,12 @@
 """Helper functions for session creation and management"""
 
-from ..logging_config import get_logger
-from typing import Dict, Any, List, Optional
+from typing import Any
 from uuid import uuid4
 
-from ..config import get_config
-from ..models import ModelBackend, Thread
 from ..client_binding import log_security_event_with_binding
+from ..config import get_config
+from ..logging_config import get_logger
+from ..models import ModelBackend, Thread
 from ..security import validate_user_content
 from ..templates import PERSPECTIVE_TEMPLATES
 
@@ -87,8 +87,8 @@ DEFAULT_PERSPECTIVES = {
 
 
 def determine_perspectives_to_use(
-    template: Optional[str] = None, initial_perspectives: Optional[List[str]] = None
-) -> Dict[str, str]:
+    template: str | None = None, initial_perspectives: list[str] | None = None
+) -> dict[str, str]:
     """Determine which perspectives to use based on template and initial_perspectives
 
     Args:
@@ -139,9 +139,9 @@ def determine_perspectives_to_use(
 
 async def create_session_threads(
     session: Any,
-    perspectives_to_use: Dict[str, str],
+    perspectives_to_use: dict[str, str],
     model_backend: ModelBackend,
-    model_name: Optional[str],
+    model_name: str | None,
     session_id: str,
 ) -> None:
     """Create threads for each perspective in the session
@@ -185,9 +185,9 @@ def build_session_creation_response(
     session_id: str,
     topic: str,
     session: Any,
-    template: Optional[str],
+    template: str | None,
     model_backend: ModelBackend,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Build successful session creation response
 
     Args:

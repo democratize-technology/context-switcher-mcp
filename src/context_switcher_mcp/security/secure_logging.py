@@ -1,12 +1,13 @@
 """Secure logging utilities to prevent log injection and information leakage"""
 
-import logging
-from ..logging_base import get_logger
-import re
-import json
 import hashlib
-from typing import Any, Dict, Optional
+import json
+import logging
+import re
 from datetime import datetime, timezone
+from typing import Any
+
+from ..logging_base import get_logger
 
 # Configure secure logger
 logger = get_logger(__name__)
@@ -99,9 +100,9 @@ class SecureLogger:
     def log_security_event(
         self,
         event_type: str,
-        details: Dict[str, Any],
+        details: dict[str, Any],
         risk_level: str = "medium",
-        session_id: Optional[str] = None,
+        session_id: str | None = None,
     ) -> None:
         """
         Log security event with structured data
@@ -193,7 +194,7 @@ class SecureLogger:
             "RATE_LIMIT_EXCEEDED: %s", json.dumps(rate_limit_event, default=str)
         )
 
-    def _sanitize_dict(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def _sanitize_dict(self, data: dict[str, Any]) -> dict[str, Any]:
         """Sanitize dictionary data for logging"""
         sanitized = {}
 

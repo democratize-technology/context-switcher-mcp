@@ -7,31 +7,30 @@ secure logging infrastructure while standardizing patterns across the codebase.
 
 # Circular import removed - get_logger and lazy_log are defined in this file
 import asyncio
+import json
 import logging
 import os
 import sys
-import json
-from pathlib import Path
-from typing import Dict, Any, Optional, Union
 from contextvars import ContextVar
 from datetime import datetime
+from pathlib import Path
+from typing import Any
 
+from .error_logging import StructuredErrorLogger, setup_structured_error_logging
 from .security.secure_logging import (
-    SecureLogger,
     SecureLogFormatter,
+    SecureLogger,
     setup_secure_logging,
 )
-from .error_logging import StructuredErrorLogger, setup_structured_error_logging
-
 
 # Context variable for correlation ID tracking
-correlation_id_context: ContextVar[Optional[str]] = ContextVar(
+correlation_id_context: ContextVar[str | None] = ContextVar(
     "correlation_id", default=None
 )
 
 # Global configuration
 _logging_configured = False
-_loggers_cache: Dict[str, logging.Logger] = {}
+_loggers_cache: dict[str, logging.Logger] = {}
 _initializing_logger = False  # Guard against recursion
 
 
@@ -142,10 +141,10 @@ class LoggingConfig:
 
     def __init__(self):
         self.config = self._load_config()
-        self._structured_error_logger: Optional[StructuredErrorLogger] = None
-        self._secure_loggers: Dict[str, SecureLogger] = {}
+        self._structured_error_logger: StructuredErrorLogger | None = None
+        self._secure_loggers: dict[str, SecureLogger] = {}
 
-    def _load_config(self) -> Dict[str, Any]:
+    def _load_config(self) -> dict[str, Any]:
         """Load logging configuration from environment and defaults"""
         return {
             # Log levels
@@ -282,7 +281,7 @@ class LoggingConfig:
 
     def get_logger(
         self, name: str, secure: bool = False
-    ) -> Union[logging.Logger, SecureLogger]:
+    ) -> logging.Logger | SecureLogger:
         """Get a configured logger instance"""
         global _initializing_logger
 
@@ -315,7 +314,7 @@ class LoggingConfig:
 
         return _loggers_cache[name]
 
-    def get_structured_error_logger(self) -> Optional[StructuredErrorLogger]:
+    def get_structured_error_logger(self) -> StructuredErrorLogger | None:
         """Get the structured error logger instance"""
         if not _logging_configured:
             self.setup_logging()
@@ -327,17 +326,17 @@ class LoggingConfig:
         check_level = getattr(logging, level.upper(), logging.NOTSET)
         return check_level >= current_level
 
-    def update_correlation_id(self, correlation_id: Optional[str]) -> None:
+    def update_correlation_id(self, correlation_id: str | None) -> None:
         """Update the correlation ID in context"""
         correlation_id_context.set(correlation_id)
 
-    def get_correlation_id(self) -> Optional[str]:
+    def get_correlation_id(self) -> str | None:
         """Get current correlation ID from context"""
         return correlation_id_context.get()
 
 
 # Global configuration instance
-_config_instance: Optional[LoggingConfig] = None
+_config_instance: LoggingConfig | None = None
 
 
 def get_logging_config() -> LoggingConfig:
@@ -354,24 +353,24 @@ def setup_logging() -> None:
     config.setup_logging()
 
 
-def get_logger(name: str, secure: bool = False) -> Union[logging.Logger, SecureLogger]:
+def get_logger(name: str, secure: bool = False) -> logging.Logger | SecureLogger:
     """Get a configured logger (convenience function)"""
     config = get_logging_config()
     return config.get_logger(name, secure=secure)
 
 
-def get_structured_error_logger() -> Optional[StructuredErrorLogger]:
+def get_structured_error_logger() -> StructuredErrorLogger | None:
     """Get structured error logger (convenience function)"""
     config = get_logging_config()
     return config.get_structured_error_logger()
 
 
-def set_correlation_id(correlation_id: Optional[str]) -> None:
+def set_correlation_id(correlation_id: str | None) -> None:
     """Set correlation ID for current context (convenience function)"""
     correlation_id_context.set(correlation_id)
 
 
-def get_correlation_id() -> Optional[str]:
+def get_correlation_id() -> str | None:
     """Get current correlation ID (convenience function)"""
     return correlation_id_context.get()
 
@@ -609,7 +608,7 @@ def validate_logging_migration():
             continue  # Skip test files
 
         try:
-            with open(py_file, "r", encoding="utf-8") as f:
+            with open(py_file, encoding="utf-8") as f:
                 content = f.read()
 
             # Check for old patterns

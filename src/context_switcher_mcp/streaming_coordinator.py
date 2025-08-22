@@ -1,16 +1,17 @@
 """Streaming coordination for real-time response handling"""
 
 import asyncio
-from .logging_base import get_logger
 import time
-from typing import Any, AsyncGenerator, Dict, Optional, Tuple, List
+from collections.abc import AsyncGenerator
+from typing import Any
 
-from .models import Thread
 from .backend_factory import BackendFactory
-from .exceptions import ModelBackendError, OrchestrationError
+from .error_context import error_context
 from .error_helpers import wrap_generic_exception
 from .error_logging import log_error_with_context
-from .error_context import error_context
+from .exceptions import ModelBackendError, OrchestrationError
+from .logging_base import get_logger
+from .models import Thread
 from .security import sanitize_error_message
 
 logger = get_logger(__name__)
@@ -28,8 +29,8 @@ class StreamingCoordinator:
         self.metrics_manager = metrics_manager
 
     async def broadcast_stream(
-        self, threads: Dict[str, Thread], message: str, session_id: str = "unknown"
-    ) -> AsyncGenerator[Dict[str, Any], None]:
+        self, threads: dict[str, Thread], message: str, session_id: str = "unknown"
+    ) -> AsyncGenerator[dict[str, Any], None]:
         """
         Broadcast message to all threads with streaming responses
 
@@ -59,7 +60,7 @@ class StreamingCoordinator:
 
     def _initialize_stream_metrics(
         self, session_id: str, thread_count: int
-    ) -> Optional[Any]:
+    ) -> Any | None:
         """Initialize metrics for streaming operation"""
         if not self.metrics_manager:
             return None
@@ -71,7 +72,7 @@ class StreamingCoordinator:
         )
 
     async def _setup_streaming_tasks(
-        self, threads: Dict[str, Thread], message: str
+        self, threads: dict[str, Thread], message: str
     ) -> AsyncGenerator[tuple, None]:
         """Setup streaming tasks for all threads"""
         for name, thread in threads.items():
@@ -102,7 +103,7 @@ class StreamingCoordinator:
 
     async def _stream_thread_wrapper(
         self, thread: Thread, name: str
-    ) -> Tuple[str, List[Dict[str, Any]]]:
+    ) -> tuple[str, list[dict[str, Any]]]:
         """Wrapper coroutine to stream from a thread with structured error handling"""
         events = []
         try:
@@ -149,7 +150,7 @@ class StreamingCoordinator:
 
     def _create_error_event(
         self, thread_name: str, error_message: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create error event for streaming"""
         return {
             "type": "error",
@@ -159,8 +160,8 @@ class StreamingCoordinator:
         }
 
     async def _process_streaming_tasks(
-        self, tasks: List[Any], metrics: Optional[Any]
-    ) -> AsyncGenerator[Dict[str, Any], None]:
+        self, tasks: list[Any], metrics: Any | None
+    ) -> AsyncGenerator[dict[str, Any], None]:
         """Process streaming tasks and update metrics"""
         for task in asyncio.as_completed(tasks):
             name, events = await task
@@ -169,7 +170,7 @@ class StreamingCoordinator:
                 self._update_metrics_from_event(metrics, event)
 
     def _update_metrics_from_event(
-        self, metrics: Optional[Any], event: Dict[str, Any]
+        self, metrics: Any | None, event: dict[str, Any]
     ) -> None:
         """Update metrics based on streaming event"""
         if not metrics:
@@ -181,7 +182,7 @@ class StreamingCoordinator:
         elif event_type == "error":
             metrics.failed_threads += 1
 
-    async def _finalize_stream_metrics(self, metrics: Optional[Any]) -> None:
+    async def _finalize_stream_metrics(self, metrics: Any | None) -> None:
         """Finalize and store streaming metrics"""
         if self.metrics_manager and metrics:
             self.metrics_manager.finalize_metrics(metrics)
@@ -189,14 +190,14 @@ class StreamingCoordinator:
 
     async def stream_single_thread(
         self, thread: Thread, thread_name: str
-    ) -> AsyncGenerator[Dict[str, Any], None]:
+    ) -> AsyncGenerator[dict[str, Any], None]:
         """Stream response from a single thread"""
         async for event in self._stream_from_thread(thread, thread_name):
             yield event
 
     async def _stream_from_thread(
         self, thread: Thread, thread_name: str
-    ) -> AsyncGenerator[Dict[str, Any], None]:
+    ) -> AsyncGenerator[dict[str, Any], None]:
         """Stream response from a single thread using unified backend with structured error handling"""
         async with error_context(
             operation_name="single_thread_streaming",
@@ -274,7 +275,7 @@ class StreamingCoordinator:
 
     def create_stream_event(
         self, event_type: str, thread_name: str, content: str = "", **kwargs
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create a standardized streaming event"""
         event = {
             "type": event_type,

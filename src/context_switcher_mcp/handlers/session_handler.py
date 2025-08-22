@@ -1,16 +1,16 @@
 """Session management handler for Context-Switcher MCP Server"""
 
-from ..logging_config import get_logger
 import secrets
-from typing import Dict, Any, List, Optional
+from typing import Any
 
 from ..aorp import create_error_response
 from ..client_binding import create_secure_session_with_binding
 from ..helpers.session_helpers import (
-    determine_perspectives_to_use,
-    create_session_threads,
     build_session_creation_response,
+    create_session_threads,
+    determine_perspectives_to_use,
 )
+from ..logging_config import get_logger
 from ..models import ModelBackend
 from ..security import sanitize_error_message
 
@@ -34,11 +34,11 @@ class SessionHandler:
     @staticmethod
     async def create_session(
         topic: str,
-        initial_perspectives: Optional[List[str]] = None,
-        template: Optional[str] = None,
+        initial_perspectives: list[str] | None = None,
+        template: str | None = None,
         model_backend: ModelBackend = ModelBackend.BEDROCK,
-        model_name: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        model_name: str | None = None,
+    ) -> dict[str, Any]:
         """Create a new context-switching analysis session
 
         Args:

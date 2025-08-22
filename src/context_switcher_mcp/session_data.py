@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Any
+from typing import Any
 
 from .models import Thread
 
@@ -13,11 +13,11 @@ class AnalysisRecord:
 
     prompt: str
     timestamp: datetime
-    responses: Dict[str, str]
+    responses: dict[str, str]
     active_count: int
     abstained_count: int
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert analysis record to dictionary"""
         return {
             "prompt": self.prompt,
@@ -28,7 +28,7 @@ class AnalysisRecord:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "AnalysisRecord":
+    def from_dict(cls, data: dict[str, Any]) -> "AnalysisRecord":
         """Create analysis record from dictionary"""
         return cls(
             prompt=data["prompt"],
@@ -45,22 +45,22 @@ class SessionData:
 
     session_id: str
     created_at: datetime
-    topic: Optional[str] = None
-    threads: Dict[str, Thread] = field(default_factory=dict)
-    analyses: List[AnalysisRecord] = field(default_factory=list)
+    topic: str | None = None
+    threads: dict[str, Thread] = field(default_factory=dict)
+    analyses: list[AnalysisRecord] = field(default_factory=list)
 
     def add_thread(self, thread: Thread) -> None:
         """Add a perspective thread to the session"""
         self.threads[thread.name] = thread
 
-    def get_thread(self, name: str) -> Optional[Thread]:
+    def get_thread(self, name: str) -> Thread | None:
         """Get a thread by name"""
         return self.threads.get(name)
 
     def record_analysis(
         self,
         prompt: str,
-        responses: Dict[str, str],
+        responses: dict[str, str],
         active_count: int,
         abstained_count: int,
     ) -> None:
@@ -74,7 +74,7 @@ class SessionData:
         )
         self.analyses.append(analysis)
 
-    def get_last_analysis(self) -> Optional[AnalysisRecord]:
+    def get_last_analysis(self) -> AnalysisRecord | None:
         """Get the most recent analysis"""
         return self.analyses[-1] if self.analyses else None
 
@@ -86,7 +86,7 @@ class SessionData:
         """Get the number of analyses performed"""
         return len(self.analyses)
 
-    def get_thread_names(self) -> List[str]:
+    def get_thread_names(self) -> list[str]:
         """Get list of thread names"""
         return list(self.threads.keys())
 
@@ -105,7 +105,7 @@ class SessionData:
         """Clear all analysis history"""
         self.analyses.clear()
 
-    def get_analyses_summary(self) -> Dict[str, Any]:
+    def get_analyses_summary(self) -> dict[str, Any]:
         """Get summary of analyses"""
         if not self.analyses:
             return {"count": 0, "message": "No analyses recorded"}
@@ -123,7 +123,7 @@ class SessionData:
             },
         }
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert session data to dictionary for serialization"""
         return {
             "session_id": self.session_id,
@@ -144,9 +144,9 @@ class SessionData:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SessionData":
+    def from_dict(cls, data: dict[str, Any]) -> "SessionData":
         """Create session data from dictionary"""
-        from .models import Thread, ModelBackend
+        from .models import ModelBackend, Thread
 
         # Reconstruct threads
         threads = {}

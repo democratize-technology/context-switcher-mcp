@@ -2,7 +2,7 @@
 
 import asyncio
 import threading
-from typing import Dict, Optional
+
 from .logging_base import get_logger
 
 logger = get_logger(__name__)
@@ -34,10 +34,10 @@ class SessionLockManager:
 
     def __init__(self):
         """Initialize the lock manager"""
-        self._locks: Dict[str, asyncio.Lock] = {}
+        self._locks: dict[str, asyncio.Lock] = {}
         self._init_lock = threading.Lock()  # Thread lock for safe initialization
 
-    def get_lock(self, session_id: str) -> Optional[asyncio.Lock]:
+    def get_lock(self, session_id: str) -> asyncio.Lock | None:
         """Get or create an async lock for a session
 
         Args:
