@@ -4,12 +4,12 @@ from datetime import datetime, timezone
 from unittest.mock import patch
 
 import pytest
-from src.context_switcher_mcp import (
+from context_switcher_mcp import (
     session_manager,
 )
-from src.context_switcher_mcp.models import ContextSwitcherSession, ModelBackend, Thread
-from src.context_switcher_mcp.perspective_orchestrator import PerspectiveOrchestrator
-from src.context_switcher_mcp.session_manager import SessionManager
+from context_switcher_mcp.models import ContextSwitcherSession, ModelBackend, Thread
+from context_switcher_mcp.perspective_orchestrator import PerspectiveOrchestrator
+from context_switcher_mcp.session_manager import SessionManager
 
 
 @pytest.fixture
@@ -140,7 +140,7 @@ class TestMCPTools:
         session.topic = "Test topic"
 
         # Test adding default perspectives
-        from src.context_switcher_mcp.helpers.session_helpers import (
+        from context_switcher_mcp.helpers.session_helpers import (
             DEFAULT_PERSPECTIVES,
         )
 
@@ -163,7 +163,7 @@ class TestMCPTools:
     @pytest.mark.asyncio
     async def test_validation_functions(self):
         """Test input validation functions"""
-        from src.context_switcher_mcp.validation import (
+        from context_switcher_mcp.validation import (
             validate_session_id,
             validate_topic,
         )
@@ -253,7 +253,7 @@ class TestSecurity:
 
     def test_input_sanitization(self):
         """Test security input sanitization"""
-        from src.context_switcher_mcp.security import sanitize_user_input
+        from context_switcher_mcp.security import sanitize_user_input
 
         # Test safe input
         is_safe, cleaned, issues = sanitize_user_input("Normal user input")
@@ -287,7 +287,7 @@ class TestSecurity:
 
     def test_model_id_validation(self):
         """Test model ID validation"""
-        from src.context_switcher_mcp.security import validate_model_id
+        from context_switcher_mcp.security import validate_model_id
 
         # Test valid model IDs
         valid_models = [
@@ -321,7 +321,7 @@ class TestSecurity:
 
     def test_error_sanitization(self):
         """Test error message sanitization"""
-        from src.context_switcher_mcp.security import sanitize_error_message
+        from context_switcher_mcp.security import sanitize_error_message
 
         # Test internal details are hidden
         internal_errors = [
@@ -348,7 +348,7 @@ class TestRateLimiting:
 
     def test_rate_limiter_creation(self):
         """Test rate limiter initialization"""
-        from src.context_switcher_mcp.rate_limiter import SessionRateLimiter
+        from context_switcher_mcp.rate_limiter import SessionRateLimiter
 
         rl = SessionRateLimiter(
             requests_per_minute=30, analyses_per_minute=5, session_creation_per_minute=2
@@ -361,7 +361,7 @@ class TestRateLimiting:
 
     def test_session_creation_rate_limit(self):
         """Test session creation rate limiting"""
-        from src.context_switcher_mcp.rate_limiter import SessionRateLimiter
+        from context_switcher_mcp.rate_limiter import SessionRateLimiter
 
         # Very restrictive limits for testing
         rl = SessionRateLimiter(session_creation_per_minute=2)
@@ -382,7 +382,7 @@ class TestRateLimiting:
 
     def test_per_session_rate_limiting(self):
         """Test per-session request rate limiting"""
-        from src.context_switcher_mcp.rate_limiter import SessionRateLimiter
+        from context_switcher_mcp.rate_limiter import SessionRateLimiter
 
         # Very restrictive limits for testing
         rl = SessionRateLimiter(requests_per_minute=2, analyses_per_minute=1)
@@ -412,7 +412,7 @@ class TestRateLimiting:
 
     def test_rate_limiter_cleanup(self):
         """Test rate limiter session cleanup"""
-        from src.context_switcher_mcp.rate_limiter import SessionRateLimiter
+        from context_switcher_mcp.rate_limiter import SessionRateLimiter
 
         rl = SessionRateLimiter()
         session_id = "test-session"
@@ -434,8 +434,8 @@ class TestSessionEnhancements:
         """Test that session cleanup properly integrates with rate limiter"""
         from datetime import datetime, timedelta, timezone
 
-        from src.context_switcher_mcp.models import ContextSwitcherSession
-        from src.context_switcher_mcp.session_manager import SessionManager
+        from context_switcher_mcp.models import ContextSwitcherSession
+        from context_switcher_mcp.session_manager import SessionManager
 
         # Create a session manager and add an expired session
         sm = SessionManager(session_ttl_hours=1)

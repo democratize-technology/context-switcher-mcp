@@ -1,7 +1,7 @@
 """Core AORP functionality tests - validating the fundamental building blocks"""
 
 import pytest
-from src.context_switcher_mcp.aorp import (
+from context_switcher_mcp.aorp import (
     AORPBuilder,
     calculate_analysis_confidence,
     calculate_synthesis_confidence,

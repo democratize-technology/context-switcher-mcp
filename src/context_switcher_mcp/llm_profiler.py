@@ -530,7 +530,7 @@ class LLMProfiler:
                 data["total_tokens"] += metrics.total_tokens
 
         # Calculate derived metrics
-        for backend, data in backend_data.items():
+        for _backend, data in backend_data.items():
             data["success_rate"] = (data["successful"] / data["calls"]) * 100
             data["avg_latency"] = (
                 data["total_latency"] / data["calls"] if data["calls"] else 0
@@ -550,7 +550,7 @@ class LLMProfiler:
         # Analyze latency patterns
         latencies = [m.total_latency for m in metrics_list if m.total_latency]
         if latencies:
-            slow_calls = [l for l in latencies if l > 10.0]
+            slow_calls = [latency for latency in latencies if latency > 10.0]
             if len(slow_calls) > len(latencies) * 0.1:  # >10% slow calls
                 insights.append(
                     f"High latency detected: {len(slow_calls)} calls took >10s "

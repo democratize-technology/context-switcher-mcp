@@ -4,11 +4,11 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from src.context_switcher_mcp.aorp import (
+from context_switcher_mcp.aorp import (
     AORPBuilder,
     convert_legacy_response,
 )
-from src.context_switcher_mcp.models import ContextSwitcherSession, ModelBackend, Thread
+from context_switcher_mcp.models import ContextSwitcherSession, ModelBackend, Thread
 
 
 class TestLegacyResponseConversion:
@@ -433,7 +433,7 @@ class TestAORPWorkflowIntegration:
 
     def test_workflow_progression_error_recovery(self):
         """Test workflow progression during error recovery"""
-        from src.context_switcher_mcp.aorp import create_error_response
+        from context_switcher_mcp.aorp import create_error_response
 
         # Session not found error
         error_response = create_error_response(

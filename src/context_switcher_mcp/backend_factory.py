@@ -38,7 +38,7 @@ class LiteLLMBackend(ModelBackendInterface):
         except ImportError:
             raise ConfigurationError(
                 "LiteLLM not installed. Install with: pip install litellm"
-            )
+            ) from None
         except Exception as e:
             error_type, error_msg = self._get_error_type_and_message(e)
             raise ModelBackendError(error_msg) from e
@@ -81,7 +81,7 @@ class OllamaBackend(ModelBackendInterface):
         except ImportError:
             raise ConfigurationError(
                 "httpx not installed. Install with: pip install httpx"
-            )
+            ) from None
         except Exception as e:
             error_type, error_msg = self._get_error_type_and_message(e)
             raise ModelBackendError(error_msg) from e

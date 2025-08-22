@@ -10,8 +10,7 @@ import tempfile
 from unittest.mock import patch
 
 import pytest
-from pydantic import ValidationError
-from src.context_switcher_mcp.validated_config import (
+from context_switcher_mcp.validated_config import (
     ConfigurationError,
     LogLevel,
     ProfilingLevel,
@@ -25,6 +24,7 @@ from src.context_switcher_mcp.validated_config import (
     load_validated_config,
     reload_validated_config,
 )
+from pydantic import ValidationError
 
 
 class TestValidatedModelConfig:

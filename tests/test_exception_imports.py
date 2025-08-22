@@ -4,7 +4,7 @@
 def test_exception_imports():
     """Test that all custom exceptions can be imported without errors"""
     try:
-        from src.context_switcher_mcp.exceptions import (
+        from context_switcher_mcp.exceptions import (
             AnalysisError,
             CircuitBreakerError,
             CircuitBreakerOpenError,
@@ -53,10 +53,10 @@ def test_exception_imports():
 
     except ImportError as e:
         print(f"✗ Import error: {e}")
-        raise AssertionError(f"Import error: {e}")
+        raise AssertionError(f"Import error: {e}") from e
     except Exception as e:
         print(f"✗ Unexpected error: {e}")
-        raise AssertionError(f"Unexpected error: {e}")
+        raise AssertionError(f"Unexpected error: {e}") from e
 
 
 if __name__ == "__main__":

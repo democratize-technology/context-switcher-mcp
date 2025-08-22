@@ -405,13 +405,13 @@ class ConfigurationInputValidator:
         if not isinstance(value, expected_type):
             try:
                 # Try to convert
-                if expected_type == int:
+                if expected_type is int:
                     sanitized_value = int(value)
-                elif expected_type == float:
+                elif expected_type is float:
                     sanitized_value = float(value)
-                elif expected_type == bool:
+                elif expected_type is bool:
                     sanitized_value = str(value).lower() in ("true", "1", "yes", "on")
-                elif expected_type == str:
+                elif expected_type is str:
                     sanitized_value = str(value)
                 else:
                     return (
@@ -429,7 +429,7 @@ class ConfigurationInputValidator:
             sanitized_value = value
 
         # Value-specific validation
-        if expected_type == str and isinstance(sanitized_value, str):
+        if expected_type is str and isinstance(sanitized_value, str):
             # Check string length
             if len(sanitized_value) > 10000:
                 return False, f"String value too long for {key}", None
@@ -438,12 +438,12 @@ class ConfigurationInputValidator:
             if "\x00" in sanitized_value:
                 return False, f"Null bytes not allowed in {key}", None
 
-        elif expected_type == int:
+        elif expected_type is int:
             # Check reasonable ranges
             if sanitized_value < 0 or sanitized_value > 2**31 - 1:
                 return False, f"Integer value out of range for {key}", None
 
-        elif expected_type == float:
+        elif expected_type is float:
             # Check for NaN and infinity
             import math
 

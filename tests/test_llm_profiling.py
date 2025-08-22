@@ -6,8 +6,8 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from src.context_switcher_mcp.backend_interface import ModelCallConfig
-from src.context_switcher_mcp.llm_profiler import (
+from context_switcher_mcp.backend_interface import ModelCallConfig
+from context_switcher_mcp.llm_profiler import (
     CostCalculator,
     LLMCallMetrics,
     LLMProfiler,
@@ -16,9 +16,9 @@ from src.context_switcher_mcp.llm_profiler import (
     ProfilingLevel,
     get_global_profiler,
 )
-from src.context_switcher_mcp.models import ModelBackend, Thread
-from src.context_switcher_mcp.performance_dashboard import PerformanceDashboard
-from src.context_switcher_mcp.profiling_wrapper import (
+from context_switcher_mcp.models import ModelBackend, Thread
+from context_switcher_mcp.performance_dashboard import PerformanceDashboard
+from context_switcher_mcp.profiling_wrapper import (
     EnhancedProfilingWrapper,
     ProfilingBackendWrapper,
     create_profiling_wrapper,

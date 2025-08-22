@@ -581,10 +581,15 @@ class ValidatedContextSwitcherConfig(BaseSettings):
         # Check Ollama connectivity
         if self.model.ollama_host:
             try:
-                import httpx
+                import importlib.util
 
-                # Non-blocking check - don't fail configuration load
-                warnings.append(f"Ollama host configured: {self.model.ollama_host}")
+                if importlib.util.find_spec("httpx"):
+                    # Non-blocking check - don't fail configuration load
+                    warnings.append(f"Ollama host configured: {self.model.ollama_host}")
+                else:
+                    warnings.append(
+                        "httpx not installed - Ollama backend will be unavailable"
+                    )
             except ImportError:
                 warnings.append(
                     "httpx not installed - Ollama backend will be unavailable"
@@ -592,9 +597,14 @@ class ValidatedContextSwitcherConfig(BaseSettings):
 
         # Check LiteLLM availability
         try:
-            import litellm
+            import importlib.util
 
-            warnings.append("LiteLLM backend available")
+            if importlib.util.find_spec("litellm"):
+                warnings.append("LiteLLM backend available")
+            else:
+                warnings.append(
+                    "litellm not installed - LiteLLM backend will be unavailable"
+                )
         except ImportError:
             warnings.append(
                 "litellm not installed - LiteLLM backend will be unavailable"
@@ -602,9 +612,14 @@ class ValidatedContextSwitcherConfig(BaseSettings):
 
         # Check AWS/Bedrock setup
         try:
-            import boto3
+            import importlib.util
 
-            warnings.append("boto3 available for Bedrock backend")
+            if importlib.util.find_spec("boto3"):
+                warnings.append("boto3 available for Bedrock backend")
+            else:
+                warnings.append(
+                    "boto3 not installed - Bedrock backend will be unavailable"
+                )
         except ImportError:
             warnings.append("boto3 not installed - Bedrock backend will be unavailable")
 
@@ -653,7 +668,7 @@ def load_validated_config(
                     except ImportError:
                         raise ConfigurationError(
                             "PyYAML not installed. Install with: pip install pyyaml"
-                        )
+                        ) from None
                 else:
                     raise ConfigurationError(
                         f"Unsupported config file format: {config_path.suffix}"

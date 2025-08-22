@@ -78,6 +78,18 @@ class SessionCleanupError(SessionError):
     pass
 
 
+class SessionSecurityError(SessionError):
+    """Raised when session security violations occur."""
+
+    pass
+
+
+class SessionConcurrencyError(SessionError):
+    """Raised when session concurrency conflicts occur."""
+
+    pass
+
+
 class OrchestrationError(ContextSwitcherError):
     """Errors related to thread orchestration."""
 

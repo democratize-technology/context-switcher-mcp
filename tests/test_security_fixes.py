@@ -36,8 +36,8 @@ from context_switcher_mcp.models import (  # noqa: E402
     ModelBackend,
     Thread,
 )
-from context_switcher_mcp.perspective_orchestrator import (
-    PerspectiveOrchestrator,  # noqa: E402
+from context_switcher_mcp.perspective_orchestrator import (  # noqa: E402
+    PerspectiveOrchestrator,
 )
 
 
@@ -561,7 +561,7 @@ class TestConcurrentLockInitialization:
         assert len(sessions) == 20
 
         # Verify all sessions are properly initialized
-        for i, session in enumerate(sessions):
+        for _i, session in enumerate(sessions):
             assert session.session_id.startswith("concurrent_")
             assert session.version == 0
 

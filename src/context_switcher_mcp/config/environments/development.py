@@ -192,9 +192,12 @@ class DevelopmentConfig(BaseEnvironmentConfig):
 
         # Check for development tools
         try:
-            import yaml
+            import importlib.util
 
-            warnings.append("✓ PyYAML available for configuration files")
+            if importlib.util.find_spec("yaml"):
+                warnings.append("✓ PyYAML available for configuration files")
+            else:
+                warnings.append("⚠ PyYAML not installed - YAML configs unavailable")
         except ImportError:
             warnings.append("⚠ PyYAML not installed - YAML configs unavailable")
 

@@ -4,9 +4,9 @@ import asyncio
 from unittest.mock import patch
 
 import pytest
-from src.context_switcher_mcp.circuit_breaker_manager import CircuitBreakerState
-from src.context_switcher_mcp.handlers.session_handler import generate_secure_session_id
-from src.context_switcher_mcp.models import ModelBackend
+from context_switcher_mcp.circuit_breaker_manager import CircuitBreakerState
+from context_switcher_mcp.handlers.session_handler import generate_secure_session_id
+from context_switcher_mcp.models import ModelBackend
 
 
 class TestSecureSessionIDGeneration:

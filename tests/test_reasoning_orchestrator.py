@@ -4,8 +4,8 @@ import asyncio
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from src.context_switcher_mcp.models import ModelBackend, Thread
-from src.context_switcher_mcp.reasoning_orchestrator import (
+from context_switcher_mcp.models import ModelBackend, Thread
+from context_switcher_mcp.reasoning_orchestrator import (
     CoTProcessingError,
     CoTTimeoutError,
     PerspectiveReasoningOrchestrator,

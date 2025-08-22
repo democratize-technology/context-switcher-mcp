@@ -9,16 +9,16 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import pytest
-from src.context_switcher_mcp.exceptions import (
+from context_switcher_mcp.exceptions import (
     SessionConcurrencyError,
     SessionError,
     SessionSecurityError,
 )
 
 # Import the new simplified session architecture
-from src.context_switcher_mcp.session import Session
-from src.context_switcher_mcp.session_manager_new import SimpleSessionManager
-from src.context_switcher_mcp.session_types import (
+from context_switcher_mcp.session import Session
+from context_switcher_mcp.session_manager_new import SimpleSessionManager
+from context_switcher_mcp.session_types import (
     AnalysisRecord,
     ClientBinding,
     ModelBackend,

@@ -3,7 +3,7 @@
 import asyncio
 
 import pytest
-from src.context_switcher_mcp.error_classification import (
+from context_switcher_mcp.error_classification import (
     ErrorCategory,
     ErrorSeverity,
     classify_error,
@@ -11,24 +11,24 @@ from src.context_switcher_mcp.error_classification import (
     is_retriable_error,
     is_transient_error,
 )
-from src.context_switcher_mcp.error_context import (
+from context_switcher_mcp.error_context import (
     ErrorAccumulator,
     error_context,
     resource_cleanup_context,
     suppress_and_log,
 )
-from src.context_switcher_mcp.error_decorators import (
+from context_switcher_mcp.error_decorators import (
     handle_model_errors,
     log_errors_with_context,
     retry_on_transient_errors,
     validate_parameters,
 )
-from src.context_switcher_mcp.error_logging import (
+from context_switcher_mcp.error_logging import (
     StructuredErrorLogger,
 )
 
 # Import the new error handling components
-from src.context_switcher_mcp.exceptions import (
+from context_switcher_mcp.exceptions import (
     AuthenticationError,
     ConcurrencyError,
     ContextSwitcherError,
@@ -417,7 +417,7 @@ class TestRealWorldScenarios:
     @pytest.mark.asyncio
     async def test_session_management_errors(self):
         """Test session management with proper error handling"""
-        from src.context_switcher_mcp.session_manager import SessionManager
+        from context_switcher_mcp.session_manager import SessionManager
 
         # Mock session manager to test error scenarios
         session_manager = SessionManager(max_sessions=1)

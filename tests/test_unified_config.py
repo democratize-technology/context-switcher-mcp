@@ -50,7 +50,7 @@ class TestUnifiedConfiguration:
         assert config is not None
 
         # Invalid configuration should fail
-        with pytest.raises(Exception):  # Should raise validation error
+        with pytest.raises(ConfigurationError):  # Should raise validation error
             ContextSwitcherConfig(
                 server={"port": -1}  # Invalid port
             )
@@ -515,15 +515,15 @@ class TestConfigurationValidation:
     def test_invalid_configuration_handling(self):
         """Test handling of invalid configuration values"""
         # Invalid port number
-        with pytest.raises(Exception):
+        with pytest.raises(ConfigurationError):
             ContextSwitcherConfig(server={"port": -1})
 
         # Invalid temperature
-        with pytest.raises(Exception):
+        with pytest.raises(ConfigurationError):
             ContextSwitcherConfig(models={"default_temperature": 5.0})
 
         # Invalid log level
-        with pytest.raises(Exception):
+        with pytest.raises(ConfigurationError):
             ContextSwitcherConfig(server={"log_level": "INVALID"})
 
     def test_configuration_file_error_handling(self):
@@ -558,7 +558,7 @@ class TestConfigurationValidation:
         """Test validation of environment variables"""
         # Invalid numeric values
         with patch.dict(os.environ, {"CS_SERVER_PORT": "invalid"}):
-            with pytest.raises(Exception):
+            with pytest.raises(ConfigurationError):
                 ContextSwitcherConfig()
 
         # Invalid boolean values should be handled gracefully

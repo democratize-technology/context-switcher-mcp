@@ -5,7 +5,7 @@ from datetime import datetime
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from src.context_switcher_mcp.exceptions import (
+from context_switcher_mcp.exceptions import (
     AnalysisError,
     CircuitBreakerError,
     CircuitBreakerOpenError,
@@ -76,7 +76,7 @@ class TestOrchestratorExceptionHandling:
     @pytest.fixture
     def mock_orchestrator(self):
         """Create a mock orchestrator with proper dependencies"""
-        from src.context_switcher_mcp.perspective_orchestrator import (
+        from context_switcher_mcp.perspective_orchestrator import (
             PerspectiveOrchestrator,
         )
 
@@ -87,8 +87,8 @@ class TestOrchestratorExceptionHandling:
     @pytest.mark.asyncio
     async def test_circuit_breaker_state_error(self, mock_orchestrator):
         """Test that CircuitBreakerStateError is raised on storage failures"""
-        from src.context_switcher_mcp.circuit_breaker_manager import CircuitBreakerState
-        from src.context_switcher_mcp.models import ModelBackend
+        from context_switcher_mcp.circuit_breaker_manager import CircuitBreakerState
+        from context_switcher_mcp.models import ModelBackend
 
         breaker = CircuitBreakerState(ModelBackend.BEDROCK)
 
@@ -107,7 +107,7 @@ class TestOrchestratorExceptionHandling:
     @pytest.mark.asyncio
     async def test_orchestration_error_wrapping(self, mock_orchestrator):
         """Test that unexpected errors are wrapped in OrchestrationError"""
-        from src.context_switcher_mcp.models import ModelBackend, Thread
+        from context_switcher_mcp.models import ModelBackend, Thread
 
         thread = Thread(
             id="test_thread_id",
@@ -118,7 +118,7 @@ class TestOrchestratorExceptionHandling:
         )
 
         # Mock the backend factory to raise an unexpected error
-        from src.context_switcher_mcp.backend_factory import BackendFactory
+        from context_switcher_mcp.backend_factory import BackendFactory
 
         mock_backend = AsyncMock()
         mock_backend.call_model.side_effect = RuntimeError("Unexpected backend error")
@@ -139,7 +139,7 @@ class TestSessionManagerExceptionHandling:
     @pytest.fixture
     def mock_session_manager(self):
         """Create a mock session manager"""
-        from src.context_switcher_mcp.session_manager import SessionManager
+        from context_switcher_mcp.session_manager import SessionManager
 
         # Create a simple session manager without complex config mocking
         manager = SessionManager(
@@ -177,7 +177,7 @@ class TestCircuitBreakerStoreExceptionHandling:
     @pytest.fixture
     def mock_store(self):
         """Create a mock circuit breaker store"""
-        from src.context_switcher_mcp.circuit_breaker_store import CircuitBreakerStore
+        from context_switcher_mcp.circuit_breaker_store import CircuitBreakerStore
 
         return CircuitBreakerStore()
 
@@ -225,8 +225,8 @@ class TestBackendInterfaceExceptionHandling:
 
     def test_bedrock_backend_error_mapping(self):
         """Test that Bedrock backend maps errors correctly"""
-        from src.context_switcher_mcp.backend_interface import BedrockBackend
-        from src.context_switcher_mcp.models import ModelBackend, Thread
+        from context_switcher_mcp.backend_interface import BedrockBackend
+        from context_switcher_mcp.models import ModelBackend, Thread
 
         backend = BedrockBackend()
         thread = Thread(
@@ -246,8 +246,8 @@ class TestBackendInterfaceExceptionHandling:
 
     def test_litellm_backend_error_mapping(self):
         """Test that LiteLLM backend maps errors correctly"""
-        from src.context_switcher_mcp.backend_interface import LiteLLMBackend
-        from src.context_switcher_mcp.models import ModelBackend, Thread
+        from context_switcher_mcp.backend_interface import LiteLLMBackend
+        from context_switcher_mcp.models import ModelBackend, Thread
 
         backend = LiteLLMBackend()
         thread = Thread(
@@ -267,8 +267,8 @@ class TestBackendInterfaceExceptionHandling:
 
     def test_ollama_backend_error_mapping(self):
         """Test that Ollama backend maps errors correctly"""
-        from src.context_switcher_mcp.backend_interface import OllamaBackend
-        from src.context_switcher_mcp.models import ModelBackend, Thread
+        from context_switcher_mcp.backend_interface import OllamaBackend
+        from context_switcher_mcp.models import ModelBackend, Thread
 
         backend = OllamaBackend()
         thread = Thread(

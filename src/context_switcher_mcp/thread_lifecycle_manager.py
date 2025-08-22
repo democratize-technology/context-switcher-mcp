@@ -217,7 +217,9 @@ class ThreadLifecycleManager:
         try:
             return BackendFactory.get_backend(thread.model_backend)
         except Exception as e:
-            raise ValueError(f"Backend not available: {thread.model_backend} - {e}")
+            raise ValueError(
+                f"Backend not available: {thread.model_backend} - {e}"
+            ) from e
 
     async def _execute_with_retry(
         self, context: ExecutionContext, circuit_breaker: CircuitBreakerHandler

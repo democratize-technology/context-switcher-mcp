@@ -1,7 +1,7 @@
 """Real-world AORP scenario tests - validating practical workflow benefits"""
 
 import pytest
-from src.context_switcher_mcp.aorp import (
+from context_switcher_mcp.aorp import (
     AORPBuilder,
     create_error_response,
     generate_analysis_next_steps,

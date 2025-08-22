@@ -28,10 +28,6 @@ try:
     from .config.core import ConfigurationError
     from .config.migration import (
         LegacyConfigAdapter,
-        create_legacy_config_with_migration,
-    )
-    from .config.migration import (
-        get_legacy_config as _get_legacy_config,
     )
 
     _UNIFIED_CONFIG_AVAILABLE = True
@@ -48,10 +44,6 @@ except ImportError as e:
     try:
         from .config_old import (
             ConfigurationError,
-            ContextSwitcherConfig,
-        )
-        from .config_old import (
-            config as _old_config,
         )
         from .config_old import (
             get_config as _old_get_config,
@@ -66,7 +58,7 @@ except ImportError as e:
         raise ImportError(
             "Neither unified nor legacy configuration system is available. "
             "This indicates a serious configuration system issue."
-        )
+        ) from None
 
 
 def get_config(**kwargs) -> Any:
