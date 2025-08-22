@@ -43,14 +43,3 @@ dev = [
     "pytest>=7.4.4",
     "pytest-asyncio>=0.23.8",
 ]
-
-[tool.ruff.lint]
-# Temporarily ignore style-only issues for OSS readiness commit
-ignore = [
-    "B904",  # Exception chaining - style preference
-    "F401",  # Unused imports - may be needed for runtime checks
-    "E402",  # Module level import not at top - common in tests
-    "B007",  # Loop control variable not used - common pattern
-    "E741",  # Ambiguous variable name - acceptable in utility code
-    "B017",  # pytest.raises(Exception) - valid test pattern
-]
