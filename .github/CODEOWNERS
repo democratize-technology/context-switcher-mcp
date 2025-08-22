@@ -1,30 +1,43 @@
-# Global owners - require review from project maintainers
-* @democratizetech
+# CODEOWNERS for context-switcher-mcp
+#
+# This file defines who has review authority for different parts of the codebase.
+# All changes require approval from at least one code owner.
+#
+# Documentation: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
-# Core source code - require review from maintainers
-/src/ @democratizetech
+# Default owners for everything in the repo
+# These users will be requested for review when someone opens a PR
+* @democratize-technology/maintainers
 
-# Configuration files - require review from maintainers
-/pyproject.toml @democratizetech
-/mypy.ini @democratizetech
-/.pre-commit-config.yaml @democratizetech
+# Core source code - requires maintainer approval
+/src/ @democratize-technology/maintainers
 
-# Security-related files - require review from security team
-/SECURITY.md @democratizetech
-/src/context_switcher_mcp/security/ @democratizetech
-/tests/test_security*.py @democratizetech
+# Test files - maintainers should review test changes
+/tests/ @democratize-technology/maintainers
 
-# GitHub workflows and automation - require review from maintainers
-/.github/ @democratizetech
+# Configuration files that affect behavior
+pyproject.toml @democratize-technology/maintainers
+uv.lock @democratize-technology/maintainers
+.pre-commit-config.yaml @democratize-technology/maintainers
+mypy.ini @democratize-technology/maintainers
 
-# Documentation - require review from maintainers
-/README.md @democratizetech
-/CONTRIBUTING.md @democratizetech
-/CHANGELOG.md @democratizetech
-/docs/ @democratizetech
+# CI/CD and GitHub workflows
+/.github/ @democratize-technology/maintainers
 
-# Test files - require review from maintainers
-/tests/ @democratizetech
+# Security-sensitive files
+/src/context_switcher_mcp/circuit_breaker_store.py @democratize-technology/maintainers
+/src/context_switcher_mcp/session_manager.py @democratize-technology/maintainers
+/SECURITY.md @democratize-technology/maintainers
+
+# Documentation - maintainers should review but could allow broader contribution
+README.md @democratize-technology/maintainers
+CONTRIBUTING.md @democratize-technology/maintainers
+CHANGELOG.md @democratize-technology/maintainers
+CLAUDE.md @democratize-technology/maintainers
+/docs/ @democratize-technology/maintainers
+
+# Scripts that affect development workflow
+run.sh @democratize-technology/maintainers
 
 # License and legal files - require review from maintainers
-/LICENSE @democratizetech
+/LICENSE @democratize-technology/maintainers
