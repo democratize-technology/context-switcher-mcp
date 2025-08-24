@@ -245,7 +245,7 @@ async def get_session_profiling_data(session_id: str) -> dict[str, Any]:
     """
     try:
         # Validate session ID
-        is_valid, error_msg = validate_session_id(session_id)
+        is_valid, error_msg = await validate_session_id(session_id, "session_profiling")
         if not is_valid:
             return {"error": "Invalid session ID", "message": error_msg}
 

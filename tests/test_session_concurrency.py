@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from context_switcher_mcp.session_concurrency import (
+from context_switcher_mcp.session_concurrency import (  # noqa: E402
     SessionConcurrency,
     create_session_concurrency,
 )

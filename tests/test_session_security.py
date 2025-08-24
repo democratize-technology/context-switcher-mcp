@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import pytest
-from context_switcher_mcp.session_security import (
+from context_switcher_mcp.session_security import (  # noqa: E402
     ClientBinding,
     SecurityEvent,
     SessionSecurity,

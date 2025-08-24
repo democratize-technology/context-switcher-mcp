@@ -24,7 +24,7 @@ session_ttl = config.session.default_ttl_hours
 # Development configuration (debug logging, detailed profiling)
 dev_config = get_config(environment="development")
 
-# Staging configuration (production-like with enhanced monitoring)  
+# Staging configuration (production-like with enhanced monitoring)
 staging_config = get_config(environment="staging")
 
 # Production configuration (secure defaults, optimized performance)
@@ -37,7 +37,7 @@ prod_config = get_config(environment="production")
 # Load from JSON file
 config = get_config(config_file="config.json")
 
-# Load from YAML file  
+# Load from YAML file
 config = get_config(config_file="config.yaml")
 
 # Load with environment overrides
@@ -55,7 +55,7 @@ models = config.models
 
 # Token and generation limits
 models.default_max_tokens     # Default: 2048
-models.default_temperature    # Default: 0.7  
+models.default_temperature    # Default: 0.7
 models.max_chars_opus         # Default: 20000
 models.max_chars_haiku        # Default: 180000
 
@@ -70,7 +70,7 @@ models.ollama_host            # Default: "http://localhost:11434"
 models.circuit_breaker_failure_threshold  # Default: 5
 models.circuit_breaker_timeout_seconds    # Default: 300
 
-# Retry configuration  
+# Retry configuration
 models.max_retries            # Default: 3
 models.retry_delay_seconds    # Default: 1.0
 models.retry_backoff_factor   # Default: 2.0
@@ -122,7 +122,7 @@ session.max_concurrent_sessions       # Default: 100
 
 # Operation timeouts
 session.session_operation_timeout_seconds      # Default: 30.0
-session.perspective_analysis_timeout_seconds   # Default: 120.0  
+session.perspective_analysis_timeout_seconds   # Default: 120.0
 session.synthesis_timeout_seconds              # Default: 60.0
 
 # Memory and storage
@@ -134,7 +134,7 @@ session.session_storage_path          # Default: None (memory only)
 # Input validation limits
 session.max_session_id_length         # Default: 100
 session.max_topic_length              # Default: 1000
-session.max_perspective_name_length   # Default: 100  
+session.max_perspective_name_length   # Default: 100
 session.max_custom_prompt_length      # Default: 10000
 
 # Utility methods
@@ -151,7 +151,7 @@ export CS_SESSION_TTL_HOURS=48
 export CS_SESSION_MAX_TTL_HOURS=336  # 2 weeks
 export CS_CLEANUP_INTERVAL=300
 
-# Session limits  
+# Session limits
 export CS_MAX_SESSIONS=2000
 export CS_MAX_SESSIONS_PER_CLIENT=20
 export CS_MAX_CONCURRENT_PERSPECTIVES=15
@@ -183,7 +183,7 @@ security.client_binding_entropy_bytes # Default: 32
 security.signature_iterations         # Default: 600000
 
 # Rate limiting
-security.enable_rate_limiting         # Default: True  
+security.enable_rate_limiting         # Default: True
 security.rate_limit_requests_per_minute  # Default: 60
 security.rate_limit_burst_size        # Default: 10
 security.rate_limit_window_seconds    # Default: 60
@@ -205,7 +205,7 @@ security.enable_security_alerts       # Default: True
 
 # Configuration methods
 rate_config = security.get_rate_limit_config()
-binding_config = security.get_client_binding_config()  
+binding_config = security.get_client_binding_config()
 input_config = security.get_input_validation_config()
 is_valid_length = security.validate_input_length(text)
 blocked = security.check_blocked_patterns(text)
@@ -229,7 +229,7 @@ export CS_RATE_LIMIT_RPM=120
 export CS_RATE_LIMIT_BURST=20
 
 # Security monitoring
-export CS_ENABLE_SECURITY_LOGGING=true  
+export CS_ENABLE_SECURITY_LOGGING=true
 export CS_SECURITY_LOG_LEVEL=WARNING
 export CS_ENABLE_SECURITY_ALERTS=true
 ```
@@ -243,12 +243,12 @@ server = config.server
 
 # Network settings
 server.host                           # Default: "localhost"
-server.port                          # Default: 3023  
+server.port                          # Default: 3023
 server.bind_address                  # Computed: "host:port"
 
 # Logging
 server.log_level                     # Default: LogLevel.INFO
-server.log_format                    # Default: "structured"  
+server.log_format                    # Default: "structured"
 server.enable_access_logging         # Default: True
 server.log_file_path                 # Default: None (console)
 
@@ -258,14 +258,14 @@ server.connection_timeout_seconds    # Default: 60.0
 server.request_timeout_seconds       # Default: 300.0
 server.keepalive_timeout_seconds     # Default: 30.0
 
-# Development features  
+# Development features
 server.enable_debug_mode             # Default: False
 server.enable_hot_reload             # Default: False
 server.enable_cors                   # Default: False
 
 # Monitoring endpoints
 server.enable_health_endpoint        # Default: True
-server.enable_metrics_endpoint       # Default: True  
+server.enable_metrics_endpoint       # Default: True
 server.enable_status_endpoint        # Default: True
 
 # Performance tuning
@@ -304,7 +304,7 @@ export CS_REQUEST_TIMEOUT=180
 
 # Development (disable in production)
 export CS_ENABLE_DEBUG_MODE=false
-export CS_ENABLE_HOT_RELOAD=false  
+export CS_ENABLE_HOT_RELOAD=false
 export CS_ENABLE_CORS=false
 
 # Performance
@@ -332,7 +332,7 @@ metrics.retention_days                # Default: 7
 metrics.collection_interval_seconds   # Default: 60
 
 # Profiling configuration
-profiling = monitoring.profiling  
+profiling = monitoring.profiling
 profiling.enabled                     # Default: True
 profiling.level                       # Default: ProfilingLevel.STANDARD
 profiling.sampling_rate               # Default: 0.1 (10%)
@@ -363,7 +363,7 @@ alerting.enable_cost_alerts           # Default: True
 
 # Configuration methods
 prof_config = monitoring.get_profiling_config()
-thresholds = monitoring.get_alert_thresholds() 
+thresholds = monitoring.get_alert_thresholds()
 retention = monitoring.get_retention_config()
 should_profile = monitoring.should_profile_call(is_error=True)
 dashboard = monitoring.get_dashboard_config()
@@ -377,7 +377,7 @@ export CS_ENABLE_MONITORING=true
 export CS_ENABLE_REAL_TIME_METRICS=true
 export CS_MONITORING_STORAGE_PATH=/var/lib/context-switcher/monitoring
 
-# Profiling  
+# Profiling
 export CS_PROFILING_ENABLED=true
 export CS_PROFILING_LEVEL=standard   # disabled, basic, standard, detailed
 export CS_PROFILING_SAMPLING_RATE=0.2
@@ -426,7 +426,7 @@ Production-like settings with enhanced monitoring:
 staging_config = get_config(environment="staging")
 
 # Key characteristics:
-# - INFO level logging  
+# - INFO level logging
 # - Standard profiling (30% sampling)
 # - Production-like security
 # - Enhanced monitoring and alerting
@@ -444,7 +444,7 @@ prod_config = get_config(environment="production")
 
 # Key characteristics:
 # - WARNING level logging (minimal overhead)
-# - Basic profiling (5% sampling)  
+# - Basic profiling (5% sampling)
 # - Maximum security settings
 # - Optimized performance settings
 # - 24-hour session TTL
@@ -561,7 +561,7 @@ from context_switcher_mcp.config import get_config
 config = get_config()
 port = config.server.port
 
-# OLD: Module-level imports (deprecated)  
+# OLD: Module-level imports (deprecated)
 from context_switcher_mcp.config import ContextSwitcherConfig
 
 # NEW: Factory function approach
@@ -578,7 +578,7 @@ The system provides full backward compatibility:
 from context_switcher_mcp.config import config       # ⚠ Deprecated
 from context_switcher_mcp.config import get_config   # ✅ Recommended
 
-# Legacy attribute access still works:  
+# Legacy attribute access still works:
 config.model.bedrock_model_id        # Legacy adapter
 config.models.bedrock_model_id       # New unified system
 ```

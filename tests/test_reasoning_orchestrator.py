@@ -4,8 +4,8 @@ import asyncio
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from context_switcher_mcp.models import ModelBackend, Thread
-from context_switcher_mcp.reasoning_orchestrator import (
+from context_switcher_mcp.models import ModelBackend, Thread  # noqa: E402
+from context_switcher_mcp.reasoning_orchestrator import (  # noqa: E402
     CoTProcessingError,
     CoTTimeoutError,
     PerspectiveReasoningOrchestrator,
@@ -55,15 +55,15 @@ class TestPerspectiveReasoningOrchestrator:
         assert hasattr(reasoning_orchestrator, "is_available")
         assert isinstance(reasoning_orchestrator.is_available, bool)
 
-    @patch("src.context_switcher_mcp.reasoning_orchestrator.COT_AVAILABLE", False)
+    @patch("context_switcher_mcp.reasoning_orchestrator.COT_AVAILABLE", False)
     def test_get_cot_tools_without_cot(self, reasoning_orchestrator):
         """Test getting tools when CoT is not available"""
         tools = reasoning_orchestrator.get_cot_tools()
         assert tools == []
 
-    @patch("src.context_switcher_mcp.reasoning_orchestrator.COT_AVAILABLE", True)
+    @patch("context_switcher_mcp.reasoning_orchestrator.COT_AVAILABLE", True)
     @patch(
-        "src.context_switcher_mcp.reasoning_orchestrator.TOOL_SPECS",
+        "context_switcher_mcp.reasoning_orchestrator.TOOL_SPECS",
         [{"name": "test_tool"}],
     )
     def test_get_cot_tools_with_cot(self, reasoning_orchestrator):
@@ -73,7 +73,7 @@ class TestPerspectiveReasoningOrchestrator:
         assert tools[0]["name"] == "test_tool"
 
     @pytest.mark.asyncio
-    @patch("src.context_switcher_mcp.reasoning_orchestrator.COT_AVAILABLE", False)
+    @patch("context_switcher_mcp.reasoning_orchestrator.COT_AVAILABLE", False)
     async def test_analyze_without_cot(
         self, reasoning_orchestrator, mock_thread, mock_bedrock_client
     ):
@@ -89,10 +89,8 @@ class TestPerspectiveReasoningOrchestrator:
         assert summary == {}
 
     @pytest.mark.asyncio
-    @patch("src.context_switcher_mcp.reasoning_orchestrator.COT_AVAILABLE", True)
-    @patch(
-        "src.context_switcher_mcp.reasoning_orchestrator.AsyncChainOfThoughtProcessor"
-    )
+    @patch("context_switcher_mcp.reasoning_orchestrator.COT_AVAILABLE", True)
+    @patch("context_switcher_mcp.reasoning_orchestrator.AsyncChainOfThoughtProcessor")
     async def test_analyze_with_cot_success(
         self,
         mock_processor_class,
@@ -135,10 +133,8 @@ class TestPerspectiveReasoningOrchestrator:
         mock_processor.get_reasoning_summary.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("src.context_switcher_mcp.reasoning_orchestrator.COT_AVAILABLE", True)
-    @patch(
-        "src.context_switcher_mcp.reasoning_orchestrator.AsyncChainOfThoughtProcessor"
-    )
+    @patch("context_switcher_mcp.reasoning_orchestrator.COT_AVAILABLE", True)
+    @patch("context_switcher_mcp.reasoning_orchestrator.AsyncChainOfThoughtProcessor")
     async def test_analyze_with_cot_timeout(
         self,
         mock_processor_class,
@@ -162,10 +158,8 @@ class TestPerspectiveReasoningOrchestrator:
         assert exc_info.value.timeout == 5.0
 
     @pytest.mark.asyncio
-    @patch("src.context_switcher_mcp.reasoning_orchestrator.COT_AVAILABLE", True)
-    @patch(
-        "src.context_switcher_mcp.reasoning_orchestrator.AsyncChainOfThoughtProcessor"
-    )
+    @patch("context_switcher_mcp.reasoning_orchestrator.COT_AVAILABLE", True)
+    @patch("context_switcher_mcp.reasoning_orchestrator.AsyncChainOfThoughtProcessor")
     async def test_analyze_with_cot_error(
         self,
         mock_processor_class,

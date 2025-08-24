@@ -5,8 +5,8 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import pytest
-from context_switcher_mcp.models import ContextSwitcherSession
-from context_switcher_mcp.session_manager import SessionManager
+from context_switcher_mcp.models import ContextSwitcherSession  # noqa: E402
+from context_switcher_mcp.session_manager import SessionManager  # noqa: E402
 
 
 @pytest.fixture

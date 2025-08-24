@@ -3,21 +3,21 @@ Test suite for client binding security features
 """
 
 import os
-import sys
+import sys  # noqa: E402
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))  # noqa: E402
 
 import secrets  # noqa: E402
 from datetime import datetime, timedelta, timezone  # noqa: E402
 
 import pytest  # noqa: E402
-from context_switcher_mcp.client_binding import (  # noqa: E402
+from context_switcher_mcp.client_binding import (  # noqa: E402 # noqa: E402
     ClientBindingManager,
     create_secure_session_with_binding,
     log_security_event_with_binding,
     validate_session_access,
 )
-from context_switcher_mcp.models import (  # noqa: E402
+from context_switcher_mcp.models import (  # noqa: E402 # noqa: E402
     ClientBinding,
     ContextSwitcherSession,
 )
@@ -199,13 +199,16 @@ class TestClientBindingManager:
         """Test security metrics collection"""
         metrics = self.manager.get_security_metrics()
 
-        assert "suspicious_sessions_count" in metrics
-        assert "binding_secret_key_set" in metrics
-        assert "max_validation_failures" in metrics
-        assert "max_security_flags" in metrics
-        assert "suspicious_access_threshold" in metrics
+        assert "suspicious_sessions" in metrics
+        assert "key_management" in metrics
+        assert "validation" in metrics
+        assert "system_health" in metrics
+        assert "timestamp" in metrics
 
-        assert metrics["binding_secret_key_set"] is True
+        # Check system health components
+        assert metrics["system_health"]["key_manager_operational"] is True
+        assert metrics["system_health"]["validation_service_operational"] is True
+        assert metrics["system_health"]["event_tracker_operational"] is True
 
 
 class TestSecureSessionCreation:
@@ -262,7 +265,7 @@ class TestSecurityLogging:
         event = session.security_events[-1]
         assert event["type"] == "test_security_event"
         assert event["details"]["test_detail"] == "test_value"
-        assert event["details"]["has_client_binding"] is True
+        assert event["binding_context"]["has_client_binding"] is True
 
     def test_security_event_logging_without_binding(self):
         """Test security event logging without client binding"""
@@ -283,7 +286,7 @@ class TestSecurityLogging:
         # Event should be recorded with no binding context
         assert len(session.security_events) > 0
         event = session.security_events[-1]
-        assert event["details"]["has_client_binding"] is False
+        assert event["binding_context"]["has_client_binding"] is False
 
 
 class TestSecurityIntegration:

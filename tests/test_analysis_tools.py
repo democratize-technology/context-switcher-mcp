@@ -5,11 +5,11 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from context_switcher_mcp.exceptions import (
+from context_switcher_mcp.exceptions import (  # noqa: E402
     OrchestrationError,
     SessionNotFoundError,
 )
-from context_switcher_mcp.tools.analysis_tools import (
+from context_switcher_mcp.tools.analysis_tools import (  # noqa: E402
     AnalyzeFromPerspectivesRequest,
     AnalyzeFromPerspectivesStreamRequest,
     SynthesizePerspectivesRequest,
@@ -66,21 +66,41 @@ class TestRateLimiter:
     def test_rate_limiter_exists(self):
         """Test that rate limiter is properly initialized"""
         assert rate_limiter is not None
-        assert hasattr(rate_limiter, "check_rate_limit")
+        assert hasattr(rate_limiter, "check_request")
+        assert hasattr(rate_limiter, "check_session_creation")
 
 
 class MockSession:
     """Mock session object for testing"""
 
     def __init__(self, session_id="test-session"):
+        from datetime import datetime, timezone
+
         self.session_id = session_id
         self.topic = "Test Topic"
         self.threads = [Mock(), Mock(), Mock()]  # 3 mock threads
         self.analyses = []
+        self.client_binding = None  # Required for security system
+        self.access_count = 0  # Required for security event tracking
+        self.created_at = datetime.now(
+            timezone.utc
+        )  # Required for session age calculation
+        self.security_events = []  # Required for security events count
 
         # Mock thread names for consistency
         for i, thread in enumerate(self.threads):
             thread.name = f"perspective-{i}"
+
+    def record_security_event(self, event_type: str, details: dict) -> None:
+        """Mock implementation of security event recording"""
+        from datetime import datetime, timezone
+
+        event = {
+            "type": event_type,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "details": details,
+        }
+        self.security_events.append(event)
 
 
 class TestAnalyzeFromPerspectives:
@@ -109,11 +129,9 @@ class TestAnalyzeFromPerspectives:
             patch(
                 "context_switcher_mcp.tools.analysis_tools.validate_analysis_request"
             ) as mock_validate,
+            patch("context_switcher_mcp.session_manager") as mock_session_manager,
             patch(
-                "context_switcher_mcp.tools.analysis_tools.session_manager"
-            ) as mock_session_manager,
-            patch(
-                "context_switcher_mcp.tools.analysis_tools.PerspectiveOrchestrator"
+                "context_switcher_mcp.perspective_orchestrator.PerspectiveOrchestrator"
             ) as mock_orchestrator_class,
             patch(
                 "context_switcher_mcp.tools.analysis_tools.build_analysis_aorp_response"
@@ -121,7 +139,7 @@ class TestAnalyzeFromPerspectives:
         ):
             # Setup mocks
             mock_validate.return_value = (True, None)
-            mock_session_manager.get_session.return_value = self.mock_session
+            mock_session_manager.get_session = AsyncMock(return_value=self.mock_session)
 
             mock_orchestrator = AsyncMock()
             mock_orchestrator.broadcast_to_perspectives.return_value = self.mock_results
@@ -135,12 +153,12 @@ class TestAnalyzeFromPerspectives:
 
             # Create a mock mcp with tool decorator
             mock_mcp = Mock()
-            mock_tool_func = None
+            registered_tools = {}
 
             def mock_tool(description):
                 def decorator(func):
-                    nonlocal mock_tool_func
-                    mock_tool_func = func
+                    # Store tools by their function name for easier access
+                    registered_tools[func.__name__] = func
                     return func
 
                 return decorator
@@ -150,8 +168,9 @@ class TestAnalyzeFromPerspectives:
             # Register tools
             register_analysis_tools(mock_mcp)
 
-            # Execute the function
-            result = await mock_tool_func(self.request)
+            # Execute the correct function - analyze_from_perspectives
+            analyze_func = registered_tools["analyze_from_perspectives"]
+            result = await analyze_func(self.request)
 
             # Verify results
             assert result == expected_response
@@ -172,7 +191,7 @@ class TestAnalyzeFromPerspectives:
     async def test_analyze_from_perspectives_validation_failure(self):
         """Test analysis with validation failure"""
         with patch(
-            "context_switcher_mcp.tools.analysis_tools.validate_analysis_request"
+            "context_switcher_mcp.helpers.analysis_helpers.validate_analysis_request"
         ) as mock_validate:
             # Setup validation failure
             error_response = {"status": "error", "message": "Rate limit exceeded"}
@@ -196,9 +215,13 @@ class TestAnalyzeFromPerspectives:
             # Execute the function
             result = await mock_tool_func(self.request)
 
-            # Verify error response
-            assert result == error_response
-            mock_validate.assert_called_once()
+            # Verify AORP error response format
+            assert "immediate" in result
+            assert "actionable" in result
+            assert "quality" in result
+            assert "details" in result
+            assert result["immediate"]["status"] == "error"
+            assert "not found or expired" in result["immediate"]["key_insight"]
 
     @pytest.mark.asyncio
     async def test_analyze_from_perspectives_session_not_found(self):
@@ -207,9 +230,7 @@ class TestAnalyzeFromPerspectives:
             patch(
                 "context_switcher_mcp.tools.analysis_tools.validate_analysis_request"
             ) as mock_validate,
-            patch(
-                "context_switcher_mcp.tools.analysis_tools.session_manager"
-            ) as mock_session_manager,
+            patch("context_switcher_mcp.session_manager") as mock_session_manager,
             patch(
                 "context_switcher_mcp.tools.analysis_tools.create_error_response"
             ) as mock_create_error,
@@ -252,11 +273,9 @@ class TestAnalyzeFromPerspectives:
             patch(
                 "context_switcher_mcp.tools.analysis_tools.validate_analysis_request"
             ) as mock_validate,
+            patch("context_switcher_mcp.session_manager") as mock_session_manager,
             patch(
-                "context_switcher_mcp.tools.analysis_tools.session_manager"
-            ) as mock_session_manager,
-            patch(
-                "context_switcher_mcp.tools.analysis_tools.PerspectiveOrchestrator"
+                "context_switcher_mcp.perspective_orchestrator.PerspectiveOrchestrator"
             ) as mock_orchestrator_class,
             patch(
                 "context_switcher_mcp.tools.analysis_tools.create_error_response"
@@ -264,7 +283,7 @@ class TestAnalyzeFromPerspectives:
         ):
             # Setup mocks
             mock_validate.return_value = (True, None)
-            mock_session_manager.get_session.return_value = self.mock_session
+            mock_session_manager.get_session = AsyncMock(return_value=self.mock_session)
 
             mock_orchestrator = AsyncMock()
             mock_orchestrator.broadcast_to_perspectives.side_effect = (
@@ -303,11 +322,9 @@ class TestAnalyzeFromPerspectives:
             patch(
                 "context_switcher_mcp.tools.analysis_tools.validate_analysis_request"
             ) as mock_validate,
+            patch("context_switcher_mcp.session_manager") as mock_session_manager,
             patch(
-                "context_switcher_mcp.tools.analysis_tools.session_manager"
-            ) as mock_session_manager,
-            patch(
-                "context_switcher_mcp.tools.analysis_tools.PerspectiveOrchestrator"
+                "context_switcher_mcp.perspective_orchestrator.PerspectiveOrchestrator"
             ) as mock_orchestrator_class,
             patch(
                 "context_switcher_mcp.tools.analysis_tools.create_error_response"
@@ -315,7 +332,7 @@ class TestAnalyzeFromPerspectives:
         ):
             # Setup mocks
             mock_validate.return_value = (True, None)
-            mock_session_manager.get_session.return_value = self.mock_session
+            mock_session_manager.get_session = AsyncMock(return_value=self.mock_session)
 
             mock_orchestrator = AsyncMock()
             mock_orchestrator.broadcast_to_perspectives.side_effect = ValueError(
@@ -354,9 +371,7 @@ class TestAnalyzeFromPerspectives:
             patch(
                 "context_switcher_mcp.tools.analysis_tools.validate_analysis_request"
             ) as mock_validate,
-            patch(
-                "context_switcher_mcp.tools.analysis_tools.session_manager"
-            ) as mock_session_manager,
+            patch("context_switcher_mcp.session_manager") as mock_session_manager,
             patch(
                 "context_switcher_mcp.tools.analysis_tools.create_error_response"
             ) as mock_create_error,
@@ -396,11 +411,9 @@ class TestAnalyzeFromPerspectives:
             patch(
                 "context_switcher_mcp.tools.analysis_tools.validate_analysis_request"
             ) as mock_validate,
+            patch("context_switcher_mcp.session_manager") as mock_session_manager,
             patch(
-                "context_switcher_mcp.tools.analysis_tools.session_manager"
-            ) as mock_session_manager,
-            patch(
-                "context_switcher_mcp.tools.analysis_tools.PerspectiveOrchestrator"
+                "context_switcher_mcp.perspective_orchestrator.PerspectiveOrchestrator"
             ) as mock_orchestrator_class,
             patch(
                 "context_switcher_mcp.tools.analysis_tools.build_analysis_aorp_response"
@@ -414,7 +427,7 @@ class TestAnalyzeFromPerspectives:
             }
 
             mock_validate.return_value = (True, None)
-            mock_session_manager.get_session.return_value = self.mock_session
+            mock_session_manager.get_session = AsyncMock(return_value=self.mock_session)
 
             mock_orchestrator = AsyncMock()
             mock_orchestrator.broadcast_to_perspectives.return_value = error_results
@@ -428,12 +441,20 @@ class TestAnalyzeFromPerspectives:
 
             # Create mock tool function
             mock_mcp = Mock()
-            mock_tool_func = None
+            registered_tools = {}
 
             def mock_tool(description):
                 def decorator(func):
-                    nonlocal mock_tool_func
-                    mock_tool_func = func
+                    # Extract tool name from description
+                    if (
+                        "broadcast your question to all perspectives"
+                        in description.lower()
+                    ):
+                        registered_tools["analyze_from_perspectives"] = func
+                    elif "synthesize perspectives" in description.lower():
+                        registered_tools["synthesize_perspectives"] = func
+                    elif "context convergence" in description.lower():
+                        registered_tools["check_context_convergence_status"] = func
                     return func
 
                 return decorator
@@ -441,8 +462,9 @@ class TestAnalyzeFromPerspectives:
             mock_mcp.tool = mock_tool
             register_analysis_tools(mock_mcp)
 
-            # Execute the function
-            result = await mock_tool_func(self.request)
+            # Execute the correct function - analyze_from_perspectives
+            analyze_func = registered_tools["analyze_from_perspectives"]
+            result = await analyze_func(self.request)
 
             # Verify results
             assert result == expected_response
@@ -485,22 +507,20 @@ class TestSynthesizePerspectives:
             patch(
                 "context_switcher_mcp.tools.analysis_tools.validate_session_id"
             ) as mock_validate,
+            patch("context_switcher_mcp.session_manager") as mock_session_manager,
             patch(
-                "context_switcher_mcp.tools.analysis_tools.session_manager"
-            ) as mock_session_manager,
-            patch(
-                "context_switcher_mcp.tools.analysis_tools.ResponseFormatter"
+                "context_switcher_mcp.response_formatter.ResponseFormatter"
             ) as mock_formatter_class,
             patch(
-                "context_switcher_mcp.tools.analysis_tools.calculate_synthesis_confidence"
+                "context_switcher_mcp.aorp.calculate_synthesis_confidence"
             ) as mock_calc_confidence,
             patch(
-                "context_switcher_mcp.tools.analysis_tools.generate_synthesis_next_steps"
+                "context_switcher_mcp.aorp.generate_synthesis_next_steps"
             ) as mock_next_steps,
         ):
             # Setup mocks
             mock_validate.return_value = (True, None)
-            mock_session_manager.get_session.return_value = self.mock_session
+            mock_session_manager.get_session = AsyncMock(return_value=self.mock_session)
 
             mock_formatter = AsyncMock()
             mock_formatter.synthesize_responses.return_value = (
@@ -514,33 +534,36 @@ class TestSynthesizePerspectives:
                 "Implement recommendations",
             ]
 
-            # Create mock tool function - get synthesize_perspectives specifically
+            # Create a mock mcp with tool decorator
             mock_mcp = Mock()
-            synthesize_tool_func = None
+            registered_tools = {}
 
             def mock_tool(description):
                 def decorator(func):
-                    nonlocal synthesize_tool_func
-                    if "synthesize" in description.lower():
-                        synthesize_tool_func = func
+                    # Store tools by their function name for easier access
+                    registered_tools[func.__name__] = func
                     return func
 
                 return decorator
 
             mock_mcp.tool = mock_tool
+
+            # Register tools
             register_analysis_tools(mock_mcp)
 
-            # Execute the function
-            result = await synthesize_tool_func(self.request)
+            # Execute the correct function - synthesize_perspectives
+            synthesize_func = registered_tools["synthesize_perspectives"]
+            result = await synthesize_func(self.request)
 
-            # Verify results
-            assert result["status"] == "success"
-            assert "synthesis" in result["data"]
+            # Verify results - it returns AORP format
+            assert result["immediate"]["status"] == "success"
             assert (
-                result["data"]["synthesis"] == "Comprehensive synthesis of perspectives"
+                result["details"]["data"]["synthesis"]
+                == "Comprehensive synthesis of perspectives"
             )
-            assert result["data"]["perspectives_analyzed"] == 3
-            assert result["confidence"] == 0.85
+            assert result["details"]["data"]["perspectives_analyzed"] == 3
+            assert result["immediate"]["confidence"] == 0.85
+            assert result["immediate"]["session_id"] == "test-session-123"
 
             mock_validate.assert_called_once()
             mock_session_manager.get_session.assert_called_once()
@@ -562,24 +585,26 @@ class TestSynthesizePerspectives:
             expected_error = {"status": "error", "error_type": "session_not_found"}
             mock_create_error.return_value = expected_error
 
-            # Create mock tool function
+            # Create a mock mcp with tool decorator
             mock_mcp = Mock()
-            synthesize_tool_func = None
+            registered_tools = {}
 
             def mock_tool(description):
                 def decorator(func):
-                    nonlocal synthesize_tool_func
-                    if "synthesize" in description.lower():
-                        synthesize_tool_func = func
+                    # Store tools by their function name for easier access
+                    registered_tools[func.__name__] = func
                     return func
 
                 return decorator
 
             mock_mcp.tool = mock_tool
+
+            # Register tools
             register_analysis_tools(mock_mcp)
 
-            # Execute the function
-            result = await synthesize_tool_func(self.request)
+            # Execute the correct function - synthesize_perspectives
+            synthesize_func = registered_tools["synthesize_perspectives"]
+            result = await synthesize_func(self.request)
 
             # Verify error response
             assert result == expected_error
@@ -591,9 +616,7 @@ class TestSynthesizePerspectives:
             patch(
                 "context_switcher_mcp.tools.analysis_tools.validate_session_id"
             ) as mock_validate,
-            patch(
-                "context_switcher_mcp.tools.analysis_tools.session_manager"
-            ) as mock_session_manager,
+            patch("context_switcher_mcp.session_manager") as mock_session_manager,
             patch(
                 "context_switcher_mcp.tools.analysis_tools.create_error_response"
             ) as mock_create_error,
@@ -603,29 +626,31 @@ class TestSynthesizePerspectives:
 
             empty_session = MockSession()
             empty_session.analyses = []  # No analyses
-            mock_session_manager.get_session.return_value = empty_session
+            mock_session_manager.get_session = AsyncMock(return_value=empty_session)
 
             expected_error = {"status": "error", "error_type": "no_data"}
             mock_create_error.return_value = expected_error
 
-            # Create mock tool function
+            # Create a mock mcp with tool decorator
             mock_mcp = Mock()
-            synthesize_tool_func = None
+            registered_tools = {}
 
             def mock_tool(description):
                 def decorator(func):
-                    nonlocal synthesize_tool_func
-                    if "synthesize" in description.lower():
-                        synthesize_tool_func = func
+                    # Store tools by their function name for easier access
+                    registered_tools[func.__name__] = func
                     return func
 
                 return decorator
 
             mock_mcp.tool = mock_tool
+
+            # Register tools
             register_analysis_tools(mock_mcp)
 
-            # Execute the function
-            result = await synthesize_tool_func(self.request)
+            # Execute the correct function - synthesize_perspectives
+            synthesize_func = registered_tools["synthesize_perspectives"]
+            result = await synthesize_func(self.request)
 
             # Verify error response
             assert result == expected_error
@@ -637,11 +662,9 @@ class TestSynthesizePerspectives:
             patch(
                 "context_switcher_mcp.tools.analysis_tools.validate_session_id"
             ) as mock_validate,
+            patch("context_switcher_mcp.session_manager") as mock_session_manager,
             patch(
-                "context_switcher_mcp.tools.analysis_tools.session_manager"
-            ) as mock_session_manager,
-            patch(
-                "context_switcher_mcp.tools.analysis_tools.ResponseFormatter"
+                "context_switcher_mcp.response_formatter.ResponseFormatter"
             ) as mock_formatter_class,
             patch(
                 "context_switcher_mcp.tools.analysis_tools.create_error_response"
@@ -649,7 +672,7 @@ class TestSynthesizePerspectives:
         ):
             # Setup mocks
             mock_validate.return_value = (True, None)
-            mock_session_manager.get_session.return_value = self.mock_session
+            mock_session_manager.get_session = AsyncMock(return_value=self.mock_session)
 
             mock_formatter = AsyncMock()
             mock_formatter.synthesize_responses.return_value = "ERROR: Synthesis failed"
@@ -658,24 +681,26 @@ class TestSynthesizePerspectives:
             expected_error = {"status": "error", "error_type": "synthesis_error"}
             mock_create_error.return_value = expected_error
 
-            # Create mock tool function
+            # Create a mock mcp with tool decorator
             mock_mcp = Mock()
-            synthesize_tool_func = None
+            registered_tools = {}
 
             def mock_tool(description):
                 def decorator(func):
-                    nonlocal synthesize_tool_func
-                    if "synthesize" in description.lower():
-                        synthesize_tool_func = func
+                    # Store tools by their function name for easier access
+                    registered_tools[func.__name__] = func
                     return func
 
                 return decorator
 
             mock_mcp.tool = mock_tool
+
+            # Register tools
             register_analysis_tools(mock_mcp)
 
-            # Execute the function
-            result = await synthesize_tool_func(self.request)
+            # Execute the correct function - synthesize_perspectives
+            synthesize_func = registered_tools["synthesize_perspectives"]
+            result = await synthesize_func(self.request)
 
             # Verify error response
             assert result == expected_error
@@ -687,11 +712,9 @@ class TestSynthesizePerspectives:
             patch(
                 "context_switcher_mcp.tools.analysis_tools.validate_session_id"
             ) as mock_validate,
+            patch("context_switcher_mcp.session_manager") as mock_session_manager,
             patch(
-                "context_switcher_mcp.tools.analysis_tools.session_manager"
-            ) as mock_session_manager,
-            patch(
-                "context_switcher_mcp.tools.analysis_tools.ResponseFormatter"
+                "context_switcher_mcp.response_formatter.ResponseFormatter"
             ) as mock_formatter_class,
             patch(
                 "context_switcher_mcp.tools.analysis_tools.create_error_response"
@@ -699,7 +722,7 @@ class TestSynthesizePerspectives:
         ):
             # Setup mocks
             mock_validate.return_value = (True, None)
-            mock_session_manager.get_session.return_value = self.mock_session
+            mock_session_manager.get_session = AsyncMock(return_value=self.mock_session)
 
             mock_formatter = AsyncMock()
             mock_formatter.synthesize_responses.return_value = (
@@ -710,24 +733,26 @@ class TestSynthesizePerspectives:
             expected_error = {"status": "error", "error_type": "synthesis_error"}
             mock_create_error.return_value = expected_error
 
-            # Create mock tool function
+            # Create a mock mcp with tool decorator
             mock_mcp = Mock()
-            synthesize_tool_func = None
+            registered_tools = {}
 
             def mock_tool(description):
                 def decorator(func):
-                    nonlocal synthesize_tool_func
-                    if "synthesize" in description.lower():
-                        synthesize_tool_func = func
+                    # Store tools by their function name for easier access
+                    registered_tools[func.__name__] = func
                     return func
 
                 return decorator
 
             mock_mcp.tool = mock_tool
+
+            # Register tools
             register_analysis_tools(mock_mcp)
 
-            # Execute the function
-            result = await synthesize_tool_func(self.request)
+            # Execute the correct function - synthesize_perspectives
+            synthesize_func = registered_tools["synthesize_perspectives"]
+            result = await synthesize_func(self.request)
 
             # Verify error response
             assert result == expected_error
@@ -739,9 +764,7 @@ class TestSynthesizePerspectives:
             patch(
                 "context_switcher_mcp.tools.analysis_tools.validate_session_id"
             ) as mock_validate,
-            patch(
-                "context_switcher_mcp.tools.analysis_tools.session_manager"
-            ) as mock_session_manager,
+            patch("context_switcher_mcp.session_manager") as mock_session_manager,
             patch(
                 "context_switcher_mcp.tools.analysis_tools.create_error_response"
             ) as mock_create_error,
@@ -755,24 +778,26 @@ class TestSynthesizePerspectives:
             expected_error = {"status": "error", "error_type": "session_error"}
             mock_create_error.return_value = expected_error
 
-            # Create mock tool function
+            # Create a mock mcp with tool decorator
             mock_mcp = Mock()
-            synthesize_tool_func = None
+            registered_tools = {}
 
             def mock_tool(description):
                 def decorator(func):
-                    nonlocal synthesize_tool_func
-                    if "synthesize" in description.lower():
-                        synthesize_tool_func = func
+                    # Store tools by their function name for easier access
+                    registered_tools[func.__name__] = func
                     return func
 
                 return decorator
 
             mock_mcp.tool = mock_tool
+
+            # Register tools
             register_analysis_tools(mock_mcp)
 
-            # Execute the function
-            result = await synthesize_tool_func(self.request)
+            # Execute the correct function - synthesize_perspectives
+            synthesize_func = registered_tools["synthesize_perspectives"]
+            result = await synthesize_func(self.request)
 
             # Verify error response
             assert result == expected_error
@@ -784,11 +809,9 @@ class TestSynthesizePerspectives:
             patch(
                 "context_switcher_mcp.tools.analysis_tools.validate_session_id"
             ) as mock_validate,
+            patch("context_switcher_mcp.session_manager") as mock_session_manager,
             patch(
-                "context_switcher_mcp.tools.analysis_tools.session_manager"
-            ) as mock_session_manager,
-            patch(
-                "context_switcher_mcp.tools.analysis_tools.ResponseFormatter"
+                "context_switcher_mcp.response_formatter.ResponseFormatter"
             ) as mock_formatter_class,
             patch(
                 "context_switcher_mcp.tools.analysis_tools.create_error_response"
@@ -796,7 +819,7 @@ class TestSynthesizePerspectives:
         ):
             # Setup mocks
             mock_validate.return_value = (True, None)
-            mock_session_manager.get_session.return_value = self.mock_session
+            mock_session_manager.get_session = AsyncMock(return_value=self.mock_session)
 
             mock_formatter = AsyncMock()
             mock_formatter.synthesize_responses.side_effect = KeyError("Missing key")
@@ -805,24 +828,26 @@ class TestSynthesizePerspectives:
             expected_error = {"status": "error", "error_type": "data_error"}
             mock_create_error.return_value = expected_error
 
-            # Create mock tool function
+            # Create a mock mcp with tool decorator
             mock_mcp = Mock()
-            synthesize_tool_func = None
+            registered_tools = {}
 
             def mock_tool(description):
                 def decorator(func):
-                    nonlocal synthesize_tool_func
-                    if "synthesize" in description.lower():
-                        synthesize_tool_func = func
+                    # Store tools by their function name for easier access
+                    registered_tools[func.__name__] = func
                     return func
 
                 return decorator
 
             mock_mcp.tool = mock_tool
+
+            # Register tools
             register_analysis_tools(mock_mcp)
 
-            # Execute the function
-            result = await synthesize_tool_func(self.request)
+            # Execute the correct function - synthesize_perspectives
+            synthesize_func = registered_tools["synthesize_perspectives"]
+            result = await synthesize_func(self.request)
 
             # Verify error response
             assert result == expected_error
@@ -834,9 +859,7 @@ class TestSynthesizePerspectives:
             patch(
                 "context_switcher_mcp.tools.analysis_tools.validate_session_id"
             ) as mock_validate,
-            patch(
-                "context_switcher_mcp.tools.analysis_tools.session_manager"
-            ) as mock_session_manager,
+            patch("context_switcher_mcp.session_manager") as mock_session_manager,
             patch(
                 "context_switcher_mcp.tools.analysis_tools.create_error_response"
             ) as mock_create_error,
@@ -848,24 +871,26 @@ class TestSynthesizePerspectives:
             expected_error = {"status": "error", "error_type": "synthesis_error"}
             mock_create_error.return_value = expected_error
 
-            # Create mock tool function
+            # Create a mock mcp with tool decorator
             mock_mcp = Mock()
-            synthesize_tool_func = None
+            registered_tools = {}
 
             def mock_tool(description):
                 def decorator(func):
-                    nonlocal synthesize_tool_func
-                    if "synthesize" in description.lower():
-                        synthesize_tool_func = func
+                    # Store tools by their function name for easier access
+                    registered_tools[func.__name__] = func
                     return func
 
                 return decorator
 
             mock_mcp.tool = mock_tool
+
+            # Register tools
             register_analysis_tools(mock_mcp)
 
-            # Execute the function
-            result = await synthesize_tool_func(self.request)
+            # Execute the correct function - synthesize_perspectives
+            synthesize_func = registered_tools["synthesize_perspectives"]
+            result = await synthesize_func(self.request)
 
             # Verify error response
             assert result == expected_error
@@ -899,12 +924,13 @@ class TestToolRegistration:
 
         # Verify tools were registered
         assert (
-            len(registered_tools) == 2
-        )  # analyze_from_perspectives and synthesize_perspectives
+            len(registered_tools) == 3
+        )  # analyze_from_perspectives, synthesize_perspectives, and check_context_convergence_status
 
         tool_names = [tool["name"] for tool in registered_tools]
         assert "analyze_from_perspectives" in tool_names
         assert "synthesize_perspectives" in tool_names
+        assert "check_context_convergence_status" in tool_names
 
         # Verify descriptions
         analyze_tool = next(

@@ -101,7 +101,6 @@ class ValidatedModelConfig(BaseSettings):
     # Backend-specific model identifiers with pattern validation
     bedrock_model_id: str = Field(
         default="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
-        pattern=r"^[a-z0-9\.\-:]+$",
         description="AWS Bedrock model identifier",
         env="BEDROCK_MODEL_ID",
     )

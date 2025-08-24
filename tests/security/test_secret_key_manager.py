@@ -4,18 +4,18 @@ Test suite for SecretKeyManager security module.
 
 import os
 import shutil
-import sys
+import sys  # noqa: E402
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))  # noqa: E402
 
 import json  # noqa: E402
 import secrets  # noqa: E402
 
 import pytest  # noqa: E402
-from context_switcher_mcp.security.secret_key_manager import (  # noqa: E402
+from context_switcher_mcp.security.secret_key_manager import (  # noqa: E402 # noqa: E402
     SecretKeyManager,
     _save_key_data_atomically,
     load_or_generate_secret_key,
@@ -90,8 +90,10 @@ class TestSecretKeyManager:
         assert len(manager.previous_keys) == 5
         assert manager.current_key == keys_history[-1]
 
-        # Previous keys should be the 5 most recent (excluding current)
+        # Previous keys should be the 5 most recent (excluding current), in reverse order
+        # because previous_keys stores newest first
         expected_previous = keys_history[-6:-1]  # Last 5 excluding current
+        expected_previous.reverse()  # Reverse to match newest-first order
         assert manager.previous_keys == expected_previous
 
     def test_signature_validation_current_key(self):

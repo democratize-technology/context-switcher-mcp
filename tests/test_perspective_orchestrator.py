@@ -3,14 +3,14 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from context_switcher_mcp.exceptions import OrchestrationError
-from context_switcher_mcp.models import ModelBackend, Thread
-from context_switcher_mcp.perspective_orchestrator import (
+from context_switcher_mcp.exceptions import OrchestrationError  # noqa: E402
+from context_switcher_mcp.models import ModelBackend, Thread  # noqa: E402
+from context_switcher_mcp.perspective_orchestrator import (  # noqa: E402
     PerspectiveMetrics,
     PerspectiveOrchestrator,
 )
-from context_switcher_mcp.response_formatter import ResponseFormatter
-from context_switcher_mcp.thread_manager import ThreadManager
+from context_switcher_mcp.response_formatter import ResponseFormatter  # noqa: E402
+from context_switcher_mcp.thread_manager import ThreadManager  # noqa: E402
 
 
 @pytest.fixture
@@ -161,7 +161,7 @@ class TestPerspectiveOrchestrator:
                 mock_threads, "Analyze this feature", "test_session"
             )
 
-        assert "Perspective broadcast failed" in str(exc_info.value)
+        assert "perspective_broadcast failed" in str(exc_info.value)
 
     @pytest.mark.asyncio
     async def test_broadcast_to_perspectives_stream(
@@ -287,7 +287,7 @@ class TestPerspectiveOrchestrator:
         mock_response_formatter.format_error_response.assert_called_once_with(
             "No valid perspective responses to synthesize",
             "synthesis_error",
-            {"session_id": "test_session"},
+            {"session_id": "test_session", "total_responses": 2},
         )
 
     @pytest.mark.asyncio

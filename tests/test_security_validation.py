@@ -4,17 +4,17 @@ Comprehensive security validation tests for the Context Switcher MCP server
 """
 
 import os
-import sys
+import sys  # noqa: E402
 
 # Add src to path for testing
-sys.path.insert(
+sys.path.insert(  # noqa: E402
     0, os.path.join(os.path.dirname(__file__), "..", "src", "context_switcher_mcp")
 )
 
 from unittest.mock import patch  # noqa: E402
 
 import pytest  # noqa: E402
-from context_switcher_mcp.security import (  # noqa: E402
+from context_switcher_mcp.security import (  # noqa: E402 # noqa: E402
     detect_advanced_prompt_injection,
     sanitize_for_llm,
     validate_analysis_prompt,

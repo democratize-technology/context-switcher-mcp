@@ -4,9 +4,9 @@ import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from context_switcher_mcp.exceptions import ModelBackendError
-from context_switcher_mcp.models import ModelBackend
-from context_switcher_mcp.response_formatter import ResponseFormatter
+from context_switcher_mcp.exceptions import ModelBackendError  # noqa: E402
+from context_switcher_mcp.models import ModelBackend  # noqa: E402
+from context_switcher_mcp.response_formatter import ResponseFormatter  # noqa: E402
 
 
 @pytest.fixture

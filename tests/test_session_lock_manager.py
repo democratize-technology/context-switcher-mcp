@@ -4,7 +4,7 @@ import asyncio
 from unittest.mock import MagicMock, patch
 
 import pytest
-from context_switcher_mcp.session_lock_manager import (
+from context_switcher_mcp.session_lock_manager import (  # noqa: E402
     SessionLockManager,
     get_session_lock_manager,
 )

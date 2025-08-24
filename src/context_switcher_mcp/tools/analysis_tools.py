@@ -100,6 +100,12 @@ def register_analysis_tools(mcp: FastMCP) -> None:
         # Get session
         from .. import session_manager
 
+        if session_manager is None:
+            return create_error_response(
+                "Session manager not initialized",
+                error_code="session_manager_unavailable",
+            )
+
         session = await session_manager.get_session(request.session_id)
 
         # Initialize orchestrator
@@ -282,7 +288,28 @@ def register_analysis_tools(mcp: FastMCP) -> None:
         # Get session
         from .. import session_manager
 
-        session = await session_manager.get_session(request.session_id)
+        if session_manager is None:
+            return create_error_response(
+                "Session manager not initialized",
+                error_code="session_manager_unavailable",
+            )
+
+        try:
+            session = await session_manager.get_session(request.session_id)
+        except SessionNotFoundError:
+            return create_error_response(
+                "Session not found or has expired",
+                "session_not_found",
+                {"session_id": request.session_id},
+                recoverable=True,
+            )
+        except Exception as e:
+            return create_error_response(
+                f"Unexpected error accessing session: {str(e)}",
+                "synthesis_error",
+                {"session_id": request.session_id},
+                recoverable=True,
+            )
 
         # Check if we have analyses to synthesize
         if not session.analyses:
@@ -446,6 +473,12 @@ def register_analysis_tools(mcp: FastMCP) -> None:
 
         # Get session
         from .. import session_manager
+
+        if session_manager is None:
+            return create_error_response(
+                "Session manager not initialized",
+                error_code="session_manager_unavailable",
+            )
 
         session = await session_manager.get_session(request.session_id)
 

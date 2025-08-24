@@ -8,7 +8,7 @@ This guide documents the unified logging standardization implemented across the 
 
 - **Performance Optimized**: Lazy evaluation prevents expensive operations when logs are disabled
 - **Security Aware**: Automatic sanitization of sensitive data in log output
-- **Structured Logging**: JSON output for production monitoring and analysis  
+- **Structured Logging**: JSON output for production monitoring and analysis
 - **Thread Safe**: Correlation ID tracking across async operations and threads
 - **Backwards Compatible**: Seamless integration with existing security logging infrastructure
 
@@ -42,7 +42,7 @@ def expensive_computation():
 # ✅ Lazy evaluation - expensive_computation only called if needed
 logger.debug("Analysis result: %s", lazy_log(expensive_computation))
 
-# ✅ Structured performance logging  
+# ✅ Structured performance logging
 with performance_timer() as timer:
     result = process_data()
 log_performance(logger, "data_processing", timer.duration, records_processed=len(result))
@@ -103,8 +103,8 @@ result = complex_operation()
 duration = time.perf_counter() - start_time
 
 log_performance(
-    logger, 
-    "complex_operation", 
+    logger,
+    "complex_operation",
     duration,
     input_size=len(input_data),
     output_size=len(result)
@@ -132,7 +132,7 @@ Log with structured data for enhanced observability.
 log_structured(
     logger,
     "Session created",
-    level="INFO", 
+    level="INFO",
     session_id=session.id,
     perspective_count=len(perspectives),
     template_name=template.name,
@@ -188,7 +188,7 @@ def expensive_debug_check():
 
 # Only runs expensive_debug_check() if DEBUG level is enabled
 conditional_log(
-    logger, 
+    logger,
     expensive_debug_check,
     "System state analysis completed",
     level="DEBUG"
@@ -206,7 +206,7 @@ conditional_log(
 import logging
 logger = logging.getLogger(__name__)
 
-# ✅ New pattern  
+# ✅ New pattern
 from .logging_config import get_logger
 logger = get_logger(__name__)
 ```
@@ -221,8 +221,8 @@ logger.info("Processing session " + session_id + " with " + str(len(data)) + " i
 logger.info("Processing session %s with %d items", session_id, len(data))
 
 # ✅ Best pattern - Structured logging
-log_structured(logger, "Processing session", 
-               session_id=session_id, 
+log_structured(logger, "Processing session",
+               session_id=session_id,
                item_count=len(data))
 ```
 
@@ -236,9 +236,9 @@ logger.debug(f"Analysis: {run_complex_analysis(large_dataset)}")
 logger.debug("Analysis: %s", lazy_log(run_complex_analysis, large_dataset))
 
 # ✅ Alternative - Conditional logging
-conditional_log(logger, 
+conditional_log(logger,
                 lambda: len(large_dataset) > 1000,
-                "Large dataset analysis: %s", 
+                "Large dataset analysis: %s",
                 level="DEBUG")
 ```
 
@@ -281,7 +281,7 @@ LOG_FORMAT=json                    # standard, json, detailed
 LOG_OUTPUT=console                 # console, file, both
 LOG_FILE_PATH=/var/log/app.log     # File output path
 
-# Features  
+# Features
 LOG_CORRELATION_IDS=true           # Enable correlation ID tracking
 LOG_PERFORMANCE=true               # Enable performance logging
 LOG_SECURITY=true                  # Enable security event logging
@@ -316,7 +316,7 @@ logger = config.get_logger("custom.module")
 ```python
 # ✅ Good level usage
 logger.debug("Detailed diagnostic info for developers")
-logger.info("Important business logic events") 
+logger.info("Important business logic events")
 logger.warning("Unusual but recoverable conditions")
 logger.error("Error conditions that need attention")
 logger.critical("Serious errors requiring immediate action")
@@ -328,7 +328,7 @@ logger.critical("Serious errors requiring immediate action")
 # ✅ Consistent structured logging
 log_structured(logger, "User action completed",
                user_id=user.id,
-               action="perspective_analysis", 
+               action="perspective_analysis",
                session_id=session.id,
                duration_ms=duration,
                success=True)
@@ -341,11 +341,11 @@ log_structured(logger, "User action completed",
 def handle_mcp_request(request):
     correlation_id = f"mcp-{request.id}-{int(time.time())}"
     set_correlation_id(correlation_id)
-    
+
     logger.info("MCP request started")
-    result = process_request(request) 
+    result = process_request(request)
     logger.info("MCP request completed")
-    
+
     # All logs include the correlation ID
 ```
 
@@ -355,7 +355,7 @@ def handle_mcp_request(request):
 # ✅ Lazy evaluation for expensive operations
 logger.debug("State dump: %s", lazy_log(serialize_complex_state))
 
-# ✅ Conditional logging for expensive checks  
+# ✅ Conditional logging for expensive checks
 conditional_log(logger,
                 lambda: should_log_detailed_metrics(),
                 "Detailed metrics: %s",
@@ -461,7 +461,7 @@ from ..logging_config import get_logger
 # Before
 logger.debug(f"Result: {expensive_function()}")  # Always runs
 
-# After  
+# After
 logger.debug("Result: %s", lazy_log(expensive_function))  # Only runs if needed
 ```
 
@@ -491,7 +491,7 @@ def mcp_tool_handler(request):
 - **29% memory reduction** from optimized formatters
 - **Thread-safe** correlation ID tracking
 
-### Observability Enhancements  
+### Observability Enhancements
 - **Structured JSON logging** for production monitoring
 - **Correlation ID tracking** across all components
 - **Performance metrics** automatically captured

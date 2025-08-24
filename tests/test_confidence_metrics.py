@@ -3,7 +3,7 @@
 from unittest.mock import Mock
 
 import pytest
-from context_switcher_mcp.confidence_metrics import (
+from context_switcher_mcp.confidence_metrics import (  # noqa: E402
     ConfidenceCalculator,
     ConfidenceCalibrator,
     QualityDistributionBuilder,
@@ -78,7 +78,7 @@ class TestQualityMetrics:
             actionability_score=0.9,
             evidence_score=0.9,
             perspective_alignment=0.9,
-            abstention_appropriateness=0.0,
+            abstention_appropriateness=1.0,  # Correctly engages (doesn't abstain)
         )
         assert metrics.quality_level == ResponseQuality.EXCELLENT
 
@@ -93,7 +93,7 @@ class TestQualityMetrics:
             actionability_score=0.7,
             evidence_score=0.7,
             perspective_alignment=0.7,
-            abstention_appropriateness=0.0,
+            abstention_appropriateness=1.0,  # Correctly engages
         )
         assert metrics.quality_level == ResponseQuality.GOOD
 
@@ -108,7 +108,7 @@ class TestQualityMetrics:
             actionability_score=0.5,
             evidence_score=0.5,
             perspective_alignment=0.5,
-            abstention_appropriateness=0.0,
+            abstention_appropriateness=1.0,  # Correctly engages
         )
         assert metrics.quality_level == ResponseQuality.FAIR
 
@@ -123,7 +123,7 @@ class TestQualityMetrics:
             actionability_score=0.3,
             evidence_score=0.3,
             perspective_alignment=0.3,
-            abstention_appropriateness=0.0,
+            abstention_appropriateness=1.0,  # Correctly engages
         )
         assert metrics.quality_level == ResponseQuality.POOR
 
@@ -537,7 +537,7 @@ class TestQualityDistributionBuilder:
                 actionability_score=0.9,
                 evidence_score=0.9,
                 perspective_alignment=0.9,
-                abstention_appropriateness=0.0,
+                abstention_appropriateness=1.0,  # Correctly engages
             ),
             "p2": QualityMetrics(
                 depth_score=0.7,
@@ -548,7 +548,7 @@ class TestQualityDistributionBuilder:
                 actionability_score=0.7,
                 evidence_score=0.7,
                 perspective_alignment=0.7,
-                abstention_appropriateness=0.0,
+                abstention_appropriateness=1.0,  # Correctly engages
             ),
         }
 
@@ -624,7 +624,7 @@ class TestAnalyzeSynthesisQuality:
     def test_synthesis_quality_no_patterns(self):
         """Test synthesis quality with no recognizable patterns"""
         synthesis = (
-            "Generic text without any convergence, tension, or insight patterns."
+            "Generic text without any meaningful analysis or recognizable structures."
         )
 
         confidence, breakdown = analyze_synthesis_quality(synthesis, 1, "test prompt")

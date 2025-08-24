@@ -6,8 +6,8 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from context_switcher_mcp.backend_interface import ModelCallConfig
-from context_switcher_mcp.llm_profiler import (
+from context_switcher_mcp.backend_interface import ModelCallConfig  # noqa: E402
+from context_switcher_mcp.llm_profiler import (  # noqa: E402
     CostCalculator,
     LLMCallMetrics,
     LLMProfiler,
@@ -16,9 +16,11 @@ from context_switcher_mcp.llm_profiler import (
     ProfilingLevel,
     get_global_profiler,
 )
-from context_switcher_mcp.models import ModelBackend, Thread
-from context_switcher_mcp.performance_dashboard import PerformanceDashboard
-from context_switcher_mcp.profiling_wrapper import (
+from context_switcher_mcp.models import ModelBackend, Thread  # noqa: E402
+from context_switcher_mcp.performance_dashboard import (
+    PerformanceDashboard,  # noqa: E402
+)
+from context_switcher_mcp.profiling_wrapper import (  # noqa: E402
     EnhancedProfilingWrapper,
     ProfilingBackendWrapper,
     create_profiling_wrapper,
@@ -249,7 +251,7 @@ class TestLLMProfiler:
             session_id="session-1",
             thread_name="thread-1",
             backend="bedrock",
-            model_name="claude-3-haiku",
+            model_name="anthropic.claude-3-haiku-20240307-v1:0",
         )
 
         profiler.record_token_usage(
@@ -266,6 +268,7 @@ class TestLLMProfiler:
         assert metrics.prompt_length == 4000
         assert metrics.response_length == 2000
         assert metrics.estimated_cost_usd is not None
+        assert metrics.estimated_cost_usd > 0  # Should be a positive cost
 
     def test_network_timing_recording(self):
         """Test network timing recording"""
@@ -370,11 +373,14 @@ class TestProfilingWrapper:
         mock_backend = AsyncMock()
         mock_backend.backend_name = "bedrock"
         mock_backend.config = Mock()
-        mock_backend.get_model_config.return_value = ModelCallConfig(
-            max_tokens=1000,
-            temperature=0.7,
-            model_name="claude-3-haiku",
-            timeout_seconds=60.0,
+        # get_model_config should be a sync method, not async
+        mock_backend.get_model_config = Mock(
+            return_value=ModelCallConfig(
+                max_tokens=1000,
+                temperature=0.7,
+                model_name="claude-3-haiku",
+                timeout_seconds=60.0,
+            )
         )
         mock_backend.call_model.return_value = "Test response"
 

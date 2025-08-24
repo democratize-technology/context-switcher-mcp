@@ -15,6 +15,20 @@ Usage:
     for backward compatibility, but components can be used directly for advanced use cases.
 """
 
+from ..input_sanitizer import sanitize_error_message, sanitize_for_llm
+
+# Import ValidationResult and proper validation functions
+from ..input_validators import (
+    InjectionAttempt,
+    ValidationResult,
+    _validation_orchestrator,
+    sanitize_user_input,
+)
+from ..input_validators import (
+    detect_advanced_prompt_injection as _detect_advanced_prompt_injection,
+)
+from ..model_validators import validate_model_id
+from ..security_events import log_security_event
 from .client_binding_core import (
     ClientBindingManager,
     create_secure_session_with_binding,
@@ -40,84 +54,105 @@ from .security_monitor import (
     record_security_event,
 )
 
-# Import legacy functions from parent security.py
-try:
-    import os
-    import sys
 
-    parent_dir = os.path.dirname(os.path.dirname(__file__))
-    sys.path.insert(0, parent_dir)
-    from security import (
-        detect_advanced_prompt_injection,
-        log_security_event,
-        sanitize_error_message,
-        sanitize_for_llm,
-        validate_analysis_prompt,
-        validate_model_id,
-        validate_perspective_data,
-        validate_user_content,
+def validate_user_content(
+    content: str, content_type: str, max_length: int = 10000, client_id: str = "default"
+):
+    """Use the proper validation orchestrator"""
+    return _validation_orchestrator.validate_content(
+        content, content_type, max_length, client_id
     )
 
-    sys.path.pop(0)
-except ImportError:
-    # Fallback - define minimal versions
-    # Import ValidationResult for proper return type
-    from ..input_validators import ValidationResult
 
-    def validate_user_content(
-        content, content_type, max_length=10000, client_id="default"
-    ):
-        return ValidationResult(
-            is_valid=True,
-            cleaned_content=content,
-            issues=[],
-            risk_level="low",
-            blocked_patterns=[],
-        )
+def detect_advanced_prompt_injection(text: str):
+    """Use the proper prompt injection detector"""
+    return _detect_advanced_prompt_injection(text)
 
-    def sanitize_error_message(message):
-        return message
 
-    def log_security_event(event_type, details, client_id="default"):
-        pass
+def validate_analysis_prompt(prompt: str, session_context: str = None):
+    """Validate analysis prompts with context awareness"""
+    import re
 
-    def validate_analysis_prompt(prompt, session_context=None):
-        return ValidationResult(
-            is_valid=True,
-            cleaned_content=prompt,
-            issues=[],
-            risk_level="low",
-            blocked_patterns=[],
-        )
+    # Use enhanced validation for analysis prompts
+    result = validate_user_content(prompt, "analysis_prompt", max_length=8000)
 
-    def validate_perspective_data(name, description, custom_prompt=None):
-        return ValidationResult(
-            is_valid=True,
-            cleaned_content=f"{name}: {description}",
-            issues=[],
-            risk_level="low",
-            blocked_patterns=[],
-        )
+    # Additional analysis-specific checks
+    additional_issues = []
 
-    def detect_advanced_prompt_injection(content):
-        return ValidationResult(
-            is_valid=True,
-            cleaned_content=content,
-            issues=[],
-            risk_level="low",
-            blocked_patterns=[],
-        )
+    # Check for context manipulation attempts
+    context_patterns = [
+        r"switch\s+to\s+session",
+        r"use\s+session\s+id",
+        r"change\s+session",
+        r"session\s*:\s*override",
+    ]
 
-    def sanitize_for_llm(content):
-        return content
+    for pattern in context_patterns:
+        if re.search(pattern, prompt, re.IGNORECASE):
+            additional_issues.append("Potential session manipulation attempt")
+            result.risk_level = "high"
+            break
 
-    def validate_model_id(model_id):
-        # Fallback validation - accepts most reasonable model IDs
-        if not model_id or not isinstance(model_id, str):
-            return False, "Model ID must be a non-empty string"
-        if len(model_id) > 200:
-            return False, "Model ID too long"
-        return True, ""
+    # Check for meta-analysis attempts
+    meta_patterns = [
+        r"analyze\s+(this\s+)?(system|server|mcp|the\s+server)",
+        r"how\s+does\s+(this\s+)?(system|server|mcp)\s+(work|function)",
+        r"show\s+me\s+the\s+(code|implementation)",
+        r"tell\s+me\s+how\s+(this|it)\s+works",
+        r"mcp\s+server\s+function",
+        r"analyze\s+the\s+(server\s+)?architecture",
+    ]
+
+    for pattern in meta_patterns:
+        if re.search(pattern, prompt, re.IGNORECASE):
+            additional_issues.append("Meta-analysis attempt detected")
+            if result.risk_level == "low":
+                result.risk_level = "medium"
+            break
+
+    if additional_issues:
+        result.issues.extend(additional_issues)
+        result.is_valid = False
+
+    return result
+
+
+def validate_perspective_data(name: str, description: str, custom_prompt: str = None):
+    """Validate perspective-specific data"""
+    import re
+
+    all_content = f"{name}\n{description}"
+    if custom_prompt:
+        all_content += f"\n{custom_prompt}"
+
+    # Use stricter validation for perspective data
+    result = validate_user_content(all_content, "perspective", max_length=5000)
+
+    # Additional perspective-specific checks
+    additional_issues = []
+
+    # Check name length and format
+    if len(name) > 100:
+        additional_issues.append("Perspective name too long (max 100 chars)")
+
+    if not re.match(r"^[a-zA-Z0-9\s_-]+$", name):
+        additional_issues.append("Perspective name contains invalid characters")
+
+    # Check description length
+    if len(description) > 1000:
+        additional_issues.append("Perspective description too long (max 1000 chars)")
+
+    # Check custom prompt if provided
+    if custom_prompt and len(custom_prompt) > 2000:
+        additional_issues.append("Custom prompt too long (max 2000 chars)")
+
+    if additional_issues:
+        result.issues.extend(additional_issues)
+        result.is_valid = False
+        if result.risk_level == "low":
+            result.risk_level = "medium"
+
+    return result
 
 
 __all__ = [
@@ -150,9 +185,13 @@ __all__ = [
     "get_security_monitor",
     "record_security_event",
     "get_security_health",
+    # Data types
+    "ValidationResult",
+    "InjectionAttempt",
     # Legacy functions
     "validate_user_content",
     "sanitize_error_message",
+    "sanitize_user_input",
     "log_security_event",
     "validate_analysis_prompt",
     "validate_perspective_data",

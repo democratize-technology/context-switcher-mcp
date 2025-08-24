@@ -147,16 +147,16 @@ class CostCalculator:
 
     @classmethod
     def calculate_cost(
-        self, backend: str, model_name: str, input_tokens: int, output_tokens: int
+        cls, backend: str, model_name: str, input_tokens: int, output_tokens: int
     ) -> float | None:
         """Calculate cost in USD for a model call"""
         try:
             pricing_table = None
 
             if backend == "bedrock":
-                pricing_table = self.BEDROCK_PRICING
+                pricing_table = cls.BEDROCK_PRICING
             elif backend == "litellm":
-                pricing_table = self.LITELLM_PRICING
+                pricing_table = cls.LITELLM_PRICING
             elif backend == "ollama":
                 # Ollama is typically free (local hosting)
                 return 0.0

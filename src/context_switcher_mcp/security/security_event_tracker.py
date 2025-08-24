@@ -119,7 +119,7 @@ class SecurityEventTracker:
 
         # Record in session if available
         if session:
-            session.record_security_event(event_type, event_record["details"])
+            session.record_security_event(event_type, event_record)
 
         # Log to system logger with appropriate severity
         self._log_event_with_severity(severity, event_type, session_id, event_record)

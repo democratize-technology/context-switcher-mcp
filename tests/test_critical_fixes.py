@@ -10,10 +10,10 @@ from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-from context_switcher_mcp.circuit_breaker_store import CircuitBreakerStore
-from context_switcher_mcp.exceptions import SessionCleanupError
-from context_switcher_mcp.models import ContextSwitcherSession
-from context_switcher_mcp.session_manager import SessionManager
+from context_switcher_mcp.circuit_breaker_store import CircuitBreakerStore  # noqa: E402
+from context_switcher_mcp.exceptions import SessionCleanupError  # noqa: E402
+from context_switcher_mcp.models import ContextSwitcherSession  # noqa: E402
+from context_switcher_mcp.session_manager import SessionManager  # noqa: E402
 
 
 class TestCircuitBreakerPathValidation:

@@ -135,6 +135,11 @@ def register_session_tools(mcp: FastMCP) -> None:
 
         from .. import session_manager
 
+        if session_manager is None:
+            return session_not_found_error(
+                request.session_id, "Session manager not initialized"
+            )
+
         session = await session_manager.get_session(request.session_id)
 
         # Build legacy response

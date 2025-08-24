@@ -42,11 +42,17 @@ def validate_topic(topic: str) -> tuple[bool, str]:
     if len(topic.strip()) == 0:
         return False, "Topic cannot be empty or whitespace only"
 
-    config = _get_config()
-    if len(topic) > config.validation.max_topic_length:
+    try:
+        config = _get_config()
+        max_length = config.validation.max_topic_length
+    except Exception:
+        # Fallback to default if config loading fails
+        max_length = 1000  # Default maximum length
+
+    if len(topic) > max_length:
         return (
             False,
-            f"Topic must be {config.validation.max_topic_length} characters or less",
+            f"Topic must be {max_length} characters or less",
         )
 
     # Check for suspicious patterns
@@ -99,10 +105,18 @@ async def validate_session_id(session_id: str, operation: str) -> tuple[bool, st
         )
 
     # Get session object for client binding validation
-    from . import session_manager
+    from . import session_manager as sm_global
 
-    session = await session_manager.get_session(session_id)
-    if session is None:
+    # Handle test contexts where session_manager might not be initialized
+    if sm_global is None:
+        return False, f"Session '{session_id}' not found or expired"
+
+    try:
+        session = await sm_global.get_session(session_id)
+        if session is None:
+            return False, f"Session '{session_id}' not found or expired"
+    except Exception:
+        # Handle any session-related errors (including SessionNotFoundError)
         return False, f"Session '{session_id}' not found or expired"
 
     # Client binding validation

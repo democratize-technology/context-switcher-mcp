@@ -1,17 +1,21 @@
 """Basic test for race condition fixes validation"""
 
 import os
-import sys
+import sys  # noqa: E402
 
 # Add the src directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))  # noqa: E402
 
 import asyncio  # noqa: E402
 from datetime import datetime, timedelta, timezone  # noqa: E402
 
 import pytest  # noqa: E402
-from context_switcher_mcp.models import ContextSwitcherSession  # noqa: E402
-from context_switcher_mcp.session_manager import SessionManager  # noqa: E402
+from context_switcher_mcp.models import (
+    ContextSwitcherSession,  # noqa: E402 # noqa: E402
+)
+from context_switcher_mcp.session_manager import (
+    SessionManager,  # noqa: E402 # noqa: E402
+)
 
 
 @pytest.mark.asyncio

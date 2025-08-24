@@ -3,7 +3,7 @@
 import asyncio
 
 import pytest
-from context_switcher_mcp.error_classification import (
+from context_switcher_mcp.error_classification import (  # noqa: E402
     ErrorCategory,
     ErrorSeverity,
     classify_error,
@@ -11,24 +11,24 @@ from context_switcher_mcp.error_classification import (
     is_retriable_error,
     is_transient_error,
 )
-from context_switcher_mcp.error_context import (
+from context_switcher_mcp.error_context import (  # noqa: E402
     ErrorAccumulator,
     error_context,
     resource_cleanup_context,
     suppress_and_log,
 )
-from context_switcher_mcp.error_decorators import (
+from context_switcher_mcp.error_decorators import (  # noqa: E402
     handle_model_errors,
     log_errors_with_context,
     retry_on_transient_errors,
     validate_parameters,
 )
-from context_switcher_mcp.error_logging import (
+from context_switcher_mcp.error_logging import (  # noqa: E402
     StructuredErrorLogger,
 )
 
 # Import the new error handling components
-from context_switcher_mcp.exceptions import (
+from context_switcher_mcp.exceptions import (  # noqa: E402
     AuthenticationError,
     ConcurrencyError,
     ContextSwitcherError,

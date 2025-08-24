@@ -4,12 +4,18 @@ from datetime import datetime, timezone
 from unittest.mock import patch
 
 import pytest
-from context_switcher_mcp import (
+from context_switcher_mcp import (  # noqa: E402
     session_manager,
 )
-from context_switcher_mcp.models import ContextSwitcherSession, ModelBackend, Thread
-from context_switcher_mcp.perspective_orchestrator import PerspectiveOrchestrator
-from context_switcher_mcp.session_manager import SessionManager
+from context_switcher_mcp.models import (  # noqa: E402
+    ContextSwitcherSession,
+    ModelBackend,
+    Thread,
+)
+from context_switcher_mcp.perspective_orchestrator import (
+    PerspectiveOrchestrator,  # noqa: E402
+)
+from context_switcher_mcp.session_manager import SessionManager  # noqa: E402
 
 
 @pytest.fixture
@@ -130,8 +136,9 @@ class TestMCPTools:
 
     def test_session_creation_logic(self):
         """Test session creation logic without MCP wrapper"""
-        # Clear any existing sessions
-        session_manager.sessions.clear()
+        # Clear any existing sessions if session_manager is initialized
+        if session_manager and hasattr(session_manager, "sessions"):
+            session_manager.sessions.clear()
 
         # Test basic session creation
         session = ContextSwitcherSession(

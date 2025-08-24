@@ -16,8 +16,8 @@ Key fixes tested:
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from context_switcher_mcp.config import get_config
-from context_switcher_mcp.config.migration import LegacyConfigAdapter
+from context_switcher_mcp.config import get_config  # noqa: E402
+from context_switcher_mcp.config.migration import LegacyConfigAdapter  # noqa: E402
 
 
 class TestConfigValidationProperty:
@@ -184,7 +184,7 @@ class TestValidationFileUsage:
         valid_session_id = "a" * (max_length - 10)  # Well within limit
 
         # Mock the session manager to avoid session lookup
-        with patch("context_switcher_mcp.validation.session_manager") as mock_sm:
+        with patch("context_switcher_mcp.session_manager") as mock_sm:
             mock_session = Mock()
             mock_sm.get_session = AsyncMock(return_value=mock_session)
 

@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import httpx
 import pytest
-from context_switcher_mcp.backend_interface import (
+from context_switcher_mcp.backend_interface import (  # noqa: E402
     BACKEND_REGISTRY,
     BedrockBackend,
     LiteLLMBackend,
@@ -14,7 +14,7 @@ from context_switcher_mcp.backend_interface import (
     OllamaBackend,
     get_backend_interface,
 )
-from context_switcher_mcp.exceptions import (
+from context_switcher_mcp.exceptions import (  # noqa: E402
     ConfigurationError,
     ModelAuthenticationError,
     ModelBackendError,
@@ -22,8 +22,10 @@ from context_switcher_mcp.exceptions import (
     ModelRateLimitError,
     ModelTimeoutError,
     ModelValidationError,
+    NetworkConnectivityError,
+    NetworkTimeoutError,
 )
-from context_switcher_mcp.models import Thread
+from context_switcher_mcp.models import Thread  # noqa: E402
 
 
 class TestModelCallConfig:
@@ -285,14 +287,12 @@ class TestBedrockBackend:
     async def test_call_model_success(self):
         """Test successful Bedrock model call"""
         with (
-            patch("context_switcher_mcp.backend_interface.boto3") as mock_boto3,
-            patch(
-                "context_switcher_mcp.backend_interface.validate_model_id"
-            ) as mock_validate,
+            patch("boto3.client") as mock_boto3,
+            patch("context_switcher_mcp.security.validate_model_id") as mock_validate,
         ):
             # Mock boto3 client
             mock_client = Mock()
-            mock_boto3.client.return_value = mock_client
+            mock_boto3.return_value = mock_client
 
             # Mock model validation
             mock_validate.return_value = (True, None)
@@ -306,7 +306,7 @@ class TestBedrockBackend:
             result = await self.backend.call_model(self.thread)
 
             assert result == "Test response"
-            mock_boto3.client.assert_called_once_with(
+            mock_boto3.assert_called_once_with(
                 "bedrock-runtime", region_name="us-east-1"
             )
             mock_client.converse.assert_called_once()
@@ -314,10 +314,14 @@ class TestBedrockBackend:
     @pytest.mark.asyncio
     async def test_call_model_import_error(self):
         """Test Bedrock call_model with ImportError"""
-        with patch(
-            "context_switcher_mcp.backend_interface.boto3",
-            side_effect=ImportError("boto3 not found"),
-        ):
+
+        # Mock the import statement to raise ImportError
+        def mock_import(name, *args):
+            if name == "boto3":
+                raise ImportError("No module named 'boto3'")
+            return __builtins__["__import__"](name, *args)
+
+        with patch("builtins.__import__", side_effect=mock_import):
             with pytest.raises(ConfigurationError) as exc_info:
                 await self.backend.call_model(self.thread)
 
@@ -327,12 +331,10 @@ class TestBedrockBackend:
     async def test_call_model_validation_error(self):
         """Test Bedrock call_model with model validation error"""
         with (
-            patch("context_switcher_mcp.backend_interface.boto3") as mock_boto3,
-            patch(
-                "context_switcher_mcp.backend_interface.validate_model_id"
-            ) as mock_validate,
+            patch("boto3.client") as mock_boto3,
+            patch("context_switcher_mcp.security.validate_model_id") as mock_validate,
         ):
-            mock_boto3.client.return_value = Mock()
+            mock_boto3.return_value = Mock()
             mock_validate.return_value = (False, "Invalid model")
 
             with pytest.raises(ModelValidationError) as exc_info:
@@ -344,13 +346,11 @@ class TestBedrockBackend:
     async def test_call_model_credentials_error(self):
         """Test Bedrock call_model with credentials error"""
         with (
-            patch("context_switcher_mcp.backend_interface.boto3") as mock_boto3,
-            patch(
-                "context_switcher_mcp.backend_interface.validate_model_id"
-            ) as mock_validate,
+            patch("boto3.client") as mock_boto3,
+            patch("context_switcher_mcp.security.validate_model_id") as mock_validate,
         ):
             mock_client = Mock()
-            mock_boto3.client.return_value = mock_client
+            mock_boto3.return_value = mock_client
             mock_validate.return_value = (True, None)
 
             # Mock credentials error
@@ -363,32 +363,28 @@ class TestBedrockBackend:
     async def test_call_model_connection_error(self):
         """Test Bedrock call_model with connection error"""
         with (
-            patch("context_switcher_mcp.backend_interface.boto3") as mock_boto3,
-            patch(
-                "context_switcher_mcp.backend_interface.validate_model_id"
-            ) as mock_validate,
+            patch("boto3.client") as mock_boto3,
+            patch("context_switcher_mcp.security.validate_model_id") as mock_validate,
         ):
             mock_client = Mock()
-            mock_boto3.client.return_value = mock_client
+            mock_boto3.return_value = mock_client
             mock_validate.return_value = (True, None)
 
             # Mock connection error
             mock_client.converse.side_effect = Exception("connection timeout")
 
-            with pytest.raises(ModelConnectionError):
+            with pytest.raises(NetworkConnectivityError):
                 await self.backend.call_model(self.thread)
 
     @pytest.mark.asyncio
     async def test_call_model_rate_limit_error(self):
         """Test Bedrock call_model with rate limit error"""
         with (
-            patch("context_switcher_mcp.backend_interface.boto3") as mock_boto3,
-            patch(
-                "context_switcher_mcp.backend_interface.validate_model_id"
-            ) as mock_validate,
+            patch("boto3.client") as mock_boto3,
+            patch("context_switcher_mcp.security.validate_model_id") as mock_validate,
         ):
             mock_client = Mock()
-            mock_boto3.client.return_value = mock_client
+            mock_boto3.return_value = mock_client
             mock_validate.return_value = (True, None)
 
             # Mock rate limit error
@@ -401,32 +397,28 @@ class TestBedrockBackend:
     async def test_call_model_timeout_error(self):
         """Test Bedrock call_model with timeout error"""
         with (
-            patch("context_switcher_mcp.backend_interface.boto3") as mock_boto3,
-            patch(
-                "context_switcher_mcp.backend_interface.validate_model_id"
-            ) as mock_validate,
+            patch("boto3.client") as mock_boto3,
+            patch("context_switcher_mcp.security.validate_model_id") as mock_validate,
         ):
             mock_client = Mock()
-            mock_boto3.client.return_value = mock_client
+            mock_boto3.return_value = mock_client
             mock_validate.return_value = (True, None)
 
             # Mock timeout error
             mock_client.converse.side_effect = Exception("request timeout")
 
-            with pytest.raises(ModelTimeoutError):
+            with pytest.raises(NetworkTimeoutError):
                 await self.backend.call_model(self.thread)
 
     @pytest.mark.asyncio
     async def test_call_model_generic_error(self):
         """Test Bedrock call_model with generic error"""
         with (
-            patch("context_switcher_mcp.backend_interface.boto3") as mock_boto3,
-            patch(
-                "context_switcher_mcp.backend_interface.validate_model_id"
-            ) as mock_validate,
+            patch("boto3.client") as mock_boto3,
+            patch("context_switcher_mcp.security.validate_model_id") as mock_validate,
         ):
             mock_client = Mock()
-            mock_boto3.client.return_value = mock_client
+            mock_boto3.return_value = mock_client
             mock_validate.return_value = (True, None)
 
             # Mock generic error
@@ -439,13 +431,11 @@ class TestBedrockBackend:
     async def test_call_model_stream_success(self):
         """Test successful Bedrock streaming call"""
         with (
-            patch("context_switcher_mcp.backend_interface.boto3") as mock_boto3,
-            patch(
-                "context_switcher_mcp.backend_interface.validate_model_id"
-            ) as mock_validate,
+            patch("boto3.client") as mock_boto3,
+            patch("context_switcher_mcp.security.validate_model_id") as mock_validate,
         ):
             mock_client = Mock()
-            mock_boto3.client.return_value = mock_client
+            mock_boto3.return_value = mock_client
             mock_validate.return_value = (True, None)
 
             # Mock streaming response
@@ -471,27 +461,31 @@ class TestBedrockBackend:
     @pytest.mark.asyncio
     async def test_call_model_stream_import_error(self):
         """Test Bedrock streaming with ImportError"""
-        with patch(
-            "context_switcher_mcp.backend_interface.boto3", side_effect=ImportError()
-        ):
+
+        # Mock the import statement to raise ImportError
+        def mock_import(name, *args):
+            if name == "boto3":
+                raise ImportError("No module named 'boto3'")
+            return __builtins__["__import__"](name, *args)
+
+        with patch("builtins.__import__", side_effect=mock_import):
             responses = []
             async for response in self.backend.call_model_stream(self.thread):
                 responses.append(response)
 
             assert len(responses) == 1
             assert responses[0]["type"] == "error"
-            assert "boto3 library not installed" in responses[0]["content"]
+            # AORP response contains the error message
+            assert "boto3 library not installed" in str(responses[0]["content"])
 
     @pytest.mark.asyncio
     async def test_call_model_stream_validation_error(self):
         """Test Bedrock streaming with validation error"""
         with (
-            patch("context_switcher_mcp.backend_interface.boto3") as mock_boto3,
-            patch(
-                "context_switcher_mcp.backend_interface.validate_model_id"
-            ) as mock_validate,
+            patch("boto3.client") as mock_boto3,
+            patch("context_switcher_mcp.security.validate_model_id") as mock_validate,
         ):
-            mock_boto3.client.return_value = Mock()
+            mock_boto3.return_value = Mock()
             mock_validate.return_value = (False, "Invalid model")
 
             responses = []
@@ -541,10 +535,8 @@ class TestLiteLLMBackend:
     async def test_call_model_success(self):
         """Test successful LiteLLM model call"""
         with (
-            patch("context_switcher_mcp.backend_interface.litellm") as mock_litellm,
-            patch(
-                "context_switcher_mcp.backend_interface.validate_model_id"
-            ) as mock_validate,
+            patch("litellm.acompletion") as mock_acompletion,
+            patch("context_switcher_mcp.security.validate_model_id") as mock_validate,
         ):
             mock_validate.return_value = (True, None)
 
@@ -552,20 +544,24 @@ class TestLiteLLMBackend:
             mock_response = Mock()
             mock_response.choices = [Mock()]
             mock_response.choices[0].message.content = "Test response"
-            mock_litellm.acompletion.return_value = mock_response
+            mock_acompletion.return_value = mock_response
 
             result = await self.backend.call_model(self.thread)
 
             assert result == "Test response"
-            mock_litellm.acompletion.assert_called_once()
+            mock_acompletion.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_call_model_import_error(self):
         """Test LiteLLM call_model with ImportError"""
-        with patch(
-            "context_switcher_mcp.backend_interface.litellm",
-            side_effect=ImportError("litellm not found"),
-        ):
+
+        # Mock the import statement by patching builtins.__import__
+        def mock_import(name, *args):
+            if name == "litellm":
+                raise ImportError("No module named 'litellm'")
+            return __builtins__["__import__"](name, *args)
+
+        with patch("builtins.__import__", side_effect=mock_import):
             with pytest.raises(ConfigurationError) as exc_info:
                 await self.backend.call_model(self.thread)
 
@@ -575,10 +571,8 @@ class TestLiteLLMBackend:
     async def test_call_model_validation_error(self):
         """Test LiteLLM call_model with validation error"""
         with (
-            patch("context_switcher_mcp.backend_interface.litellm"),
-            patch(
-                "context_switcher_mcp.backend_interface.validate_model_id"
-            ) as mock_validate,
+            patch("litellm.acompletion"),
+            patch("context_switcher_mcp.security.validate_model_id") as mock_validate,
         ):
             mock_validate.return_value = (False, "Invalid model")
 
@@ -589,13 +583,11 @@ class TestLiteLLMBackend:
     async def test_call_model_rate_limit_error(self):
         """Test LiteLLM call_model with rate limit error"""
         with (
-            patch("context_switcher_mcp.backend_interface.litellm") as mock_litellm,
-            patch(
-                "context_switcher_mcp.backend_interface.validate_model_id"
-            ) as mock_validate,
+            patch("litellm.acompletion") as mock_acompletion,
+            patch("context_switcher_mcp.security.validate_model_id") as mock_validate,
         ):
             mock_validate.return_value = (True, None)
-            mock_litellm.acompletion.side_effect = Exception("rate limit exceeded")
+            mock_acompletion.side_effect = Exception("rate limit exceeded")
 
             with pytest.raises(ModelRateLimitError):
                 await self.backend.call_model(self.thread)
@@ -641,12 +633,8 @@ class TestOllamaBackend:
     async def test_call_model_success(self):
         """Test successful Ollama model call"""
         with (
-            patch(
-                "context_switcher_mcp.backend_interface.httpx.AsyncClient"
-            ) as mock_client_class,
-            patch(
-                "context_switcher_mcp.backend_interface.validate_model_id"
-            ) as mock_validate,
+            patch("httpx.AsyncClient") as mock_client_class,
+            patch("context_switcher_mcp.security.validate_model_id") as mock_validate,
         ):
             mock_validate.return_value = (True, None)
 
@@ -666,10 +654,14 @@ class TestOllamaBackend:
     @pytest.mark.asyncio
     async def test_call_model_import_error(self):
         """Test Ollama call_model with ImportError"""
-        with patch(
-            "context_switcher_mcp.backend_interface.httpx",
-            side_effect=ImportError("httpx not found"),
-        ):
+
+        # Mock the import statement to raise ImportError
+        def mock_import(name, *args):
+            if name == "httpx":
+                raise ImportError("No module named 'httpx'")
+            return __builtins__["__import__"](name, *args)
+
+        with patch("builtins.__import__", side_effect=mock_import):
             with pytest.raises(ConfigurationError) as exc_info:
                 await self.backend.call_model(self.thread)
 
@@ -679,12 +671,8 @@ class TestOllamaBackend:
     async def test_call_model_connect_error(self):
         """Test Ollama call_model with connection error"""
         with (
-            patch(
-                "context_switcher_mcp.backend_interface.httpx.AsyncClient"
-            ) as mock_client_class,
-            patch(
-                "context_switcher_mcp.backend_interface.validate_model_id"
-            ) as mock_validate,
+            patch("httpx.AsyncClient") as mock_client_class,
+            patch("context_switcher_mcp.security.validate_model_id") as mock_validate,
         ):
             mock_validate.return_value = (True, None)
 
@@ -701,12 +689,8 @@ class TestOllamaBackend:
     async def test_call_model_timeout_error(self):
         """Test Ollama call_model with timeout error"""
         with (
-            patch(
-                "context_switcher_mcp.backend_interface.httpx.AsyncClient"
-            ) as mock_client_class,
-            patch(
-                "context_switcher_mcp.backend_interface.validate_model_id"
-            ) as mock_validate,
+            patch("httpx.AsyncClient") as mock_client_class,
+            patch("context_switcher_mcp.security.validate_model_id") as mock_validate,
         ):
             mock_validate.return_value = (True, None)
 
@@ -723,12 +707,8 @@ class TestOllamaBackend:
     async def test_call_model_model_not_found(self):
         """Test Ollama call_model with model not found error"""
         with (
-            patch(
-                "context_switcher_mcp.backend_interface.httpx.AsyncClient"
-            ) as mock_client_class,
-            patch(
-                "context_switcher_mcp.backend_interface.validate_model_id"
-            ) as mock_validate,
+            patch("httpx.AsyncClient") as mock_client_class,
+            patch("context_switcher_mcp.security.validate_model_id") as mock_validate,
         ):
             mock_validate.return_value = (True, None)
 
@@ -751,12 +731,8 @@ class TestOllamaBackend:
     async def test_call_model_rate_limit(self):
         """Test Ollama call_model with rate limit error"""
         with (
-            patch(
-                "context_switcher_mcp.backend_interface.httpx.AsyncClient"
-            ) as mock_client_class,
-            patch(
-                "context_switcher_mcp.backend_interface.validate_model_id"
-            ) as mock_validate,
+            patch("httpx.AsyncClient") as mock_client_class,
+            patch("context_switcher_mcp.security.validate_model_id") as mock_validate,
         ):
             mock_validate.return_value = (True, None)
 
@@ -777,12 +753,8 @@ class TestOllamaBackend:
     async def test_call_model_http_error(self):
         """Test Ollama call_model with generic HTTP error"""
         with (
-            patch(
-                "context_switcher_mcp.backend_interface.httpx.AsyncClient"
-            ) as mock_client_class,
-            patch(
-                "context_switcher_mcp.backend_interface.validate_model_id"
-            ) as mock_validate,
+            patch("httpx.AsyncClient") as mock_client_class,
+            patch("context_switcher_mcp.security.validate_model_id") as mock_validate,
         ):
             mock_validate.return_value = (True, None)
 

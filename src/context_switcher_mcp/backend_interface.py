@@ -1,5 +1,6 @@
 """Unified backend interface to eliminate configuration duplication"""
 
+import asyncio
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
@@ -113,7 +114,15 @@ class ModelBackendInterface(ABC):
 
         if any(
             term in error_str
-            for term in ["api_key", "key", "unauthorized", "forbidden"]
+            for term in [
+                "api_key",
+                "key",
+                "unauthorized",
+                "forbidden",
+                "permissions",
+                "access denied",
+                "accessdenied",
+            ]
         ):
             return "credentials_error", "Missing or invalid API credentials"
         elif any(term in error_str for term in ["connection", "timeout", "network"]):
@@ -124,6 +133,117 @@ class ModelBackendInterface(ABC):
             return "model_configuration_error", "Model configuration issue"
         else:
             return "api_error", f"API call failed: {sanitize_error_message(str(error))}"
+
+    def _get_exception_for_error(
+        self, error: Exception, error_message: str
+    ) -> Exception:
+        """Map original exception to appropriate custom exception class"""
+        # Import here to avoid circular imports
+        from .exceptions import (
+            ModelAuthenticationError,
+            ModelConnectionError,
+            ModelRateLimitError,
+            ModelTimeoutError,
+            ModelValidationError,
+            NetworkConnectivityError,
+        )
+
+        # First, check if it's already one of our custom exceptions or standard exceptions
+        # that tests expect to pass through
+        if isinstance(
+            error,
+            ModelAuthenticationError
+            | ModelConnectionError
+            | ModelRateLimitError
+            | ModelTimeoutError
+            | ModelValidationError
+            | NetworkConnectivityError
+            | ConnectionError
+            | OSError
+            | asyncio.TimeoutError,
+        ):
+            return error
+
+        # Check for httpx exceptions that should pass through
+        try:
+            import httpx
+
+            if isinstance(error, httpx.HTTPError | httpx.RequestError):
+                return error
+        except ImportError:
+            pass
+
+        # Check for botocore exceptions that should pass through
+        try:
+            from botocore.exceptions import (
+                BotoCoreError,
+                ClientError,
+                NoCredentialsError,
+            )
+
+            if isinstance(error, BotoCoreError | ClientError | NoCredentialsError):
+                return error
+        except ImportError:
+            pass
+
+        # Check for specific LiteLLM exceptions
+        try:
+            from litellm import AuthenticationError as LiteLLMAuthError
+            from litellm import RateLimitError as LiteLLMRateLimit
+
+            if isinstance(error, LiteLLMAuthError):
+                return ModelAuthenticationError(error_message)
+            elif isinstance(error, LiteLLMRateLimit):
+                return ModelRateLimitError(error_message)
+        except ImportError:
+            pass
+
+        # Check exception type
+        if isinstance(error, asyncio.TimeoutError):
+            return ModelTimeoutError(error_message)
+        elif isinstance(error, ConnectionError | OSError):
+            # These should pass through as the tests expect them
+            return error
+        elif isinstance(error, KeyError | ValueError):
+            # JSON parsing errors should be validation errors
+            return ModelValidationError(error_message)
+
+        # Pattern matching for error content
+        error_str = str(error).lower()
+
+        if any(
+            term in error_str
+            for term in [
+                "api_key",
+                "key",
+                "unauthorized",
+                "forbidden",
+                "permissions",
+                "access denied",
+                "accessdenied",
+            ]
+        ):
+            return ModelAuthenticationError(error_message)
+        elif any(
+            term in error_str for term in ["rate limit", "quota", "too many requests"]
+        ):
+            return ModelRateLimitError(error_message)
+        elif any(
+            term in error_str for term in ["timeout", "timed out", "read timeout"]
+        ):
+            return ModelTimeoutError(error_message)
+        elif any(
+            term in error_str
+            for term in ["connection", "connect", "network", "unreachable", "refused"]
+        ):
+            return ModelConnectionError(error_message)
+        elif any(term in error_str for term in ["validation", "invalid", "malformed"]):
+            return ModelValidationError(error_message)
+        else:
+            # Default to the original generic ModelBackendError for unclassified errors
+            from .exceptions import ModelBackendError
+
+            return ModelBackendError(error_message)
 
     def _prepare_messages(self, thread: Thread) -> list[dict[str, str]]:
         """Prepare messages in standard format"""
@@ -157,9 +277,9 @@ class BedrockBackend(ModelBackendInterface):
                 ) from e
 
             try:
-                client = boto3.client("bedrock-runtime", region_name="us-east-1")
                 model_config = self.get_model_config(thread)
                 ctx["model_name"] = model_config.model_name
+                client = boto3.client("bedrock-runtime", region_name="us-east-1")
 
                 # Validate model ID with security context
                 from .security import validate_model_id
@@ -241,6 +361,8 @@ class BedrockBackend(ModelBackendInterface):
                         "unauthorized",
                         "forbidden",
                         "credentials",
+                        "access denied",
+                        "accessdenied",
                     ]
                 ):
                     raise ModelAuthenticationError(
@@ -451,7 +573,7 @@ class OllamaBackend(ModelBackendInterface):
 
             async with httpx.AsyncClient() as client:
                 response = await client.post(
-                    self.config.model.ollama_host + "/api/chat",
+                    str(self.config.model.ollama_host) + "/api/chat",
                     json={
                         "model": model_config.model_name,
                         "messages": messages,

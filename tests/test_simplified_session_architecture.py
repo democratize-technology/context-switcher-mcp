@@ -9,16 +9,16 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import pytest
-from context_switcher_mcp.exceptions import (
+from context_switcher_mcp.exceptions import (  # noqa: E402
     SessionConcurrencyError,
     SessionError,
     SessionSecurityError,
 )
 
 # Import the new simplified session architecture
-from context_switcher_mcp.session import Session
-from context_switcher_mcp.session_manager_new import SimpleSessionManager
-from context_switcher_mcp.session_types import (
+from context_switcher_mcp.session import Session  # noqa: E402
+from context_switcher_mcp.session_manager_new import SimpleSessionManager  # noqa: E402
+from context_switcher_mcp.session_types import (  # noqa: E402
     AnalysisRecord,
     ClientBinding,
     ModelBackend,

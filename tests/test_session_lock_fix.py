@@ -4,8 +4,10 @@ import asyncio
 from datetime import datetime, timezone
 
 import pytest
-from context_switcher_mcp.models import ContextSwitcherSession
-from context_switcher_mcp.session_lock_manager import get_session_lock_manager
+from context_switcher_mcp.models import ContextSwitcherSession  # noqa: E402
+from context_switcher_mcp.session_lock_manager import (
+    get_session_lock_manager,  # noqa: E402
+)
 
 
 class TestSessionLockWithManager:

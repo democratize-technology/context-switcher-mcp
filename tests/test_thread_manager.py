@@ -4,13 +4,15 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from context_switcher_mcp.circuit_breaker_manager import CircuitBreakerState
-from context_switcher_mcp.metrics_manager import (
+from context_switcher_mcp.circuit_breaker_manager import (
+    CircuitBreakerState,  # noqa: E402
+)
+from context_switcher_mcp.metrics_manager import (  # noqa: E402
     ThreadMetrics,
     ThreadOrchestrationMetrics,
 )
-from context_switcher_mcp.models import ModelBackend, Thread
-from context_switcher_mcp.thread_manager import ThreadManager
+from context_switcher_mcp.models import ModelBackend, Thread  # noqa: E402
+from context_switcher_mcp.thread_manager import ThreadManager  # noqa: E402
 
 
 @pytest.fixture

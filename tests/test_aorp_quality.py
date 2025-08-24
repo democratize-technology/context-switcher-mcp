@@ -1,7 +1,7 @@
 """AORP quality validation tests - ensuring UX improvements deliver cognitive load reduction"""
 
 import pytest
-from context_switcher_mcp.aorp import (
+from context_switcher_mcp.aorp import (  # noqa: E402
     AORPBuilder,
     calculate_analysis_confidence,
     calculate_synthesis_confidence,

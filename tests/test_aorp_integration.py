@@ -4,11 +4,15 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from context_switcher_mcp.aorp import (
+from context_switcher_mcp.aorp import (  # noqa: E402
     AORPBuilder,
     convert_legacy_response,
 )
-from context_switcher_mcp.models import ContextSwitcherSession, ModelBackend, Thread
+from context_switcher_mcp.models import (  # noqa: E402
+    ContextSwitcherSession,
+    ModelBackend,
+    Thread,
+)
 
 
 class TestLegacyResponseConversion:

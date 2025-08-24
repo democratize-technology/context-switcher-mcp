@@ -13,5 +13,5 @@ repos:
     rev: v0.1.6
     hooks:
       - id: ruff
-        args: [--fix, --exit-non-zero-on-fix]
+        args: [--fix, --exit-non-zero-on-fix, --ignore=E402]
       - id: ruff-format

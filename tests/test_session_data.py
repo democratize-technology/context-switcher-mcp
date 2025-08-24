@@ -4,8 +4,8 @@ from datetime import datetime, timezone
 from unittest.mock import patch
 
 import pytest
-from context_switcher_mcp.models import ModelBackend, Thread
-from context_switcher_mcp.session_data import (
+from context_switcher_mcp.models import ModelBackend, Thread  # noqa: E402
+from context_switcher_mcp.session_data import (  # noqa: E402
     AnalysisRecord,
     SessionData,
 )

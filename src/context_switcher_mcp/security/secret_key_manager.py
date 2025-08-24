@@ -98,6 +98,9 @@ def _save_key_data_atomically(data: dict, config_dir: Path, secret_file: Path) -
     Raises:
         IOError: If the save operation fails
     """
+    # Ensure the config directory exists
+    config_dir.mkdir(exist_ok=True, parents=True)
+
     # CRITICAL: Use atomic write with secure permissions from the start
     if platform.system() != "Windows":
         # On POSIX systems, create with secure permissions from the start

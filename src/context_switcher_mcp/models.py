@@ -136,13 +136,22 @@ class ContextSwitcherSession:
             ):
                 self.client_binding.tool_usage_sequence.append(tool_name)
 
-    def record_security_event(self, event_type: str, details: dict[str, Any]) -> None:
+    def record_security_event(
+        self, event_type: str, event_record: dict[str, Any]
+    ) -> None:
         """Record a security event for this session"""
-        event = {
-            "type": event_type,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "details": details,
-        }
+        # Support both old API (details dict) and new API (full event record)
+        if isinstance(event_record, dict) and "event_type" in event_record:
+            # New API - full event record from SecurityEventTracker
+            event = event_record.copy()
+            event["type"] = event_type  # Ensure consistency
+        else:
+            # Legacy API - just details dict
+            event = {
+                "type": event_type,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "details": event_record,
+            }
         self.security_events.append(event)
 
         # Add security flag to client binding if present

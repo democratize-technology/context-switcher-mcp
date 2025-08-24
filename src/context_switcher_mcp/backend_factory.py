@@ -1,7 +1,7 @@
 """Factory for creating backend instances without duplication"""
 
 from .backend_interface import BedrockBackend, ModelBackendInterface
-from .exceptions import ConfigurationError, ModelBackendError
+from .exceptions import ConfigurationError
 from .logging_base import get_logger
 from .models import ModelBackend, Thread
 from .profiling_wrapper import create_profiling_wrapper
@@ -41,7 +41,7 @@ class LiteLLMBackend(ModelBackendInterface):
             ) from None
         except Exception as e:
             error_type, error_msg = self._get_error_type_and_message(e)
-            raise ModelBackendError(error_msg) from e
+            raise self._get_exception_for_error(e, error_msg) from e
 
 
 class OllamaBackend(ModelBackendInterface):
@@ -84,7 +84,7 @@ class OllamaBackend(ModelBackendInterface):
             ) from None
         except Exception as e:
             error_type, error_msg = self._get_error_type_and_message(e)
-            raise ModelBackendError(error_msg) from e
+            raise self._get_exception_for_error(e, error_msg) from e
 
 
 class BackendFactory:

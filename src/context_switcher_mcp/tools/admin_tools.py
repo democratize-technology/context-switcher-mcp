@@ -16,12 +16,19 @@ def register_admin_tools(mcp: FastMCP) -> None:
     @mcp.tool(description="Get performance metrics and operational health status")
     async def get_performance_metrics() -> dict[str, Any]:
         """Get performance metrics for monitoring operational health"""
-        from .. import orchestrator
+        from .. import orchestrator, session_manager
 
-        orchestrator_metrics = await orchestrator.get_performance_metrics(last_n=20)
-        from .. import session_manager
+        try:
+            orchestrator_metrics = await orchestrator.get_performance_metrics(last_n=20)
+        except Exception as e:
+            logger.error(f"Failed to get orchestrator performance metrics: {e}")
+            raise RuntimeError(f"Orchestrator metrics unavailable: {e}") from e
 
-        session_stats = await session_manager.get_stats()
+        try:
+            session_stats = await session_manager.get_stats()
+        except Exception as e:
+            logger.error(f"Failed to get session manager stats: {e}")
+            raise RuntimeError(f"Session manager stats unavailable: {e}") from e
 
         return {
             "orchestrator": orchestrator_metrics,
@@ -41,7 +48,11 @@ def register_admin_tools(mcp: FastMCP) -> None:
         """Reset all circuit breakers to restore backend availability"""
         from .. import orchestrator
 
-        reset_status = orchestrator.reset_circuit_breakers()
+        try:
+            reset_status = orchestrator.reset_circuit_breakers()
+        except Exception as e:
+            logger.error(f"Failed to reset circuit breakers: {e}")
+            raise RuntimeError(f"Circuit breaker reset failed: {e}") from e
 
         return {
             "message": "Circuit breakers reset successfully",
@@ -52,14 +63,22 @@ def register_admin_tools(mcp: FastMCP) -> None:
     @mcp.tool(description="Get session security metrics and client binding status")
     async def get_security_metrics() -> dict[str, Any]:
         """Get comprehensive security metrics for monitoring session security"""
-        binding_metrics = client_binding_manager.get_security_metrics()
+        try:
+            binding_metrics = client_binding_manager.get_security_metrics()
+        except Exception as e:
+            logger.error(f"Failed to get client binding metrics: {e}")
+            raise RuntimeError(f"Client binding metrics unavailable: {e}") from e
 
         from .. import session_manager
 
-        session_stats = await session_manager.get_stats()
+        try:
+            session_stats = await session_manager.get_stats()
+            # Count sessions with client binding
+            active_sessions = await session_manager.list_active_sessions()
+        except Exception as e:
+            logger.error(f"Failed to get session manager data: {e}")
+            raise RuntimeError(f"Session manager data unavailable: {e}") from e
 
-        # Count sessions with client binding
-        active_sessions = await session_manager.list_active_sessions()
         sessions_with_binding = sum(
             1 for session in active_sessions.values() if session.client_binding
         )

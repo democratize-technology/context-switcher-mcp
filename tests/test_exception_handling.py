@@ -5,7 +5,7 @@ from datetime import datetime
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from context_switcher_mcp.exceptions import (
+from context_switcher_mcp.exceptions import (  # noqa: E402
     AnalysisError,
     CircuitBreakerError,
     CircuitBreakerOpenError,
@@ -300,7 +300,7 @@ class TestAnalysisToolsExceptionHandling:
 
         # Mock the validation to raise SessionNotFoundError
         with patch(
-            "src.context_switcher_mcp.tools.analysis_tools.validate_session_id",
+            "src.context_switcher_mcp.validation.validate_session_id",
             return_value=(False, "Session not found"),
         ):
             # The actual tool implementation would handle this gracefully
