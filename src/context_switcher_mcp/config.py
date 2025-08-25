@@ -24,8 +24,8 @@ try:
     from .config import (
         get_config as _new_get_config,
         reload_config as _new_reload_config,
-        ConfigurationError,
     )
+    from .config.core import ConfigurationError
     from .config.migration import (
         LegacyConfigAdapter,
         create_legacy_config_with_migration,
