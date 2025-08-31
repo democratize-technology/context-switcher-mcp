@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced project documentation for open source readiness
 - Improved security scanning and vulnerability management
 
-## [1.0.0] - 2024-XX-XX
+## [0.1.0] - 2024-XX-XX
 
 ### Added
 - Initial release of Context-Switcher MCP server
