@@ -19,3 +19,17 @@ build/
 # Test coverage files
 .coverage
 coverage.xml
+coverage.json
+htmlcov/
+
+# Python development tools
+.ruff_cache/
+.mypy_cache/
+.tox/
+.nox/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
