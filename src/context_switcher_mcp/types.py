@@ -7,7 +7,7 @@ should be defined here.
 """
 
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -89,7 +89,7 @@ class SessionData:
     created_at: datetime
     topic: str | None = None
     access_count: int = 0
-    last_accessed: datetime = field(default_factory=lambda: datetime.now(UTC))
+    last_accessed: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     version: int = 0  # For optimistic locking
     status: SessionStatus = SessionStatus.ACTIVE
 
@@ -118,7 +118,7 @@ class AnalysisResult:
     abstained_count: int
     failed_count: int = 0
     execution_time: float | None = None
-    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation"""
@@ -141,7 +141,7 @@ class SecurityEventData:
 
     event_type: str
     session_id: str | None = None
-    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     severity: ErrorSeverity = ErrorSeverity.MEDIUM
     details: dict[str, Any] = field(default_factory=dict)
 
@@ -166,7 +166,7 @@ class ClientBindingData:
     access_pattern_hash: str
     tool_usage_sequence: list[str] = field(default_factory=list)
     validation_failures: int = 0
-    last_validated: datetime = field(default_factory=lambda: datetime.now(UTC))
+    last_validated: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     security_flags: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:

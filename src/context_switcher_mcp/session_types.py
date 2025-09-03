@@ -7,7 +7,7 @@ management system. These are pure data types with no business logic.
 import hashlib
 import secrets
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -37,7 +37,7 @@ class Thread:
             {
                 "role": role,
                 "content": content,
-                "timestamp": datetime.now(UTC).isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         )
 
@@ -80,7 +80,7 @@ class ClientBinding:
 
     # Security metadata
     validation_failures: int = 0
-    last_validated: datetime = field(default_factory=lambda: datetime.now(UTC))
+    last_validated: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     security_flags: list[str] = field(default_factory=list)
 
     def generate_binding_signature(self, secret_key: str) -> str:
@@ -132,7 +132,7 @@ class ClientBinding:
             tool_usage_sequence=data.get("tool_usage_sequence", []),
             validation_failures=data.get("validation_failures", 0),
             last_validated=datetime.fromisoformat(
-                data.get("last_validated", datetime.now(UTC).isoformat())
+                data.get("last_validated", datetime.now(timezone.utc).isoformat())
             ),
             security_flags=data.get("security_flags", []),
         )
@@ -203,7 +203,7 @@ class SessionMetrics:
     access_count: int = 0
     analysis_count: int = 0
     thread_count: int = 0
-    last_accessed: datetime = field(default_factory=lambda: datetime.now(UTC))
+    last_accessed: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     total_response_time: float = 0.0  # Total response time in seconds
     avg_response_time: float = 0.0  # Average response time in seconds
     error_count: int = 0
@@ -219,7 +219,7 @@ class SessionMetrics:
     def record_access(self) -> None:
         """Record a session access"""
         self.access_count += 1
-        self.last_accessed = datetime.now(UTC)
+        self.last_accessed = datetime.now(timezone.utc)
 
     def record_error(self) -> None:
         """Record an error"""
@@ -250,7 +250,7 @@ class SessionMetrics:
             analysis_count=data.get("analysis_count", 0),
             thread_count=data.get("thread_count", 0),
             last_accessed=datetime.fromisoformat(
-                data.get("last_accessed", datetime.now(UTC).isoformat())
+                data.get("last_accessed", datetime.now(timezone.utc).isoformat())
             ),
             total_response_time=data.get("total_response_time", 0.0),
             avg_response_time=data.get("avg_response_time", 0.0),

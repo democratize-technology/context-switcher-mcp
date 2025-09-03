@@ -2,7 +2,7 @@
 
 import asyncio
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from .logging_base import get_logger
@@ -21,7 +21,7 @@ class SessionConcurrency:
         """
         self.session_id = session_id
         self.access_count = 0
-        self.last_accessed = datetime.now(UTC)
+        self.last_accessed = datetime.now(timezone.utc)
         self.version = 0  # Version for optimistic locking and race condition detection
 
     def _get_lock_manager(self):
@@ -39,7 +39,7 @@ class SessionConcurrency:
         lock_manager = self._get_lock_manager()
         async with lock_manager.acquire_lock(self.session_id):
             self.access_count += 1
-            self.last_accessed = datetime.now(UTC)
+            self.last_accessed = datetime.now(timezone.utc)
             self.version += 1  # Increment version for change tracking
 
             if tool_name:
@@ -98,7 +98,7 @@ class SessionConcurrency:
                 update_func()
 
             # Update access metadata
-            self.last_accessed = datetime.now(UTC)
+            self.last_accessed = datetime.now(timezone.utc)
             self.version += 1
 
     def cleanup(self) -> None:

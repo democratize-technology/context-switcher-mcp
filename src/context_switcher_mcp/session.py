@@ -10,7 +10,7 @@ import secrets
 import sys
 from collections.abc import Callable
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 try:
@@ -100,7 +100,7 @@ class Session:
         # Core session state
         self._state = SessionState(
             session_id=session_id,
-            created_at=datetime.now(UTC),
+            created_at=datetime.now(timezone.utc),
             topic=topic,
         )
 
@@ -119,7 +119,7 @@ class Session:
     def _create_client_binding(self) -> None:
         """Create a secure client binding for this session"""
         session_entropy = secrets.token_urlsafe(32)
-        creation_timestamp = datetime.now(UTC)
+        creation_timestamp = datetime.now(timezone.utc)
 
         # Generate default access pattern hash
         default_data = f"{self.session_id}:{creation_timestamp.isoformat()}"
@@ -142,7 +142,7 @@ class Session:
     async def _atomic_operation(self, operation_name: str):
         """Async context manager for atomic operations with built-in error handling"""
         async with self._lock:
-            start_time = datetime.now(UTC)
+            start_time = datetime.now(timezone.utc)
             try:
                 logger.debug(
                     f"Starting atomic operation '{operation_name}' for session {self.session_id}"
@@ -168,7 +168,7 @@ class Session:
 
             finally:
                 # Always record operation time
-                end_time = datetime.now(UTC)
+                end_time = datetime.now(timezone.utc)
                 operation_time = (end_time - start_time).total_seconds()
                 logger.debug(
                     f"Completed operation '{operation_name}' in {operation_time:.3f}s"
@@ -222,7 +222,7 @@ class Session:
                 )
 
             # Update binding metadata on successful validation
-            self._state.client_binding.last_validated = datetime.now(UTC)
+            self._state.client_binding.last_validated = datetime.now(timezone.utc)
 
             # Record tool usage pattern
             if tool_name:
@@ -244,7 +244,7 @@ class Session:
     def _record_security_event(self, event_type: str, details: dict[str, Any]) -> None:
         """Record a security event (internal, assumes lock held)"""
         event = SecurityEvent(
-            event_type=event_type, timestamp=datetime.now(UTC), details=details
+            event_type=event_type, timestamp=datetime.now(timezone.utc), details=details
         )
 
         self._state.security_events.append(event)
@@ -342,7 +342,7 @@ class Session:
 
             analysis = AnalysisRecord(
                 prompt=prompt,
-                timestamp=datetime.now(UTC),
+                timestamp=datetime.now(timezone.utc),
                 responses=responses,
                 active_count=active_count,
                 abstained_count=abstained_count,
@@ -570,7 +570,7 @@ class Session:
         Returns:
             True if session has expired
         """
-        age = datetime.now(UTC) - self._state.created_at
+        age = datetime.now(timezone.utc) - self._state.created_at
         return age.total_seconds() > (ttl_hours * 3600)
 
     def __repr__(self) -> str:

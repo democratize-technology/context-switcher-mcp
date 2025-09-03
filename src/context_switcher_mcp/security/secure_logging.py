@@ -4,7 +4,7 @@ import hashlib
 import json
 import logging
 import re
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from ..logging_base import get_logger
@@ -122,7 +122,7 @@ class SecureLogger:
             hashed_session_id = hashlib.sha256(session_id.encode()).hexdigest()[:8]
 
         security_event = {
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "event_type": event_type,
             "risk_level": risk_level,
             "session_hash": hashed_session_id,
@@ -154,7 +154,7 @@ class SecureLogger:
         safe_preview = self._sanitize_content_preview(content_preview)
 
         validation_event = {
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "event_type": "validation_failure",
             "content_type": content_type,
             "risk_level": risk_level,
@@ -182,7 +182,7 @@ class SecureLogger:
         hashed_client = hashlib.sha256(client_identifier.encode()).hexdigest()[:8]
 
         rate_limit_event = {
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "event_type": "rate_limit_exceeded",
             "client_hash": hashed_client,
             "operation": operation,

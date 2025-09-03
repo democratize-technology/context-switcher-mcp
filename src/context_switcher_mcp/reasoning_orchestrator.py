@@ -1,19 +1,19 @@
 """Chain of Thought integration for structured perspective reasoning"""
 
 import asyncio
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .logging_base import get_logger
 
 try:
-    from chain_of_thought import (
-        TOOL_SPECS,
-        AsyncChainOfThoughtProcessor,
-    )
+    from chain_of_thought import TOOL_SPECS
 
     COT_AVAILABLE = True
 except ImportError:
     COT_AVAILABLE = False
+
+if TYPE_CHECKING:
+    from chain_of_thought import AsyncChainOfThoughtProcessor
 
 from .config import get_config
 from .exceptions import OrchestrationError
@@ -120,7 +120,7 @@ class PerspectiveReasoningOrchestrator:
             )
             return final_text.strip(), reasoning_summary
 
-        except asyncio.TimeoutError as e:
+        except TimeoutError as e:
             logger.error(f"CoT analysis timed out after {self.cot_timeout}s")
             raise CoTTimeoutError(self.cot_timeout) from e
         except ChainOfThoughtError:
@@ -168,10 +168,15 @@ class PerspectiveReasoningOrchestrator:
 
     def _get_or_create_processor(
         self, session_id: str, thread_name: str
-    ) -> AsyncChainOfThoughtProcessor:
+    ) -> "AsyncChainOfThoughtProcessor":
         """Get existing processor or create new one for the perspective"""
+        if not COT_AVAILABLE:
+            raise ChainOfThoughtError("Chain of Thought is not available")
+
         processor_id = f"{session_id}-{thread_name}"
         if processor_id not in self._processors:
+            from chain_of_thought import AsyncChainOfThoughtProcessor
+
             self._processors[processor_id] = AsyncChainOfThoughtProcessor(
                 conversation_id=processor_id
             )
@@ -260,7 +265,7 @@ Use chain_of_thought_step to structure your reasoning, then provide your analysi
 
     async def _execute_cot_processing(
         self,
-        processor: AsyncChainOfThoughtProcessor,
+        processor: "AsyncChainOfThoughtProcessor",
         bedrock_client: Any,
         request: dict,
     ) -> dict:
@@ -285,7 +290,7 @@ Use chain_of_thought_step to structure your reasoning, then provide your analysi
         return final_text
 
     async def _get_reasoning_summary_with_timeout(
-        self, processor: AsyncChainOfThoughtProcessor
+        self, processor: "AsyncChainOfThoughtProcessor"
     ) -> dict:
         """Get reasoning summary with timeout handling"""
         try:
@@ -293,6 +298,6 @@ Use chain_of_thought_step to structure your reasoning, then provide your analysi
                 processor.get_reasoning_summary(),
                 timeout=self.summary_timeout,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("Timeout getting reasoning summary")
             return {"status": "timeout"}

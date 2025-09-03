@@ -2,7 +2,7 @@
 
 import asyncio
 import json
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -153,7 +153,7 @@ class CircuitBreakerStore:
                 # Update with new state
                 all_states[backend] = {
                     **state_data,
-                    "last_updated": datetime.now(UTC).isoformat(),
+                    "last_updated": datetime.now(timezone.utc).isoformat(),
                 }
 
                 # Save to file

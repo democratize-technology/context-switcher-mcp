@@ -290,7 +290,7 @@ class TestAsyncPatterns:
         try:
             await asyncio.wait_for(slow_function(), timeout=0.1)
             pytest.fail("Should have timed out")
-        except asyncio.TimeoutError:
+        except TimeoutError:
             # Expected timeout
             pass
 

@@ -1,6 +1,5 @@
 """Tests for Chain of Thought reasoning integration"""
 
-import asyncio
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -148,7 +147,7 @@ class TestPerspectiveReasoningOrchestrator:
         mock_processor_class.return_value = mock_processor
 
         # Make process_tool_loop raise timeout
-        mock_processor.process_tool_loop.side_effect = asyncio.TimeoutError()
+        mock_processor.process_tool_loop.side_effect = TimeoutError()
 
         with pytest.raises(CoTTimeoutError) as exc_info:
             await reasoning_orchestrator.analyze_with_reasoning(

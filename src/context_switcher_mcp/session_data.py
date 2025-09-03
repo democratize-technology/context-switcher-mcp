@@ -1,7 +1,7 @@
 """Pure data models for session management"""
 
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from .models import Thread
@@ -67,7 +67,7 @@ class SessionData:
         """Record an analysis for history"""
         analysis = AnalysisRecord(
             prompt=prompt,
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             responses=responses,
             active_count=active_count,
             abstained_count=abstained_count,

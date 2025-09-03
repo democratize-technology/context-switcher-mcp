@@ -140,7 +140,7 @@ class TestLiteLLMBackendComprehensive:
         thread.add_message("user", "Test")
 
         network_errors = [
-            asyncio.TimeoutError("Request timed out"),
+            TimeoutError("Request timed out"),
             ConnectionError("Connection refused"),
             Exception("Connect error"),  # Simplified for testing
             Exception("Read timeout"),  # Simplified for testing

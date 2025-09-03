@@ -1,7 +1,7 @@
 """Circuit breaker pattern implementation for resilient backend failure handling"""
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from .circuit_breaker_store import (
@@ -41,7 +41,7 @@ class CircuitBreakerState:
         elif self.state == "OPEN":
             if self.last_failure_time:
                 time_since_failure = (
-                    datetime.now(UTC) - self.last_failure_time
+                    datetime.now(timezone.utc) - self.last_failure_time
                 ).total_seconds()
                 if time_since_failure > self.timeout_seconds:
                     self.state = "HALF_OPEN"
@@ -78,7 +78,7 @@ class CircuitBreakerState:
     async def record_failure(self):
         """Record failed request"""
         self.failure_count += 1
-        self.last_failure_time = datetime.now(UTC)
+        self.last_failure_time = datetime.now(timezone.utc)
         if self.failure_count >= self.failure_threshold:
             self.state = "OPEN"
 

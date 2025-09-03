@@ -9,7 +9,7 @@ event tracking.
 import hashlib
 import logging
 import secrets
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from ..logging_base import get_logger
@@ -90,7 +90,7 @@ class ClientBindingManager:
             - HMAC signature generation
             - Behavioral baseline establishment
         """
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
 
         try:
             # Generate session entropy
@@ -240,7 +240,7 @@ class ClientBindingManager:
                 )
 
             # Update binding validation timestamp
-            binding.last_validated = datetime.now(UTC)
+            binding.last_validated = datetime.now(timezone.utc)
 
             # Record successful access
             await session.record_access(tool_name)
@@ -390,14 +390,14 @@ class ClientBindingManager:
                     "validation_service_operational": True,
                     "event_tracker_operational": True,
                 },
-                "timestamp": datetime.now(UTC).isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
         except Exception as e:
             logger.error(f"Error collecting security metrics: {e}")
             return {
                 "error": str(e),
-                "timestamp": datetime.now(UTC).isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "system_health": {
                     "key_manager_operational": False,
                     "validation_service_operational": False,
@@ -481,7 +481,7 @@ def create_secure_session_with_binding(
         - Access tracking initialization
         - Security event logging
     """
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     manager = get_client_binding_manager()
 
     try:

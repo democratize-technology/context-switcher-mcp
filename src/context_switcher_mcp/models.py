@@ -3,7 +3,7 @@
 import hashlib
 import secrets
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -33,7 +33,7 @@ class Thread:
             {
                 "role": role,
                 "content": content,
-                "timestamp": datetime.now(UTC).isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         )
 
@@ -55,7 +55,7 @@ class ClientBinding:
 
     # Security metadata
     validation_failures: int = 0  # Count of validation failures
-    last_validated: datetime = field(default_factory=lambda: datetime.now(UTC))
+    last_validated: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     security_flags: list[str] = field(default_factory=list)  # Security event flags
 
     def generate_binding_signature(self, secret_key: str) -> str:
@@ -97,7 +97,7 @@ class ContextSwitcherSession:
 
     # Session security metadata
     access_count: int = 0
-    last_accessed: datetime = field(default_factory=lambda: datetime.now(UTC))
+    last_accessed: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     security_events: list[dict[str, Any]] = field(default_factory=list)
 
     # Concurrency control
@@ -126,7 +126,7 @@ class ContextSwitcherSession:
         lock_manager = get_session_lock_manager()
         async with lock_manager.acquire_lock(self.session_id):
             self.access_count += 1
-            self.last_accessed = datetime.now(UTC)
+            self.last_accessed = datetime.now(timezone.utc)
             self.version += 1  # Increment version for change tracking
 
             # Update client binding tool usage pattern
@@ -149,7 +149,7 @@ class ContextSwitcherSession:
             # Legacy API - just details dict
             event = {
                 "type": event_type,
-                "timestamp": datetime.now(UTC).isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "details": event_record,
             }
         self.security_events.append(event)
@@ -178,7 +178,7 @@ class ContextSwitcherSession:
         self.analyses.append(
             {
                 "prompt": prompt,
-                "timestamp": datetime.now(UTC).isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "responses": responses,
                 "active_count": active_count,
                 "abstained_count": abstained_count,

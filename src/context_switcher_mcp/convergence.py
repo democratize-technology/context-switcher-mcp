@@ -7,7 +7,7 @@ alignment detection with maintaining healthy diversity across perspectives.
 """
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import numpy as np
@@ -109,7 +109,7 @@ class ContextAlignmentDetector:
                 converged=False,
                 perspective_count=len(current_responses),
                 valid_responses=len(valid_current),
-                timestamp=datetime.now(UTC),
+                timestamp=datetime.now(timezone.utc),
             )
 
         # Calculate embeddings for current responses
@@ -140,7 +140,7 @@ class ContextAlignmentDetector:
             converged=converged,
             perspective_count=len(current_responses),
             valid_responses=len(valid_current),
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
         )
 
     async def check_iteration_convergence(
