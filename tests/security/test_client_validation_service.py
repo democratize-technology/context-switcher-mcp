@@ -4,7 +4,7 @@ Test suite for ClientValidationService security module.
 
 import os
 import sys  # noqa: E402
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -70,7 +70,7 @@ class TestClientValidationService:
         """Create a test session"""
         return ContextSwitcherSession(
             session_id=session_id,
-            created_at=datetime.now(timezone.utc) - timedelta(hours=1),  # 1 hour old
+            created_at=datetime.now(UTC) - timedelta(hours=1),  # 1 hour old
             topic="Test topic",
             access_count=access_count,
         )
@@ -79,7 +79,7 @@ class TestClientValidationService:
         """Create a test client binding"""
         return ClientBinding(
             session_entropy="test_entropy",
-            creation_timestamp=datetime.now(timezone.utc),
+            creation_timestamp=datetime.now(UTC),
             binding_signature="test_signature",
             access_pattern_hash="test_hash",
         )
@@ -108,9 +108,7 @@ class TestClientValidationService:
     def test_excessive_access_rate_detection(self):
         """Test excessive access rate detection"""
         session = self._create_test_session(access_count=200)  # Very high access count
-        session.created_at = datetime.now(timezone.utc) - timedelta(
-            hours=1
-        )  # 1 hour old
+        session.created_at = datetime.now(UTC) - timedelta(hours=1)  # 1 hour old
         session.client_binding = self._create_test_binding()
 
         pattern = self.service.is_suspicious_access(session, "test_tool")
@@ -123,9 +121,7 @@ class TestClientValidationService:
     def test_access_rate_grace_period(self):
         """Test access rate check grace period for new sessions"""
         session = self._create_test_session(access_count=50)  # High count
-        session.created_at = datetime.now(timezone.utc) - timedelta(
-            seconds=30
-        )  # Very new
+        session.created_at = datetime.now(UTC) - timedelta(seconds=30)  # Very new
         session.client_binding = self._create_test_binding()
 
         pattern = self.service.is_suspicious_access(session, "test_tool")
@@ -142,19 +138,19 @@ class TestClientValidationService:
         session.analyses = [
             {
                 "prompt": "same prompt",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             },
             {
                 "prompt": "same prompt",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             },
             {
                 "prompt": "same prompt",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             },
             {
                 "prompt": "different prompt",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             },
         ] * 3  # 12 analyses total with mostly repeated prompts
 
@@ -170,7 +166,7 @@ class TestClientValidationService:
         session.client_binding = self._create_test_binding()
 
         # Create 10 analyses in a very short time span
-        base_time = datetime.now(timezone.utc) - timedelta(seconds=30)
+        base_time = datetime.now(UTC) - timedelta(seconds=30)
         session.analyses = []
 
         for i in range(10):
@@ -205,9 +201,7 @@ class TestClientValidationService:
     def test_long_lived_high_activity_detection(self):
         """Test long-lived session with high activity detection"""
         session = self._create_test_session(access_count=1500)
-        session.created_at = datetime.now(timezone.utc) - timedelta(
-            days=2
-        )  # 2 days old
+        session.created_at = datetime.now(UTC) - timedelta(days=2)  # 2 days old
         session.client_binding = self._create_test_binding()
 
         pattern = self.service.is_suspicious_access(session, "test_tool")
@@ -218,9 +212,7 @@ class TestClientValidationService:
     def test_immediate_high_activity_detection(self):
         """Test immediate high activity detection for new sessions"""
         session = self._create_test_session(access_count=15)
-        session.created_at = datetime.now(timezone.utc) - timedelta(
-            seconds=30
-        )  # Very new
+        session.created_at = datetime.now(UTC) - timedelta(seconds=30)  # Very new
         session.client_binding = self._create_test_binding()
 
         pattern = self.service.is_suspicious_access(session, "test_tool")
@@ -249,7 +241,7 @@ class TestClientValidationService:
         session_id = "test_session_expiry"
 
         # Mark session as suspicious in the past
-        past_time = datetime.now(timezone.utc) - timedelta(hours=2)
+        past_time = datetime.now(UTC) - timedelta(hours=2)
         self.service.suspicious_sessions[session_id] = past_time
 
         # Should no longer be locked out (default is 1 hour)
@@ -264,12 +256,12 @@ class TestClientValidationService:
         old_session = "old_session"
         new_session = "new_session"
 
-        self.service.suspicious_sessions[old_session] = datetime.now(
-            timezone.utc
-        ) - timedelta(days=2)
-        self.service.suspicious_sessions[new_session] = datetime.now(
-            timezone.utc
-        ) - timedelta(minutes=30)
+        self.service.suspicious_sessions[old_session] = datetime.now(UTC) - timedelta(
+            days=2
+        )
+        self.service.suspicious_sessions[new_session] = datetime.now(UTC) - timedelta(
+            minutes=30
+        )
 
         # Clean up
         cleaned = self.service.cleanup_suspicious_sessions()
@@ -361,12 +353,12 @@ class TestBackwardCompatibilityFunctions:
         """Set up test fixtures"""
         self.session = ContextSwitcherSession(
             session_id="test_session",
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             topic="Test topic",
         )
         self.binding = ClientBinding(
             session_entropy="test_entropy",
-            creation_timestamp=datetime.now(timezone.utc),
+            creation_timestamp=datetime.now(UTC),
             binding_signature="test_signature",
             access_pattern_hash="test_hash",
         )

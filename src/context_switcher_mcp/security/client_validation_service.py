@@ -5,7 +5,7 @@ This module provides comprehensive client validation including suspicious
 access pattern detection, behavioral analysis, and security rule enforcement.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from ..logging_base import get_logger
@@ -48,7 +48,7 @@ class AccessPattern:
         self.reason = reason
         self.metrics = metrics
         self.severity = severity
-        self.timestamp = datetime.now(timezone.utc)
+        self.timestamp = datetime.now(UTC)
 
 
 class ClientValidationService:
@@ -99,7 +99,7 @@ class ClientValidationService:
             - Client binding security flags
             - Session behavior over time
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         metrics = {}
 
         # Check access rate (requests per hour)
@@ -329,7 +329,7 @@ class ClientValidationService:
         lockout_time = self.suspicious_sessions[session_id]
         lockout_duration = self.validation_rules["lockout_duration"]
 
-        if datetime.now(timezone.utc) - lockout_time < lockout_duration:
+        if datetime.now(UTC) - lockout_time < lockout_duration:
             return True
 
         # Lockout period expired, remove from tracking
@@ -345,7 +345,7 @@ class ClientValidationService:
             session_id: Session ID to mark
             reason: Reason for marking as suspicious
         """
-        self.suspicious_sessions[session_id] = datetime.now(timezone.utc)
+        self.suspicious_sessions[session_id] = datetime.now(UTC)
         logger.warning(f"Marked session {session_id} as suspicious: {reason}")
 
     def cleanup_suspicious_sessions(self) -> int:
@@ -354,7 +354,7 @@ class ClientValidationService:
         Returns:
             int: Number of sessions cleaned up
         """
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+        cutoff = datetime.now(UTC) - timedelta(hours=24)
         original_count = len(self.suspicious_sessions)
 
         self.suspicious_sessions = {
@@ -381,7 +381,7 @@ class ClientValidationService:
             "active_lockouts": sum(
                 1
                 for timestamp in self.suspicious_sessions.values()
-                if datetime.now(timezone.utc) - timestamp
+                if datetime.now(UTC) - timestamp
                 < self.validation_rules["lockout_duration"]
             ),
             "configuration": {
@@ -418,7 +418,7 @@ class ClientValidationService:
         Returns:
             List[Dict]: List of suspicious session information
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         return [
             {
                 "session_id": session_id,

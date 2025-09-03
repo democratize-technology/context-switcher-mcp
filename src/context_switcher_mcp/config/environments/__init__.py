@@ -16,10 +16,9 @@ variables or explicit configuration.
 import logging
 import os
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
-from ..core import ConfigurationError, ContextSwitcherConfig, create_config
-from .base import BaseEnvironmentConfig
+from ..core import ConfigurationError, ContextSwitcherConfig
 from .development import DevelopmentConfig
 from .production import ProductionConfig
 from .staging import StagingConfig

@@ -1,6 +1,6 @@
 """Comprehensive tests for types.py - 100% coverage of enums and dataclasses"""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from context_switcher_mcp.metrics_manager import ThreadMetrics  # noqa: E402
@@ -261,7 +261,7 @@ class TestSessionDataDataclass:
 
     def test_session_data_creation(self):
         """Test creating SessionData"""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         session_data = SessionData(
             session_id="session-123",
@@ -279,7 +279,7 @@ class TestSessionDataDataclass:
 
     def test_session_data_defaults(self):
         """Test SessionData default values"""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         session_data = SessionData(session_id="minimal-session", created_at=now)
 
@@ -291,7 +291,7 @@ class TestSessionDataDataclass:
 
     def test_session_data_to_dict(self):
         """Test SessionData serialization"""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         session_data = SessionData(
             session_id="dict-session", created_at=now, topic="Dictionary Test"
@@ -504,7 +504,7 @@ class TestDataclassValidation:
     def test_field_type_validation(self):
         """Test that dataclass fields enforce type constraints"""
         # Test ThreadMetrics with wrong types
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         try:
             # This might raise an error if type checking is enforced
@@ -538,7 +538,7 @@ class TestDataclassValidation:
 
     def test_default_field_values(self):
         """Test default values for optional fields"""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Create with minimal required fields
         try:

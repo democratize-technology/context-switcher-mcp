@@ -23,6 +23,8 @@ from typing import Any
 try:
     from .config import (
         get_config as _new_get_config,
+    )
+    from .config import (
         reload_config as _new_reload_config,
     )
     from .config.core import ConfigurationError

@@ -5,7 +5,7 @@ Test suite for ClientBindingCore security module.
 import os
 import secrets
 import sys  # noqa: E402
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -132,7 +132,7 @@ class TestClientBindingManager:
         """Test validation of legacy session without binding"""
         session = ContextSwitcherSession(
             session_id="legacy_session",
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             topic="Legacy topic",
         )
         # No client_binding set
@@ -184,7 +184,7 @@ class TestClientBindingManager:
 
         # Make session appear suspicious by setting high access count
         session.access_count = 300
-        session.created_at = datetime.now(timezone.utc) - timedelta(hours=1)
+        session.created_at = datetime.now(UTC) - timedelta(hours=1)
 
         is_valid, error = await self.manager.validate_session_binding(
             session, "test_tool"
@@ -214,7 +214,7 @@ class TestClientBindingManager:
         # Create binding with current key
         binding = ClientBinding(
             session_entropy="test_entropy",
-            creation_timestamp=datetime.now(timezone.utc),
+            creation_timestamp=datetime.now(UTC),
             binding_signature="",
             access_pattern_hash="test_hash",
         )
@@ -276,7 +276,7 @@ class TestClientBindingManager:
     def test_cleanup_security_state(self):
         """Test security state cleanup"""
         # Add old suspicious session
-        past_time = datetime.now(timezone.utc) - timedelta(days=2)
+        past_time = datetime.now(UTC) - timedelta(days=2)
         self.manager.validation_service.suspicious_sessions["old_session"] = past_time
 
         cleanup_stats = self.manager.cleanup_security_state()
@@ -289,7 +289,7 @@ class TestClientBindingManager:
         """Helper to create test session with valid binding"""
         session = ContextSwitcherSession(
             session_id="test_session_with_binding",
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             topic="Test topic",
         )
 
@@ -395,7 +395,7 @@ class TestErrorHandling:
         # Create session with None binding
         session = ContextSwitcherSession(
             session_id="error_test_session",
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             topic="Error test",
         )
         session.client_binding = None

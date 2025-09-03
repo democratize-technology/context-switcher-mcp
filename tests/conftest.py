@@ -3,7 +3,7 @@
 import asyncio
 import sys  # noqa: E402
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock
 
@@ -42,7 +42,7 @@ def mock_session_manager():
     manager.create_session.return_value = Mock(
         session_id=str(uuid.uuid4()),
         status="active",
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
     return manager
 

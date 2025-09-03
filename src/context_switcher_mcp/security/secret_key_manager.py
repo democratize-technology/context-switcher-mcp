@@ -12,7 +12,7 @@ import platform
 import secrets
 import stat
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from ..logging_base import get_logger
@@ -74,7 +74,7 @@ def load_or_generate_secret_key() -> str:
         data = {
             "current_key": new_key,
             "previous_keys": [],  # For key rotation support
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "rotation_count": 0,
         }
 
@@ -211,7 +211,7 @@ class SecretKeyManager:
             data = {
                 "current_key": new_key,
                 "previous_keys": self.previous_keys,
-                "rotated_at": datetime.now(timezone.utc).isoformat(),
+                "rotated_at": datetime.now(UTC).isoformat(),
                 "rotation_count": len(self.previous_keys),
                 "previous_key_hash": old_key_hash,  # For audit purposes
             }

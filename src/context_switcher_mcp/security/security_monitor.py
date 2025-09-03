@@ -2,7 +2,7 @@
 
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from threading import Lock
 
 from ..logging_base import get_logger
@@ -22,7 +22,7 @@ class SecurityMetrics:
 
     # Time-series data (last 24 hours)
     hourly_failures: list[int] = field(default_factory=lambda: [0] * 24)
-    last_updated: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    last_updated: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def add_validation_failure(self):
         """Record a validation failure"""
@@ -49,7 +49,7 @@ class SecurityMetrics:
 
     def _update_hourly_metric(self, metric_type: str):
         """Update hourly metrics"""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Shift array if day has changed
         if (now - self.last_updated).days > 0:
@@ -93,7 +93,7 @@ class ThreatIndicator:
     def update_occurrence(self, metadata: dict[str, any] | None = None):
         """Update occurrence count and last seen time"""
         self.occurrence_count += 1
-        self.last_seen = datetime.now(timezone.utc)
+        self.last_seen = datetime.now(UTC)
         if metadata:
             self.metadata.update(metadata)
 
@@ -144,7 +144,7 @@ class SecurityMonitor:
     ):
         """Record a security event for monitoring"""
         with self.lock:
-            timestamp = datetime.now(timezone.utc)
+            timestamp = datetime.now(UTC)
 
             # Create event record
             event = {
@@ -286,10 +286,7 @@ class SecurityMonitor:
                     indicator
                     for indicator in self.threat_indicators.values()
                     if indicator.threat_level in ["high", "critical"]
-                    and (
-                        datetime.now(timezone.utc) - indicator.last_seen
-                    ).total_seconds()
-                    < 3600
+                    and (datetime.now(UTC) - indicator.last_seen).total_seconds() < 3600
                 ]
             )
 
@@ -316,7 +313,7 @@ class SecurityMonitor:
     def cleanup_old_indicators(self, max_age_hours: int = 24):
         """Clean up old threat indicators"""
         with self.lock:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             cutoff_time = now.timestamp() - (max_age_hours * 3600)
 
             old_keys = [
@@ -343,7 +340,7 @@ class SecurityMonitor:
                 recent_events_by_type[event["event_type"]] += 1
 
             return {
-                "report_timestamp": datetime.now(timezone.utc).isoformat(),
+                "report_timestamp": datetime.now(UTC).isoformat(),
                 "health_score": health_score,
                 "health_status": health_status,
                 "threat_summary": threat_summary,

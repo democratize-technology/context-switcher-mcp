@@ -7,7 +7,7 @@ and monitoring capabilities for the client binding security system.
 
 import logging
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from ..logging_base import get_logger
@@ -82,7 +82,7 @@ class SecurityEventTracker:
         event_record = {
             "event_type": event_type,
             "session_id": session_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "details": details.copy(),  # Defensive copy
         }
 
@@ -97,8 +97,7 @@ class SecurityEventTracker:
                 if session.client_binding.last_validated
                 else None,
                 "creation_age_seconds": (
-                    datetime.now(timezone.utc)
-                    - session.client_binding.creation_timestamp
+                    datetime.now(UTC) - session.client_binding.creation_timestamp
                 ).total_seconds(),
             }
         else:
@@ -109,7 +108,7 @@ class SecurityEventTracker:
             event_record["session_context"] = {
                 "access_count": session.access_count,
                 "session_age_seconds": (
-                    datetime.now(timezone.utc) - session.created_at
+                    datetime.now(UTC) - session.created_at
                 ).total_seconds(),
                 "security_events_count": len(session.security_events),
                 "analyses_count": len(session.analyses)
@@ -260,7 +259,7 @@ class SecurityEventTracker:
         details = {
             "reason": reason,
             "key_info": key_info,
-            "rotation_timestamp": datetime.now(timezone.utc).isoformat(),
+            "rotation_timestamp": datetime.now(UTC).isoformat(),
         }
 
         self.log_security_event(

@@ -9,7 +9,7 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -41,7 +41,7 @@ class LLMCallMetrics:
     thread_name: str
     backend: str
     model_name: str
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     # Timing metrics (seconds)
     start_time: float = field(default_factory=time.time)

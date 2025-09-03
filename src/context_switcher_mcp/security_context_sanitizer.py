@@ -6,7 +6,7 @@ before logging to prevent information disclosure vulnerabilities.
 
 import hashlib
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from .logging_base import get_logger
@@ -136,7 +136,7 @@ class SecurityContextSanitizer:
         """
         sanitized = {
             "exception_type": type(exception).__name__,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
         # Check for various context attributes
@@ -187,7 +187,7 @@ class SecurityContextSanitizer:
         """Specialized sanitization for security context"""
         sanitized = {
             "context_type": "security",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
         # Always hash potentially sensitive security data
@@ -216,7 +216,7 @@ class SecurityContextSanitizer:
         """Specialized sanitization for network context"""
         sanitized = {
             "context_type": "network",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
         for key, value in context.items():
@@ -242,7 +242,7 @@ class SecurityContextSanitizer:
         """Specialized sanitization for performance context"""
         sanitized = {
             "context_type": "performance",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
         # Performance context is generally safe but may contain session IDs
@@ -273,7 +273,7 @@ class SecurityContextSanitizer:
         """Specialized sanitization for validation context"""
         sanitized = {
             "context_type": "validation",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
         for key, value in context.items():
@@ -299,7 +299,7 @@ class SecurityContextSanitizer:
         """Specialized sanitization for concurrency context"""
         sanitized = {
             "context_type": "concurrency",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
         # Concurrency context is generally safe
@@ -399,7 +399,7 @@ class SecurityContextSanitizer:
             "sensitive_keys_found": sum(
                 1 for key in sanitized_context.keys() if key.endswith("_hash")
             ),
-            "sanitization_timestamp": datetime.now(timezone.utc).isoformat(),
+            "sanitization_timestamp": datetime.now(UTC).isoformat(),
         }
 
 

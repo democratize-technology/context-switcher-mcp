@@ -9,7 +9,7 @@ import statistics
 import time
 from collections import Counter, defaultdict
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from .llm_profiler import LLMCallMetrics, get_global_profiler
@@ -139,7 +139,7 @@ class PerformanceDashboard:
 
         dashboard = {
             "dashboard_metadata": {
-                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "generated_at": datetime.now(UTC).isoformat(),
                 "timeframe_hours": hours_back,
                 "total_metrics_analyzed": len(metrics),
                 "profiler_status": self.profiler.get_configuration_status(),
@@ -181,7 +181,7 @@ class PerformanceDashboard:
             )
 
             # Filter by timeframe
-            cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours_back)
+            cutoff_time = datetime.now(UTC) - timedelta(hours=hours_back)
 
             filtered_metrics = [m for m in all_metrics if m.timestamp >= cutoff_time]
 
@@ -756,7 +756,7 @@ class PerformanceDashboard:
 
         detailed_report = {
             "report_metadata": {
-                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "generated_at": datetime.now(UTC).isoformat(),
                 "report_type": "comprehensive_performance_analysis",
                 "timeframe_hours": hours_back,
                 "format": format,

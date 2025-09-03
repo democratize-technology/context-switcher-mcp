@@ -5,7 +5,7 @@ Test suite for SecurityEventTracker security module.
 import logging
 import os
 import sys  # noqa: E402
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))  # noqa: E402
 
@@ -32,14 +32,14 @@ class TestSecurityEventTracker:
         # Create a test session with binding
         self.test_session = ContextSwitcherSession(
             session_id="test_session_123",
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             topic="Test topic",
         )
 
         # Create a client binding
         self.test_binding = ClientBinding(
             session_entropy="test_entropy",
-            creation_timestamp=datetime.now(timezone.utc),
+            creation_timestamp=datetime.now(UTC),
             binding_signature="test_signature",
             access_pattern_hash="test_hash",
         )
@@ -245,7 +245,7 @@ class TestBackwardCompatibilityFunctions:
         """Set up test fixtures"""
         self.test_session = ContextSwitcherSession(
             session_id="test_session",
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             topic="Test topic",
         )
 
@@ -301,7 +301,7 @@ class TestSessionWithoutBinding:
         # Create session without binding
         self.legacy_session = ContextSwitcherSession(
             session_id="legacy_session",
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             topic="Legacy topic",
         )
         # Explicitly no client_binding

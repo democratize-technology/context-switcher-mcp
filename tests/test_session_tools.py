@@ -1,6 +1,6 @@
 """Comprehensive tests for session_tools module"""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, Mock, patch
 from uuid import uuid4
 
@@ -40,7 +40,7 @@ class TestListSessionsFunction:
         """Create mock active sessions data"""
         session_id_1 = str(uuid4())
         session_id_2 = str(uuid4())
-        base_time = datetime.now(timezone.utc)
+        base_time = datetime.now(UTC)
 
         session_1 = Mock()
         session_1.created_at = base_time
@@ -254,7 +254,7 @@ class TestCurrentSessionFunction:
     async def test_current_session_success(self):
         """Test successful current session retrieval"""
         session_id = str(uuid4())
-        base_time = datetime.now(timezone.utc)
+        base_time = datetime.now(UTC)
 
         mock_session = Mock()
         mock_session.created_at = base_time
@@ -341,7 +341,7 @@ class TestCurrentSessionFunction:
     @pytest.mark.asyncio
     async def test_current_session_multiple_sessions(self):
         """Test current session selects the most recent one"""
-        base_time = datetime.now(timezone.utc)
+        base_time = datetime.now(UTC)
 
         session_id_1 = str(uuid4())
         session_1 = Mock()
@@ -421,7 +421,7 @@ class TestSessionToolsIntegration:
         """Test a typical session management workflow"""
         session_id = str(uuid4())
         mock_session = Mock()
-        mock_session.created_at = datetime.now(timezone.utc)
+        mock_session.created_at = datetime.now(UTC)
         mock_session.threads = {"technical": Mock()}
         mock_session.analyses = [{"prompt": "test analysis"}]
         mock_session.topic = "Workflow Test"

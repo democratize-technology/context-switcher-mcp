@@ -1,7 +1,7 @@
 """Comprehensive tests for analysis_tools module"""
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -74,7 +74,7 @@ class MockSession:
     """Mock session object for testing"""
 
     def __init__(self, session_id="test-session"):
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         self.session_id = session_id
         self.topic = "Test Topic"
@@ -82,9 +82,7 @@ class MockSession:
         self.analyses = []
         self.client_binding = None  # Required for security system
         self.access_count = 0  # Required for security event tracking
-        self.created_at = datetime.now(
-            timezone.utc
-        )  # Required for session age calculation
+        self.created_at = datetime.now(UTC)  # Required for session age calculation
         self.security_events = []  # Required for security events count
 
         # Mock thread names for consistency
@@ -93,11 +91,11 @@ class MockSession:
 
     def record_security_event(self, event_type: str, details: dict) -> None:
         """Mock implementation of security event recording"""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         event = {
             "type": event_type,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "details": details,
         }
         self.security_events.append(event)
@@ -493,7 +491,7 @@ class TestSynthesizePerspectives:
                     "business": "Business analysis",
                     "user": "User analysis",
                 },
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "active_count": 3,
                 "abstained_count": 0,
                 "error_count": 0,

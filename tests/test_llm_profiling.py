@@ -2,7 +2,7 @@
 
 import asyncio
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -479,7 +479,7 @@ class TestPerformanceDashboard:
                 backend="bedrock" if i % 2 == 0 else "litellm",
                 model_name="claude-3-haiku",
                 estimated_cost_usd=0.01 * (i + 1),
-                timestamp=datetime.now(timezone.utc) - timedelta(hours=i),
+                timestamp=datetime.now(UTC) - timedelta(hours=i),
             )
             test_metrics.append(metrics)
 
@@ -510,7 +510,7 @@ class TestPerformanceDashboard:
                 model_name="claude-3-haiku",
                 start_time=start_time,
                 success=True,
-                timestamp=datetime.now(timezone.utc) - timedelta(minutes=i),
+                timestamp=datetime.now(UTC) - timedelta(minutes=i),
             )
             metrics.end_time = start_time + latency
             test_metrics.append(metrics)
@@ -541,7 +541,7 @@ class TestPerformanceDashboard:
                 backend="bedrock",
                 model_name="claude-3-opus",
                 estimated_cost_usd=0.5,  # Expensive
-                timestamp=datetime.now(timezone.utc) - timedelta(hours=i),
+                timestamp=datetime.now(UTC) - timedelta(hours=i),
             )
             test_metrics.append(metrics)
 
@@ -555,7 +555,7 @@ class TestPerformanceDashboard:
                 backend="bedrock",
                 model_name="claude-3-haiku",
                 start_time=start_time,
-                timestamp=datetime.now(timezone.utc) - timedelta(hours=i),
+                timestamp=datetime.now(UTC) - timedelta(hours=i),
             )
             metrics.end_time = start_time + 15.0  # Slow call
             test_metrics.append(metrics)

@@ -1,6 +1,6 @@
 """Tests for Context-Switcher MCP"""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import patch
 
 import pytest
@@ -34,7 +34,7 @@ def mock_thread():
 def mock_session():
     """Create a mock session for testing"""
     session = ContextSwitcherSession(
-        session_id="test-session-1", created_at=datetime.now(timezone.utc)
+        session_id="test-session-1", created_at=datetime.now(UTC)
     )
     return session
 
@@ -118,9 +118,9 @@ class TestPerspectiveOrchestrator:
 
             # Test proper HALF_OPEN -> CLOSED transition
             # First, wait for timeout to transition to HALF_OPEN (simulate time passage)
-            from datetime import datetime, timedelta, timezone
+            from datetime import datetime, timedelta
 
-            cb.last_failure_time = datetime.now(timezone.utc) - timedelta(
+            cb.last_failure_time = datetime.now(UTC) - timedelta(
                 minutes=6
             )  # 6 minutes ago
             assert cb.should_allow_request() is True  # This transitions to HALF_OPEN
@@ -142,7 +142,7 @@ class TestMCPTools:
 
         # Test basic session creation
         session = ContextSwitcherSession(
-            session_id="test-session", created_at=datetime.now(timezone.utc)
+            session_id="test-session", created_at=datetime.now(UTC)
         )
         session.topic = "Test topic"
 
@@ -220,19 +220,19 @@ class TestSessionManager:
         sm = SessionManager(max_sessions=2)
 
         session1 = ContextSwitcherSession(
-            session_id="test-1", created_at=datetime.now(timezone.utc)
+            session_id="test-1", created_at=datetime.now(UTC)
         )
         assert await sm.add_session(session1) is True
         assert len(sm.sessions) == 1
         session2 = ContextSwitcherSession(
-            session_id="test-2", created_at=datetime.now(timezone.utc)
+            session_id="test-2", created_at=datetime.now(UTC)
         )
         assert await sm.add_session(session2) is True
         assert len(sm.sessions) == 2
 
         # Try to add third session (should fail)
         session3 = ContextSwitcherSession(
-            session_id="test-3", created_at=datetime.now(timezone.utc)
+            session_id="test-3", created_at=datetime.now(UTC)
         )
         assert await sm.add_session(session3) is False
         assert len(sm.sessions) == 2
@@ -242,7 +242,7 @@ class TestSessionManager:
         """Test retrieving sessions"""
         sm = SessionManager()
         session = ContextSwitcherSession(
-            session_id="test-1", created_at=datetime.now(timezone.utc)
+            session_id="test-1", created_at=datetime.now(UTC)
         )
         await sm.add_session(session)
 
@@ -439,7 +439,7 @@ class TestSessionEnhancements:
     @pytest.mark.asyncio
     async def test_session_cleanup_integration(self):
         """Test that session cleanup properly integrates with rate limiter"""
-        from datetime import datetime, timedelta, timezone
+        from datetime import datetime, timedelta
 
         from context_switcher_mcp.models import ContextSwitcherSession
         from context_switcher_mcp.session_manager import SessionManager
@@ -448,7 +448,7 @@ class TestSessionEnhancements:
         sm = SessionManager(session_ttl_hours=1)
 
         # Create an expired session (created 2 hours ago)
-        expired_time = datetime.now(timezone.utc) - timedelta(hours=2)
+        expired_time = datetime.now(UTC) - timedelta(hours=2)
         session = ContextSwitcherSession(
             session_id="expired-session", created_at=expired_time
         )

@@ -4,7 +4,7 @@ Context-Switcher MCP Server
 Multi-perspective analysis using thread orchestration
 """
 
-from typing import Any, Optional
+from typing import Any
 
 # Basic imports that don't require MCP/Pydantic
 from .logging_base import get_logger, setup_logging

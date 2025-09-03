@@ -35,7 +35,6 @@ Migration from legacy config:
 import logging
 import warnings
 from pathlib import Path
-from typing import Optional, Union
 
 from .core import ConfigurationError, ContextSwitcherConfig
 from .environments import get_environment_config

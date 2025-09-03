@@ -1,6 +1,6 @@
 """Tests for ThreadManager component"""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -213,7 +213,7 @@ class TestThreadManager:
         # After threshold, should open and block requests
         breaker.failure_count = 2
         breaker.state = "OPEN"
-        breaker.last_failure_time = datetime.now(timezone.utc)
+        breaker.last_failure_time = datetime.now(UTC)
         assert breaker.should_allow_request() is False
 
     @pytest.mark.asyncio
@@ -278,7 +278,7 @@ class TestThreadManager:
         for breaker in thread_manager.circuit_breaker_manager.circuit_breakers.values():
             breaker.failure_count = 5
             breaker.state = "OPEN"
-            breaker.last_failure_time = datetime.now(timezone.utc)
+            breaker.last_failure_time = datetime.now(UTC)
 
         reset_status = thread_manager.reset_circuit_breakers()
 

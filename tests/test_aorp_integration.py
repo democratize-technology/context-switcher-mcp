@@ -1,6 +1,6 @@
 """AORP integration tests with MCP tools - validating end-to-end AORP functionality"""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -168,7 +168,7 @@ class TestMockMCPToolIntegration:
     def mock_session(self):
         """Create a mock session for testing"""
         session = ContextSwitcherSession(
-            session_id="test-session-123", created_at=datetime.now(timezone.utc)
+            session_id="test-session-123", created_at=datetime.now(UTC)
         )
         session.topic = "Test API design"
 

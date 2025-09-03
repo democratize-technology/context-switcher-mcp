@@ -1,6 +1,6 @@
 """Comprehensive tests for session security management"""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 import pytest
@@ -19,7 +19,7 @@ class TestClientBinding:
         """Create a sample ClientBinding for testing"""
         return ClientBinding(
             session_entropy="test-entropy-123",
-            creation_timestamp=datetime(2023, 6, 15, 10, 0, 0, tzinfo=timezone.utc),
+            creation_timestamp=datetime(2023, 6, 15, 10, 0, 0, tzinfo=UTC),
             binding_signature="test-signature-hash",
             access_pattern_hash="pattern-hash-123",
         )
@@ -28,7 +28,7 @@ class TestClientBinding:
         """Test ClientBinding creation with all fields"""
         assert sample_client_binding.session_entropy == "test-entropy-123"
         assert sample_client_binding.creation_timestamp == datetime(
-            2023, 6, 15, 10, 0, 0, tzinfo=timezone.utc
+            2023, 6, 15, 10, 0, 0, tzinfo=UTC
         )
         assert sample_client_binding.binding_signature == "test-signature-hash"
         assert sample_client_binding.access_pattern_hash == "pattern-hash-123"
@@ -157,7 +157,7 @@ class TestSecurityEvent:
         """Create a sample SecurityEvent for testing"""
         return SecurityEvent(
             event_type="binding_validation_failed",
-            timestamp=datetime(2023, 6, 15, 12, 30, 45, tzinfo=timezone.utc),
+            timestamp=datetime(2023, 6, 15, 12, 30, 45, tzinfo=UTC),
             details={"validation_failures": 2, "client_id": "test-client"},
         )
 
@@ -165,7 +165,7 @@ class TestSecurityEvent:
         """Test SecurityEvent creation"""
         assert sample_security_event.event_type == "binding_validation_failed"
         assert sample_security_event.timestamp == datetime(
-            2023, 6, 15, 12, 30, 45, tzinfo=timezone.utc
+            2023, 6, 15, 12, 30, 45, tzinfo=UTC
         )
         assert sample_security_event.details == {
             "validation_failures": 2,
@@ -198,7 +198,7 @@ class TestSessionSecurity:
         """Create a SessionSecurity instance with client binding"""
         binding = ClientBinding(
             session_entropy="test-entropy",
-            creation_timestamp=datetime.now(timezone.utc),
+            creation_timestamp=datetime.now(UTC),
             binding_signature="test-signature",
             access_pattern_hash="test-pattern",
         )
@@ -227,7 +227,7 @@ class TestSessionSecurity:
         """Test client binding creation"""
         # Mock dependencies
         mock_token.return_value = "mock-entropy-token"
-        mock_time = datetime(2023, 6, 15, 14, 30, 0, tzinfo=timezone.utc)
+        mock_time = datetime(2023, 6, 15, 14, 30, 0, tzinfo=UTC)
         mock_datetime.now.return_value = mock_time
         mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)
 
@@ -379,7 +379,7 @@ class TestSessionSecurity:
         """Test that old events don't contribute to suspicious detection"""
         with patch("context_switcher_mcp.session_security.datetime") as mock_datetime:
             # Create old events
-            old_time = datetime.now(timezone.utc) - timedelta(hours=2)
+            old_time = datetime.now(UTC) - timedelta(hours=2)
             mock_datetime.now.return_value = old_time
             mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)
 
@@ -387,7 +387,7 @@ class TestSessionSecurity:
                 session_security.record_security_event(f"old_event_{i}", {"data": i})
 
             # Reset to current time
-            current_time = datetime.now(timezone.utc)
+            current_time = datetime.now(UTC)
             mock_datetime.now.return_value = current_time
 
             # Should not be suspicious because events are old
@@ -449,7 +449,7 @@ class TestSessionSecurity:
 
         # Should be deterministic for same session and time
         with patch("context_switcher_mcp.session_security.datetime") as mock_datetime:
-            mock_time = datetime(2023, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
+            mock_time = datetime(2023, 6, 15, 12, 0, 0, tzinfo=UTC)
             mock_datetime.now.return_value = mock_time
             mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)
 
@@ -460,7 +460,7 @@ class TestSessionSecurity:
 
     def test_cleanup_old_events(self, session_security):
         """Test cleanup of old security events"""
-        current_time = datetime.now(timezone.utc)
+        current_time = datetime.now(UTC)
 
         with patch("context_switcher_mcp.session_security.datetime") as mock_datetime:
             # Create some old events
@@ -498,7 +498,7 @@ class TestSessionSecurity:
 
     def test_cleanup_old_events_custom_age(self, session_security):
         """Test cleanup with custom max age"""
-        current_time = datetime.now(timezone.utc)
+        current_time = datetime.now(UTC)
 
         with patch("context_switcher_mcp.session_security.datetime") as mock_datetime:
             # Create events at different times
@@ -586,7 +586,7 @@ class TestSessionSecurityErrorHandling:
         """Test signature generation with special characters in session data"""
         binding = ClientBinding(
             session_entropy="entropy-with-special-chars!@#$%^&*()",
-            creation_timestamp=datetime.now(timezone.utc),
+            creation_timestamp=datetime.now(UTC),
             binding_signature="",
             access_pattern_hash="pattern-hash",
         )

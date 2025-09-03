@@ -1,7 +1,7 @@
 """Tests for session manager race condition fixes"""
 
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 import pytest
@@ -20,7 +20,7 @@ def test_session():
     """Create a test session"""
     session = ContextSwitcherSession(
         session_id="test-session-123",
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
         topic="Test Session",
     )
     return session
@@ -31,7 +31,7 @@ def expired_session():
     """Create an expired test session"""
     session = ContextSwitcherSession(
         session_id="expired-session-123",
-        created_at=datetime.now(timezone.utc) - timedelta(hours=2),  # Expired
+        created_at=datetime.now(UTC) - timedelta(hours=2),  # Expired
         topic="Expired Session",
     )
     return session
@@ -175,12 +175,12 @@ class TestRaceConditionFixes:
         # Add a mix of regular and expired sessions
         regular_session = ContextSwitcherSession(
             session_id="regular-session",
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             topic="Regular Session",
         )
         expired_session = ContextSwitcherSession(
             session_id="expired-session",
-            created_at=datetime.now(timezone.utc) - timedelta(hours=2),
+            created_at=datetime.now(UTC) - timedelta(hours=2),
             topic="Expired Session",
         )
 
@@ -241,9 +241,9 @@ class TestRaceConditionFixes:
         for i in range(10):
             session = ContextSwitcherSession(
                 session_id=f"session-{i}",
-                created_at=datetime.now(timezone.utc)
+                created_at=datetime.now(UTC)
                 if i % 2 == 0
-                else datetime.now(timezone.utc) - timedelta(hours=2),
+                else datetime.now(UTC) - timedelta(hours=2),
                 topic=f"Session {i}",
             )
             sessions.append(session)

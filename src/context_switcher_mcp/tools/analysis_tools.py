@@ -1,6 +1,6 @@
 """Analysis tools for Context-Switcher MCP Server"""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
@@ -133,7 +133,7 @@ def register_analysis_tools(mcp: FastMCP) -> None:
                 {
                     "prompt": request.prompt,
                     "results": results,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                     "active_count": active_count,
                     "abstained_count": abstained_count,
                     "error_count": error_count,

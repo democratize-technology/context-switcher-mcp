@@ -1,6 +1,6 @@
 """Comprehensive tests for session data models"""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import patch
 
 import pytest
@@ -19,7 +19,7 @@ class TestAnalysisRecord:
         """Create a sample AnalysisRecord for testing"""
         return AnalysisRecord(
             prompt="Test analysis prompt",
-            timestamp=datetime(2023, 6, 15, 12, 30, 45, tzinfo=timezone.utc),
+            timestamp=datetime(2023, 6, 15, 12, 30, 45, tzinfo=UTC),
             responses={
                 "technical": "Technical response",
                 "business": "Business response",
@@ -32,7 +32,7 @@ class TestAnalysisRecord:
         """Test AnalysisRecord creation and attributes"""
         assert sample_analysis_record.prompt == "Test analysis prompt"
         assert sample_analysis_record.timestamp == datetime(
-            2023, 6, 15, 12, 30, 45, tzinfo=timezone.utc
+            2023, 6, 15, 12, 30, 45, tzinfo=UTC
         )
         assert sample_analysis_record.responses == {
             "technical": "Technical response",
@@ -71,9 +71,7 @@ class TestAnalysisRecord:
         record = AnalysisRecord.from_dict(data)
 
         assert record.prompt == "Test prompt from dict"
-        assert record.timestamp == datetime(
-            2023, 6, 15, 12, 30, 45, tzinfo=timezone.utc
-        )
+        assert record.timestamp == datetime(2023, 6, 15, 12, 30, 45, tzinfo=UTC)
         assert record.responses == {
             "perspective1": "Response 1",
             "perspective2": "Response 2",
@@ -123,7 +121,7 @@ class TestSessionData:
         """Create a sample SessionData for testing"""
         session_data = SessionData(
             session_id="session-789",
-            created_at=datetime(2023, 6, 15, 10, 0, 0, tzinfo=timezone.utc),
+            created_at=datetime(2023, 6, 15, 10, 0, 0, tzinfo=UTC),
             topic="Test Topic",
         )
         session_data.add_thread(sample_thread)
@@ -133,7 +131,7 @@ class TestSessionData:
         """Test SessionData creation with default values"""
         session_data = SessionData(
             session_id="test-session",
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
 
         assert session_data.session_id == "test-session"
@@ -146,7 +144,7 @@ class TestSessionData:
         """Test SessionData creation with topic"""
         session_data = SessionData(
             session_id="test-session",
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             topic="AI Ethics Discussion",
         )
 
@@ -181,7 +179,7 @@ class TestSessionData:
         initial_count = len(sample_session_data.analyses)
 
         with patch("context_switcher_mcp.session_data.datetime") as mock_datetime:
-            mock_time = datetime(2023, 6, 15, 14, 30, 0, tzinfo=timezone.utc)
+            mock_time = datetime(2023, 6, 15, 14, 30, 0, tzinfo=UTC)
             mock_datetime.now.return_value = mock_time
             mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)
 
@@ -351,9 +349,7 @@ class TestSessionData:
 
         assert session_data.session_id == "reconstructed-session"
         assert session_data.topic == "Reconstructed Topic"
-        assert session_data.created_at == datetime(
-            2023, 6, 15, 10, 0, 0, tzinfo=timezone.utc
-        )
+        assert session_data.created_at == datetime(2023, 6, 15, 10, 0, 0, tzinfo=UTC)
 
         # Check thread reconstruction
         assert session_data.get_thread_count() == 1
@@ -436,7 +432,7 @@ class TestSessionDataEdgeCases:
         session = SessionData(
             session_id="test-session-123",
             topic="Test topic",
-            created_at=datetime(2023, 6, 15, 10, 0, 0, tzinfo=timezone.utc),
+            created_at=datetime(2023, 6, 15, 10, 0, 0, tzinfo=UTC),
         )
         session.add_thread(sample_thread)
         return session
@@ -510,7 +506,7 @@ class TestSessionDataPerformance:
         """Test handling of large number of analyses"""
         session_data = SessionData(
             session_id="perf-test",
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
 
         # Add many analyses

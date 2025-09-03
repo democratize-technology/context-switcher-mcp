@@ -1,7 +1,7 @@
 """Tests for the new session lock implementation using SessionLockManager"""
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from context_switcher_mcp.models import ContextSwitcherSession  # noqa: E402
@@ -16,7 +16,7 @@ class TestSessionLockWithManager:
     def test_session_no_longer_has_internal_locks(self):
         """Test that sessions no longer maintain internal lock state"""
         session = ContextSwitcherSession(
-            session_id="test-123", created_at=datetime.now(timezone.utc)
+            session_id="test-123", created_at=datetime.now(UTC)
         )
 
         # Sessions should not have these attributes anymore
@@ -28,7 +28,7 @@ class TestSessionLockWithManager:
     async def test_record_access_uses_centralized_lock(self):
         """Test that record_access uses the centralized lock manager"""
         session = ContextSwitcherSession(
-            session_id="test-456", created_at=datetime.now(timezone.utc)
+            session_id="test-456", created_at=datetime.now(UTC)
         )
 
         # Record access should work through the lock manager
@@ -46,7 +46,7 @@ class TestSessionLockWithManager:
     async def test_concurrent_access_thread_safe(self):
         """Test that concurrent access is properly synchronized"""
         session = ContextSwitcherSession(
-            session_id="test-789", created_at=datetime.now(timezone.utc)
+            session_id="test-789", created_at=datetime.now(UTC)
         )
 
         # Simulate concurrent access
@@ -65,10 +65,10 @@ class TestSessionLockWithManager:
     async def test_multiple_sessions_independent_locks(self):
         """Test that multiple session instances have independent locks"""
         session1 = ContextSwitcherSession(
-            session_id="session-1", created_at=datetime.now(timezone.utc)
+            session_id="session-1", created_at=datetime.now(UTC)
         )
         session2 = ContextSwitcherSession(
-            session_id="session-2", created_at=datetime.now(timezone.utc)
+            session_id="session-2", created_at=datetime.now(UTC)
         )
 
         # Both sessions should work independently
@@ -91,7 +91,7 @@ class TestSessionLockWithManager:
     async def test_session_cleanup_removes_lock(self):
         """Test that cleaning up a session removes its lock"""
         session = ContextSwitcherSession(
-            session_id="test-cleanup", created_at=datetime.now(timezone.utc)
+            session_id="test-cleanup", created_at=datetime.now(UTC)
         )
 
         # Use the session
