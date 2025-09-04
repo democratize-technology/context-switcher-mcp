@@ -15,7 +15,7 @@ dependencies = [
     "boto3>=1.28.0,<2.0.0",
     "psutil>=5.9.0,<6.0.0",
     "numpy>=1.24.0,<2.0.0",
-    "chain-of-thought-tool",
+    "chain-of-thought-tool==0.1.1",
 ]
 
 [project.optional-dependencies]
