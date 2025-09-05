@@ -1,19 +1,24 @@
 """Chain of Thought integration for structured perspective reasoning"""
 
 import asyncio
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from .logging_base import get_logger
 
 try:
-    from chain_of_thought import TOOL_SPECS
+    from chain_of_thought import TOOL_SPECS, AsyncChainOfThoughtProcessor
 
     COT_AVAILABLE = True
 except ImportError:
-    COT_AVAILABLE = False
+    # Define TOOL_SPECS and a stub for AsyncChainOfThoughtProcessor when chain-of-thought is not available
+    # This allows tests to mock them properly
+    TOOL_SPECS = []
 
-if TYPE_CHECKING:
-    from chain_of_thought import AsyncChainOfThoughtProcessor
+    # Create a stub class for typing purposes
+    class AsyncChainOfThoughtProcessor:
+        pass
+
+    COT_AVAILABLE = False
 
 from .config import get_config
 from .exceptions import OrchestrationError
@@ -175,8 +180,7 @@ class PerspectiveReasoningOrchestrator:
 
         processor_id = f"{session_id}-{thread_name}"
         if processor_id not in self._processors:
-            from chain_of_thought import AsyncChainOfThoughtProcessor
-
+            # Use the already imported AsyncChainOfThoughtProcessor
             self._processors[processor_id] = AsyncChainOfThoughtProcessor(
                 conversation_id=processor_id
             )
