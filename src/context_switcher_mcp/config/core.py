@@ -19,7 +19,7 @@ from typing import Any
 from pydantic import ConfigDict, Field, computed_field
 from pydantic_settings import BaseSettings
 
-from ..logging_config import get_logger
+from ..logging_base import get_logger
 from .domains.models import ModelConfig
 from .domains.monitoring import MonitoringConfig, ProfilingConfig
 from .domains.security import SecurityConfig

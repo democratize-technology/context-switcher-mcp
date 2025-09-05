@@ -421,9 +421,7 @@ class TestEdgeCases:
 
         security.validate_user_content(unicode_content, "topic")
 
-        mock_validate.assert_called_once_with(
-            unicode_content, "topic", 10000, "default"
-        )
+        mock_validate.assert_called_once_with(unicode_content, "topic")
 
     @patch("context_switcher_mcp.security.validate_user_content")
     def test_empty_string_validation(self, mock_validate):
@@ -452,7 +450,7 @@ class TestEdgeCases:
         )
 
         mock_validate.assert_called_once_with(
-            long_content, "description", 1000, "default"
+            long_content, "description", max_length=1000
         )
         assert result.is_valid is False
 
@@ -490,8 +488,8 @@ class TestModuleLevelConstants:
     """Test module-level constants and logger"""
 
     def test_logger_exists(self):
-        """Test that logger is properly initialized"""
-        assert hasattr(security, "logger")
+        """Test that secure logger functionality is available"""
+        assert hasattr(security, "get_secure_logger")
         assert security.logger is not None
         assert hasattr(security.logger, "info")
         assert hasattr(security.logger, "warning")

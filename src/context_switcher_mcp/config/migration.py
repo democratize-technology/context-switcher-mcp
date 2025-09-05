@@ -21,7 +21,7 @@ import warnings
 from pathlib import Path
 from typing import Any
 
-from ..logging_config import get_logger
+from ..logging_base import get_logger
 from .core import ConfigurationError, ContextSwitcherConfig
 
 logger = get_logger(__name__)

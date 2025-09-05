@@ -16,17 +16,14 @@ Usage:
 """
 
 from ..input_sanitizer import sanitize_error_message, sanitize_for_llm
-
-# Import ValidationResult and proper validation functions
 from ..input_validators import (
     InjectionAttempt,
     ValidationResult,
     _validation_orchestrator,
+    detect_advanced_prompt_injection as _detect_advanced_prompt_injection,
     sanitize_user_input,
 )
-from ..input_validators import (
-    detect_advanced_prompt_injection as _detect_advanced_prompt_injection,
-)
+from ..logging_config import get_logger
 from ..model_validators import validate_model_id
 from ..security_events import log_security_event
 from .client_binding_core import (
@@ -53,6 +50,9 @@ from .security_monitor import (
     get_security_monitor,
     record_security_event,
 )
+
+# Set up module logger for backward compatibility
+logger = get_logger(__name__)
 
 
 def validate_user_content(
@@ -180,6 +180,7 @@ __all__ = [
     "SecureLogger",
     "get_secure_logger",
     "setup_secure_logging",
+    "logger",
     # Security monitoring
     "SecurityMonitor",
     "get_security_monitor",

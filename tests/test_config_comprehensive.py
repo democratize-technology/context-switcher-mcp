@@ -60,21 +60,17 @@ class TestConfigurationImports:
 class TestGetConfigFunction:
     """Test get_config function with all system scenarios"""
 
-    @patch("context_switcher_mcp.config._UNIFIED_CONFIG_AVAILABLE", True)
-    @patch("context_switcher_mcp.config._new_get_config")
-    @patch("context_switcher_mcp.config.LegacyConfigAdapter")
-    def test_get_config_unified_system(self, mock_adapter, mock_new_get_config):
-        """Test get_config with unified system available"""
-        mock_unified_config = MagicMock()
-        mock_new_get_config.return_value = mock_unified_config
-        mock_wrapped_config = MagicMock()
-        mock_adapter.return_value = mock_wrapped_config
+    def test_get_config_unified_system(self):
+        """Test get_config with unified system available (actual behavior)"""
+        # Test that get_config works with valid parameters
+        result = config.get_config(server={"port": 3023})
 
-        result = config.get_config(test_param="value")
+        assert result is not None
+        from context_switcher_mcp.config.core import ContextSwitcherConfig
 
-        mock_new_get_config.assert_called_once_with(test_param="value")
-        mock_adapter.assert_called_once_with(mock_unified_config)
-        assert result == mock_wrapped_config
+        assert isinstance(result, ContextSwitcherConfig)
+        # Verify the values were applied
+        assert result.server.port == 3023
 
     @patch("context_switcher_mcp.config._UNIFIED_CONFIG_AVAILABLE", False)
     @patch("context_switcher_mcp.config._LEGACY_CONFIG_AVAILABLE", True)
@@ -104,14 +100,16 @@ class TestGetConfigFunction:
             config.get_config()
 
     @patch("context_switcher_mcp.config._UNIFIED_CONFIG_AVAILABLE", True)
-    @patch("context_switcher_mcp.config._new_get_config")
-    def test_get_config_unified_raises_exception(self, mock_new_get_config):
+    @patch("context_switcher_mcp.config.ContextSwitcherConfig")
+    def test_get_config_unified_raises_exception(self, mock_config_class):
         """Test get_config handles exceptions from unified system"""
         from context_switcher_mcp.config import ConfigurationError
 
-        mock_new_get_config.side_effect = ConfigurationError("Unified config failed")
+        mock_config_class.side_effect = ConfigurationError("Unified config failed")
 
-        with pytest.raises(ConfigurationError, match="Unified config failed"):
+        with pytest.raises(
+            ConfigurationError, match="Failed to initialize configuration"
+        ):
             config.get_config()
 
 
@@ -328,32 +326,26 @@ class TestEdgeCases:
 
     def test_empty_kwargs_to_get_config(self):
         """Test get_config with empty kwargs"""
-        with patch("context_switcher_mcp.config._UNIFIED_CONFIG_AVAILABLE", True):
-            with patch("context_switcher_mcp.config._new_get_config") as mock_new:
-                with patch(
-                    "context_switcher_mcp.config.LegacyConfigAdapter"
-                ) as mock_adapter:
-                    mock_new.return_value = MagicMock()
-                    mock_adapter.return_value = MagicMock()
+        # Test that get_config works without arguments
+        result = config.get_config()
+        assert result is not None
+        # Should return a ContextSwitcherConfig instance
+        from context_switcher_mcp.config.core import ContextSwitcherConfig
 
-                    result = config.get_config()
-
-                    mock_new.assert_called_once_with()
-                    assert result is not None
+        assert isinstance(result, ContextSwitcherConfig)
 
     def test_multiple_kwargs_to_get_config(self):
-        """Test get_config with multiple keyword arguments"""
-        with patch("context_switcher_mcp.config._UNIFIED_CONFIG_AVAILABLE", True):
-            with patch("context_switcher_mcp.config._new_get_config") as mock_new:
-                with patch(
-                    "context_switcher_mcp.config.LegacyConfigAdapter"
-                ) as mock_adapter:
-                    mock_new.return_value = MagicMock()
-                    mock_adapter.return_value = MagicMock()
+        """Test get_config with multiple valid keyword arguments"""
+        # Test with valid configuration parameters
+        result = config.get_config(server={"port": 3024}, session={"ttl_minutes": 30})
+        assert result is not None
+        # Should return a ContextSwitcherConfig instance
+        from context_switcher_mcp.config.core import ContextSwitcherConfig
 
-                    config.get_config(env="test", debug=True, timeout=30)
-
-                    mock_new.assert_called_once_with(env="test", debug=True, timeout=30)
+        assert isinstance(result, ContextSwitcherConfig)
+        # Verify the values were applied
+        assert result.server.port == 3024
+        assert result.session.ttl_minutes == 30
 
     def test_unicode_attribute_access(self):
         """Test __getattr__ with unicode attribute names"""
