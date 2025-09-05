@@ -103,7 +103,10 @@ class SecurityContextSanitizer:
         }
 
     def sanitize_context_dict(
-        self, context: dict[str, Any], context_type: str = "generic"
+        self,
+        context: dict[str, Any],
+        context_type: str = "generic",
+        visited: set | None = None,
     ) -> dict[str, Any]:
         """
         Sanitize a context dictionary for secure logging
@@ -115,14 +118,17 @@ class SecurityContextSanitizer:
         Returns:
             Sanitized context dictionary safe for logging
         """
+        if visited is None:
+            visited = set()
+
         if not isinstance(context, dict):
             return {"sanitized": True, "original_type": type(context).__name__}
 
         # Apply context-specific sanitization if available
         if context_type in self.context_sanitization_rules:
-            return self.context_sanitization_rules[context_type](context)
+            return self.context_sanitization_rules[context_type](context, visited)
 
-        return self._sanitize_generic_context(context)
+        return self._sanitize_generic_context(context, visited)
 
     def sanitize_exception_context(self, exception: Exception) -> dict[str, Any]:
         """
@@ -158,14 +164,21 @@ class SecurityContextSanitizer:
 
         return sanitized
 
-    def _sanitize_generic_context(self, context: dict[str, Any]) -> dict[str, Any]:
+    def _sanitize_generic_context(
+        self, context: dict[str, Any], visited: set | None = None
+    ) -> dict[str, Any]:
         """Generic context sanitization"""
+        if visited is None:
+            visited = set()
+
         sanitized = {}
 
         for key, value in context.items():
             # Check if key is safe to log as-is
             if key in self.safe_keys:
-                sanitized[key] = self._sanitize_value(value, allow_full_value=True)
+                sanitized[key] = self._sanitize_value(
+                    value, allow_full_value=True, visited=visited
+                )
                 continue
 
             # Check if key matches sensitive patterns
@@ -179,12 +192,17 @@ class SecurityContextSanitizer:
                 sanitized[f"{key}_hash"] = self._hash_sensitive_data(str(value))
                 sanitized[f"{key}_present"] = value is not None
             else:
-                sanitized[key] = self._sanitize_value(value)
+                sanitized[key] = self._sanitize_value(value, visited=visited)
 
         return sanitized
 
-    def _sanitize_security_context(self, context: dict[str, Any]) -> dict[str, Any]:
+    def _sanitize_security_context(
+        self, context: dict[str, Any], visited: set | None = None
+    ) -> dict[str, Any]:
         """Specialized sanitization for security context"""
+        if visited is None:
+            visited = set()
+
         sanitized = {
             "context_type": "security",
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -212,8 +230,13 @@ class SecurityContextSanitizer:
 
         return sanitized
 
-    def _sanitize_network_context(self, context: dict[str, Any]) -> dict[str, Any]:
+    def _sanitize_network_context(
+        self, context: dict[str, Any], visited: set | None = None
+    ) -> dict[str, Any]:
         """Specialized sanitization for network context"""
+        if visited is None:
+            visited = set()
+
         sanitized = {
             "context_type": "network",
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -234,12 +257,17 @@ class SecurityContextSanitizer:
                     self._hash_sensitive_data(str(value)) if value else None
                 )
             else:
-                sanitized[key] = self._sanitize_value(value)
+                sanitized[key] = self._sanitize_value(value, visited=visited)
 
         return sanitized
 
-    def _sanitize_performance_context(self, context: dict[str, Any]) -> dict[str, Any]:
+    def _sanitize_performance_context(
+        self, context: dict[str, Any], visited: set | None = None
+    ) -> dict[str, Any]:
         """Specialized sanitization for performance context"""
+        if visited is None:
+            visited = set()
+
         sanitized = {
             "context_type": "performance",
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -265,12 +293,16 @@ class SecurityContextSanitizer:
                     self._hash_sensitive_data(str(value)) if value else None
                 )
             else:
-                sanitized[key] = self._sanitize_value(value)
+                sanitized[key] = self._sanitize_value(value, visited=visited)
 
         return sanitized
 
-    def _sanitize_validation_context(self, context: dict[str, Any]) -> dict[str, Any]:
+    def _sanitize_validation_context(
+        self, context: dict[str, Any], visited: set | None = None
+    ) -> dict[str, Any]:
         """Specialized sanitization for validation context"""
+        if visited is None:
+            visited = set()
         sanitized = {
             "context_type": "validation",
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -291,12 +323,16 @@ class SecurityContextSanitizer:
                 )
                 sanitized[f"{key}_length"] = len(str(value)) if value else 0
             else:
-                sanitized[key] = self._sanitize_value(value)
+                sanitized[key] = self._sanitize_value(value, visited=visited)
 
         return sanitized
 
-    def _sanitize_concurrency_context(self, context: dict[str, Any]) -> dict[str, Any]:
+    def _sanitize_concurrency_context(
+        self, context: dict[str, Any], visited: set | None = None
+    ) -> dict[str, Any]:
         """Specialized sanitization for concurrency context"""
+        if visited is None:
+            visited = set()
         sanitized = {
             "context_type": "concurrency",
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -312,20 +348,32 @@ class SecurityContextSanitizer:
                     self._hash_sensitive_data(str(value)) if value else None
                 )
             else:
-                sanitized[key] = self._sanitize_value(value)
+                sanitized[key] = self._sanitize_value(value, visited=visited)
 
         return sanitized
 
-    def _sanitize_value(self, value: Any, allow_full_value: bool = False) -> Any:
+    def _sanitize_value(
+        self, value: Any, allow_full_value: bool = False, visited: set | None = None
+    ) -> Any:
         """Sanitize an individual value"""
         if value is None:
             return None
 
+        if visited is None:
+            visited = set()
+
+        # Handle circular references
         if isinstance(value, dict):
-            return self._sanitize_generic_context(value)
+            if id(value) in visited:
+                return {"[CIRCULAR_REFERENCE]": type(value).__name__}
+            visited.add(id(value))
+            result = self._sanitize_generic_context(value, visited)
+            visited.remove(id(value))
+            return result
         elif isinstance(value, list):
             return [
-                self._sanitize_value(item) for item in value[:10]
+                self._sanitize_value(item, allow_full_value, visited)
+                for item in value[:10]
             ]  # Limit list size
         elif isinstance(value, int | float | bool):
             return value

@@ -161,7 +161,6 @@ class TestProfilingConfig:
         assert config.max_history_size == 10000
 
 
-@pytest.mark.asyncio
 class TestLLMProfiler:
     """Test main LLM profiler functionality"""
 
@@ -340,7 +339,6 @@ class TestLLMProfiler:
         assert status["thresholds"]["cost_alert_usd"] == 50.0
 
 
-@pytest.mark.asyncio
 class TestProfilingWrapper:
     """Test profiling wrapper functionality"""
 
@@ -603,10 +601,10 @@ class TestMemoryProfiler:
         assert peak_memory >= 0.0
 
 
-@pytest.mark.asyncio
 class TestProfilingIntegration:
     """Integration tests for the complete profiling system"""
 
+    @pytest.mark.asyncio
     async def test_end_to_end_profiling(self):
         """Test complete profiling flow"""
         # This would test the full integration but requires mocking

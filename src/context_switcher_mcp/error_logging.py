@@ -48,6 +48,11 @@ class StructuredErrorLogger:
             "start_time": time.time(),
         }
 
+    @property
+    def name(self) -> str:
+        """Get the name of the underlying logger for compatibility."""
+        return self.logger.name
+
     def log_error(
         self,
         error: Exception,

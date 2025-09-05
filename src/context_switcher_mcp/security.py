@@ -86,7 +86,8 @@ def validate_perspective_data(
     if len(name) > 100:
         additional_issues.append("Perspective name too long (max 100 chars)")
 
-    if not re.match(r"^[a-zA-Z0-9\s_-]+$", name):
+    # Allow unicode letters, digits, spaces, underscores, and hyphens
+    if not re.match(r"^[\w\s_-]+$", name, re.UNICODE):
         additional_issues.append("Perspective name contains invalid characters")
 
     # Check description length

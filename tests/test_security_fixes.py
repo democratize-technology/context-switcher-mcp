@@ -231,36 +231,43 @@ class TestCircuitBreakerRaceCondition:
     @pytest.mark.asyncio
     async def test_circuit_breaker_records_transient_failures(self):
         """Test that circuit breaker correctly records transient failures"""
-        orchestrator = PerspectiveOrchestrator(max_retries=2, retry_delay=0.01)
+        # Mock circuit breaker state loading to prevent restoration
+        with patch(
+            "context_switcher_mcp.circuit_breaker_manager.load_circuit_breaker_state"
+        ) as mock_load:
+            mock_load.return_value = None  # No saved state
+            orchestrator = PerspectiveOrchestrator(max_retries=2, retry_delay=0.01)
 
-        # Create a thread that will fail
-        thread = Thread(
-            id="test",
-            name="test_thread",
-            system_prompt="Test",
-            model_backend=ModelBackend.BEDROCK,
-            model_name="test-model",
-        )
-
-        # Mock backend factory to raise connection error
-        from context_switcher_mcp.backend_factory import BackendFactory
-
-        mock_backend = AsyncMock()
-        mock_backend.call_model.side_effect = ModelConnectionError("Connection failed")
-
-        with patch.object(BackendFactory, "get_backend", return_value=mock_backend):
-            # Get circuit breaker
-            circuit_breaker = orchestrator.circuit_breakers[ModelBackend.BEDROCK]
-            initial_failures = circuit_breaker.failure_count
-
-            # Call should fail and record failures
-            response = await orchestrator.thread_manager.get_single_thread_response(
-                thread
+            # Create a thread that will fail
+            thread = Thread(
+                id="test",
+                name="test_thread",
+                system_prompt="Test",
+                model_backend=ModelBackend.BEDROCK,
+                model_name="test-model",
             )
 
-            # Verify failure was recorded
-            assert circuit_breaker.failure_count > initial_failures
-            assert "AORP_ERROR" in response
+            # Mock backend factory to raise connection error
+            from context_switcher_mcp.backend_factory import BackendFactory
+
+            mock_backend = AsyncMock()
+            mock_backend.call_model.side_effect = ModelConnectionError(
+                "Connection failed"
+            )
+
+            with patch.object(BackendFactory, "get_backend", return_value=mock_backend):
+                # Get circuit breaker
+                circuit_breaker = orchestrator.circuit_breakers[ModelBackend.BEDROCK]
+                initial_failures = circuit_breaker.failure_count
+
+                # Call should fail and record failures
+                response = await orchestrator.thread_manager.get_single_thread_response(
+                    thread
+                )
+
+                # Verify failure was recorded
+                assert circuit_breaker.failure_count > initial_failures
+                assert "AORP_ERROR" in response
 
     @pytest.mark.asyncio
     async def test_circuit_breaker_does_not_record_non_transient_failures(self):

@@ -23,7 +23,7 @@ from ..input_validators import (
     detect_advanced_prompt_injection as _detect_advanced_prompt_injection,
     sanitize_user_input,
 )
-from ..logging_config import get_logger
+from ..logging_base import get_logger
 from ..model_validators import validate_model_id
 from ..security_events import log_security_event
 from .client_binding_core import (
@@ -135,7 +135,8 @@ def validate_perspective_data(name: str, description: str, custom_prompt: str = 
     if len(name) > 100:
         additional_issues.append("Perspective name too long (max 100 chars)")
 
-    if not re.match(r"^[a-zA-Z0-9\s_-]+$", name):
+    # Allow unicode letters, digits, spaces, underscores, and hyphens
+    if not re.match(r"^[\w\s_-]+$", name, re.UNICODE):
         additional_issues.append("Perspective name contains invalid characters")
 
     # Check description length

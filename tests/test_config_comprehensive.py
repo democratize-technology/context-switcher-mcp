@@ -118,19 +118,15 @@ class TestReloadConfigFunction:
 
     @patch("context_switcher_mcp.config._UNIFIED_CONFIG_AVAILABLE", True)
     @patch("context_switcher_mcp.config._new_reload_config")
-    @patch("context_switcher_mcp.config.LegacyConfigAdapter")
-    def test_reload_config_unified_system(self, mock_adapter, mock_new_reload_config):
+    def test_reload_config_unified_system(self, mock_new_reload_config):
         """Test reload_config with unified system available"""
-        mock_unified_config = MagicMock()
-        mock_new_reload_config.return_value = mock_unified_config
-        mock_wrapped_config = MagicMock()
-        mock_adapter.return_value = mock_wrapped_config
+        mock_config = MagicMock()
+        mock_new_reload_config.return_value = mock_config
 
         result = config.reload_config()
 
         mock_new_reload_config.assert_called_once_with()
-        mock_adapter.assert_called_once_with(mock_unified_config)
-        assert result == mock_wrapped_config
+        assert result == mock_config
 
     @patch("context_switcher_mcp.config._UNIFIED_CONFIG_AVAILABLE", False)
     @patch("context_switcher_mcp.config._LEGACY_CONFIG_AVAILABLE", True)
@@ -337,7 +333,9 @@ class TestEdgeCases:
     def test_multiple_kwargs_to_get_config(self):
         """Test get_config with multiple valid keyword arguments"""
         # Test with valid configuration parameters
-        result = config.get_config(server={"port": 3024}, session={"ttl_minutes": 30})
+        result = config.get_config(
+            server={"port": 3024}, session={"default_ttl_hours": 2}
+        )
         assert result is not None
         # Should return a ContextSwitcherConfig instance
         from context_switcher_mcp.config.core import ContextSwitcherConfig
@@ -345,7 +343,7 @@ class TestEdgeCases:
         assert isinstance(result, ContextSwitcherConfig)
         # Verify the values were applied
         assert result.server.port == 3024
-        assert result.session.ttl_minutes == 30
+        assert result.session.default_ttl_hours == 2
 
     def test_unicode_attribute_access(self):
         """Test __getattr__ with unicode attribute names"""
