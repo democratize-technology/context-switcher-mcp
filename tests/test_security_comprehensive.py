@@ -9,10 +9,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 from context_switcher_mcp import security  # noqa: E402
 
-# Skip all tests in this file due to API mismatches between test expectations and actual implementation
-pytestmark = pytest.mark.skip(
-    reason="Security comprehensive tests expect different API behavior than current implementation"
-)
+# Temporarily removing skip to analyze API mismatches
+# pytestmark = pytest.mark.skip(
+#     reason="Security comprehensive tests expect different API behavior than current implementation"
+# )
 
 
 class TestSecurityImports:
@@ -70,7 +70,7 @@ class TestSecurityImports:
 class TestValidateUserContent:
     """Test the validate_user_content wrapper function"""
 
-    @patch("context_switcher_mcp.input_validators._validation_orchestrator")
+    @patch("context_switcher_mcp.security._validation_orchestrator")
     def test_validate_user_content_basic_call(self, mock_orchestrator):
         """Test validate_user_content makes basic call with defaults"""
         mock_result = MagicMock()
@@ -85,7 +85,7 @@ class TestValidateUserContent:
             "test content", "prompt", 10000, "default"
         )
 
-    @patch("context_switcher_mcp.input_validators._validation_orchestrator")
+    @patch("context_switcher_mcp.security._validation_orchestrator")
     def test_validate_user_content_with_custom_params(self, mock_orchestrator):
         """Test validate_user_content with custom parameters"""
         mock_result = MagicMock()
@@ -102,7 +102,7 @@ class TestValidateUserContent:
             "custom content", "topic", 5000, "test_client"
         )
 
-    @patch("context_switcher_mcp.input_validators._validation_orchestrator")
+    @patch("context_switcher_mcp.security._validation_orchestrator")
     def test_validate_user_content_preserves_return_value(self, mock_orchestrator):
         """Test validate_user_content preserves the exact return value"""
         expected_result = MagicMock()
@@ -118,7 +118,7 @@ class TestValidateUserContent:
         assert result.error_message == "Validation failed"
         assert result.injection_attempts == ["attempt1", "attempt2"]
 
-    @patch("context_switcher_mcp.input_validators._validation_orchestrator")
+    @patch("context_switcher_mcp.security._validation_orchestrator")
     def test_validate_user_content_exception_propagation(self, mock_orchestrator):
         """Test validate_user_content handles exceptions from underlying function"""
         mock_orchestrator.validate_content.side_effect = ValueError("Validation error")

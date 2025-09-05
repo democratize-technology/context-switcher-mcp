@@ -14,9 +14,9 @@ from context_switcher_mcp.security.path_validator import (  # noqa: E402
 from context_switcher_mcp.security.secure_logging import get_secure_logger  # noqa: E402
 
 # Skip all tests in this file due to API mismatches between test expectations and actual implementation
-pytestmark = pytest.mark.skip(
-    reason="Input sanitization comprehensive tests expect different API behavior than current implementation"
-)
+# pytestmark = pytest.mark.skip(
+#     reason="Input sanitization comprehensive tests expect different API behavior than current implementation"
+# )
 
 
 class TestPathValidation:

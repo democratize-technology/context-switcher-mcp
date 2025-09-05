@@ -7,9 +7,7 @@ sys.path.insert(0, "src")  # noqa: E402 # noqa: E402
 import pytest  # noqa: E402
 
 # Skip all tests in this file due to API mismatches
-pytestmark = pytest.mark.skip(
-    reason="Security fixes tests expect different API behavior than current implementation"
-)
+# Previously skipped due to API mismatches - now fixed
 
 import asyncio  # noqa: E402
 import json  # noqa: E402
@@ -21,7 +19,6 @@ from datetime import UTC, datetime  # noqa: E402
 from pathlib import Path  # noqa: E402
 from unittest.mock import AsyncMock, MagicMock, patch  # noqa: E402
 
-import pytest  # noqa: E402
 from context_switcher_mcp.backend_interface import (  # noqa: E402 # noqa: E402
     LiteLLMBackend,
     OllamaBackend,

@@ -22,10 +22,7 @@ from context_switcher_mcp.tools.profiling_tools import (  # noqa: E402
     reset_profiling_data,
 )
 
-# Skip all tests in this file due to API mismatches
-pytestmark = pytest.mark.skip(
-    reason="Profiling tools tests expect different API behavior than current implementation"
-)
+# Previously skipped due to API mismatches - now fixed
 
 
 class TestProfilingToolsRegistration:
@@ -421,13 +418,40 @@ class TestSessionProfilingFunction:
         ]
 
     @pytest.mark.asyncio
-    async def test_session_profiling_success(self, mock_session_metrics):
+    async def test_session_profiling_success(self):
         """Test successful session profiling data retrieval"""
         session_id = str(uuid4())
+        base_time = datetime.now(UTC)
+
+        # Create mock session metrics with the same session_id
+        mock_session_metrics = [
+            Mock(
+                session_id=session_id,
+                timestamp=base_time,
+                thread_name="thread-1",
+                backend="bedrock",
+                success=True,
+                total_latency=1.2,
+                estimated_cost_usd=0.05,
+                total_tokens=150,
+                error_type=None,
+            ),
+            Mock(
+                session_id=session_id,
+                timestamp=base_time,
+                thread_name="thread-2",
+                backend="litellm",
+                success=False,
+                total_latency=2.1,
+                estimated_cost_usd=None,
+                total_tokens=None,
+                error_type="timeout",
+            ),
+        ]
 
         with (
             patch(
-                "context_switcher_mcp.validation.validate_session_id"
+                "context_switcher_mcp.tools.profiling_tools.validate_session_id"
             ) as mock_validate,
             patch(
                 "context_switcher_mcp.tools.profiling_tools.get_global_profiler"
@@ -467,7 +491,7 @@ class TestSessionProfilingFunction:
 
             assert "error" in result
             assert result["error"] == "Invalid session ID"
-            assert result["message"] == "Invalid UUID format"
+            assert "not found or expired" in result["message"]
 
     @pytest.mark.asyncio
     async def test_session_profiling_no_data(self):
@@ -476,7 +500,7 @@ class TestSessionProfilingFunction:
 
         with (
             patch(
-                "context_switcher_mcp.validation.validate_session_id"
+                "context_switcher_mcp.tools.profiling_tools.validate_session_id"
             ) as mock_validate,
             patch(
                 "context_switcher_mcp.tools.profiling_tools.get_global_profiler"

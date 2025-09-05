@@ -32,10 +32,7 @@ from context_switcher_mcp.config.environments import (  # noqa: E402
 )
 from context_switcher_mcp.config.migration import LegacyConfigAdapter  # noqa: E402
 
-# Skip all tests in this file due to API mismatches between test expectations and actual implementation
-pytestmark = pytest.mark.skip(
-    reason="Unified config tests expect different API behavior than current implementation"
-)
+# Unified config tests - API mismatches resolved
 
 
 class TestUnifiedConfiguration:
@@ -69,9 +66,9 @@ class TestUnifiedConfiguration:
         with patch.dict(
             os.environ,
             {
-                "CS_SERVER_PORT": "4024",
-                "CS_SERVER_LOG_LEVEL": "ERROR",
-                "CS_MODEL_DEFAULT_MAX_TOKENS": "4096",
+                "CS_PORT": "4024",
+                "CS_LOG_LEVEL": "ERROR",
+                "CS_MAX_TOKENS": "4096",
             },
         ):
             config = ContextSwitcherConfig()
@@ -566,7 +563,7 @@ class TestConfigurationValidation:
     def test_environment_variable_validation(self):
         """Test validation of environment variables"""
         # Invalid numeric values
-        with patch.dict(os.environ, {"CS_SERVER_PORT": "invalid"}):
+        with patch.dict(os.environ, {"CS_PORT": "invalid"}):
             with pytest.raises(ConfigurationError):
                 ContextSwitcherConfig()
 

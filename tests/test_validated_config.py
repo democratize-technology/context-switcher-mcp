@@ -26,10 +26,7 @@ from context_switcher_mcp.validated_config import (  # noqa: E402
 )
 from pydantic import ValidationError
 
-# Skip all tests in this file due to API mismatches between test expectations and actual implementation
-pytestmark = pytest.mark.skip(
-    reason="Validated config tests expect different API behavior than current implementation"
-)
+# Validated config tests - API mismatches resolved
 
 
 class TestValidatedModelConfig:
@@ -49,66 +46,66 @@ class TestValidatedModelConfig:
 
     def test_token_validation(self):
         """Test max tokens validation"""
-        # Valid values
-        ValidatedModelConfig(default_max_tokens=1)
-        ValidatedModelConfig(default_max_tokens=200000)
+        # Valid values (use alias name for constructor)
+        ValidatedModelConfig(CS_MAX_TOKENS=1)
+        ValidatedModelConfig(CS_MAX_TOKENS=200000)
 
         # Invalid values
         with pytest.raises(ValidationError) as exc_info:
-            ValidatedModelConfig(default_max_tokens=0)
+            ValidatedModelConfig(CS_MAX_TOKENS=0)
         assert "greater than or equal to 1" in str(exc_info.value)
 
         with pytest.raises(ValidationError) as exc_info:
-            ValidatedModelConfig(default_max_tokens=300000)
+            ValidatedModelConfig(CS_MAX_TOKENS=300000)
         assert "less than or equal to 200000" in str(exc_info.value)
 
     def test_temperature_validation(self):
         """Test temperature validation"""
-        # Valid values
-        ValidatedModelConfig(default_temperature=0.0)
-        ValidatedModelConfig(default_temperature=1.0)
-        ValidatedModelConfig(default_temperature=2.0)
+        # Valid values (use alias name for constructor)
+        ValidatedModelConfig(CS_TEMPERATURE=0.0)
+        ValidatedModelConfig(CS_TEMPERATURE=1.0)
+        ValidatedModelConfig(CS_TEMPERATURE=2.0)
 
         # Invalid values
         with pytest.raises(ValidationError) as exc_info:
-            ValidatedModelConfig(default_temperature=-0.1)
+            ValidatedModelConfig(CS_TEMPERATURE=-0.1)
         assert "greater than or equal to 0" in str(exc_info.value)
 
         with pytest.raises(ValidationError) as exc_info:
-            ValidatedModelConfig(default_temperature=2.1)
+            ValidatedModelConfig(CS_TEMPERATURE=2.1)
         assert "less than or equal to 2" in str(exc_info.value)
 
     def test_bedrock_model_id_validation(self):
         """Test Bedrock model ID validation"""
         # Valid model IDs
-        ValidatedModelConfig(bedrock_model_id="us.anthropic.claude-3-haiku:1")
-        ValidatedModelConfig(bedrock_model_id="eu.anthropic.claude-opus-v2:0")
+        ValidatedModelConfig(BEDROCK_MODEL_ID="us.anthropic.claude-3-haiku:1")
+        ValidatedModelConfig(BEDROCK_MODEL_ID="eu.anthropic.claude-opus-v2:0")
 
         # Invalid model IDs
         with pytest.raises(ValidationError) as exc_info:
-            ValidatedModelConfig(bedrock_model_id="invalid-format")
+            ValidatedModelConfig(BEDROCK_MODEL_ID="invalid-format")
         assert "region.provider.model:version" in str(exc_info.value)
 
         with pytest.raises(ValidationError) as exc_info:
             ValidatedModelConfig(
-                bedrock_model_id="US.anthropic.claude:1"
+                BEDROCK_MODEL_ID="US.anthropic.claude:1"
             )  # Capital letters
         assert "region.provider.model:version" in str(exc_info.value)
 
     def test_ollama_host_validation(self):
         """Test Ollama host URL validation"""
         # Valid URLs
-        ValidatedModelConfig(ollama_host="http://localhost:11434")
-        ValidatedModelConfig(ollama_host="https://remote-server:8080")
-        ValidatedModelConfig(ollama_host="http://192.168.1.100:11434")
+        ValidatedModelConfig(OLLAMA_HOST="http://localhost:11434")
+        ValidatedModelConfig(OLLAMA_HOST="https://remote-server:8080")
+        ValidatedModelConfig(OLLAMA_HOST="http://192.168.1.100:11434")
 
         # Invalid URLs
         with pytest.raises(ValidationError) as exc_info:
-            ValidatedModelConfig(ollama_host="not-a-url")
+            ValidatedModelConfig(OLLAMA_HOST="not-a-url")
         assert "URL" in str(exc_info.value)
 
         with pytest.raises(ValidationError) as exc_info:
-            ValidatedModelConfig(ollama_host="ftp://invalid-protocol")
+            ValidatedModelConfig(OLLAMA_HOST="ftp://invalid-protocol")
         assert "URL" in str(exc_info.value)
 
     def test_environment_variable_integration(self):
@@ -140,46 +137,46 @@ class TestValidatedServerConfig:
     def test_port_validation(self):
         """Test port number validation"""
         # Valid ports
-        ValidatedServerConfig(port=1024)  # Minimum non-privileged port
-        ValidatedServerConfig(port=65535)  # Maximum port
-        ValidatedServerConfig(port=8080)  # Common port
+        ValidatedServerConfig(CS_PORT=1024)  # Minimum non-privileged port
+        ValidatedServerConfig(CS_PORT=65535)  # Maximum port
+        ValidatedServerConfig(CS_PORT=8080)  # Common port
 
         # Invalid ports
         with pytest.raises(ValidationError) as exc_info:
-            ValidatedServerConfig(port=80)  # Privileged port
+            ValidatedServerConfig(CS_PORT=80)  # Privileged port
         assert "greater than or equal to 1024" in str(exc_info.value)
 
         with pytest.raises(ValidationError) as exc_info:
-            ValidatedServerConfig(port=70000)  # Above maximum
+            ValidatedServerConfig(CS_PORT=70000)  # Above maximum
         assert "less than or equal to 65535" in str(exc_info.value)
 
     def test_host_validation(self):
         """Test host address validation"""
         # Valid hosts
-        ValidatedServerConfig(host="localhost")
-        ValidatedServerConfig(host="0.0.0.0")
-        ValidatedServerConfig(host="192.168.1.1")
-        ValidatedServerConfig(host="example.com")
+        ValidatedServerConfig(CS_HOST="localhost")
+        ValidatedServerConfig(CS_HOST="0.0.0.0")
+        ValidatedServerConfig(CS_HOST="192.168.1.1")
+        ValidatedServerConfig(CS_HOST="example.com")
 
         # Invalid hosts
         with pytest.raises(ValidationError) as exc_info:
-            ValidatedServerConfig(host="")
+            ValidatedServerConfig(CS_HOST="")
         assert "String should match pattern" in str(exc_info.value)
 
         with pytest.raises(ValidationError) as exc_info:
-            ValidatedServerConfig(host="999.999.999.999")  # Invalid IP
+            ValidatedServerConfig(CS_HOST="999.999.999.999")  # Invalid IP
         assert "Invalid IP address" in str(exc_info.value)
 
     def test_log_level_validation(self):
         """Test log level validation"""
         # Valid log levels
-        ValidatedServerConfig(log_level=LogLevel.DEBUG)
-        ValidatedServerConfig(log_level=LogLevel.ERROR)
-        ValidatedServerConfig(log_level="INFO")  # String conversion
+        ValidatedServerConfig(CS_LOG_LEVEL=LogLevel.DEBUG)
+        ValidatedServerConfig(CS_LOG_LEVEL=LogLevel.ERROR)
+        ValidatedServerConfig(CS_LOG_LEVEL="INFO")  # String conversion
 
         # Invalid log level
         with pytest.raises(ValidationError) as exc_info:
-            ValidatedServerConfig(log_level="INVALID")
+            ValidatedServerConfig(CS_LOG_LEVEL="INVALID")
         assert "Input should be" in str(exc_info.value)
 
 
@@ -189,29 +186,29 @@ class TestValidatedProfilingConfig:
     def test_sampling_rate_validation(self):
         """Test sampling rate validation"""
         # Valid sampling rates
-        ValidatedProfilingConfig(sampling_rate=0.0)
-        ValidatedProfilingConfig(sampling_rate=0.5)
-        ValidatedProfilingConfig(sampling_rate=1.0)
+        ValidatedProfilingConfig(CS_PROFILING_SAMPLING_RATE=0.0)
+        ValidatedProfilingConfig(CS_PROFILING_SAMPLING_RATE=0.5)
+        ValidatedProfilingConfig(CS_PROFILING_SAMPLING_RATE=1.0)
 
         # Invalid sampling rates
         with pytest.raises(ValidationError) as exc_info:
-            ValidatedProfilingConfig(sampling_rate=-0.1)
+            ValidatedProfilingConfig(CS_PROFILING_SAMPLING_RATE=-0.1)
         assert "greater than or equal to 0" in str(exc_info.value)
 
         with pytest.raises(ValidationError) as exc_info:
-            ValidatedProfilingConfig(sampling_rate=1.1)
+            ValidatedProfilingConfig(CS_PROFILING_SAMPLING_RATE=1.1)
         assert "less than or equal to 1" in str(exc_info.value)
 
     def test_profiling_level_validation(self):
         """Test profiling level validation"""
         # Valid levels
-        ValidatedProfilingConfig(level=ProfilingLevel.DISABLED)
-        ValidatedProfilingConfig(level=ProfilingLevel.DETAILED)
-        ValidatedProfilingConfig(level="basic")  # String conversion
+        ValidatedProfilingConfig(CS_PROFILING_LEVEL=ProfilingLevel.DISABLED)
+        ValidatedProfilingConfig(CS_PROFILING_LEVEL=ProfilingLevel.DETAILED)
+        ValidatedProfilingConfig(CS_PROFILING_LEVEL="basic")  # String conversion
 
         # Invalid level
         with pytest.raises(ValidationError) as exc_info:
-            ValidatedProfilingConfig(level="invalid")
+            ValidatedProfilingConfig(CS_PROFILING_LEVEL="invalid")
         assert "Input should be" in str(exc_info.value)
 
     def test_threshold_validation(self):
@@ -225,11 +222,11 @@ class TestValidatedProfilingConfig:
 
         # Invalid thresholds
         with pytest.raises(ValidationError) as exc_info:
-            ValidatedProfilingConfig(cost_alert_threshold_usd=0.0)
+            ValidatedProfilingConfig(CS_PROFILING_COST_ALERT=0.0)
         assert "greater than or equal to 0.01" in str(exc_info.value)
 
         with pytest.raises(ValidationError) as exc_info:
-            ValidatedProfilingConfig(latency_alert_threshold_s=0.0)
+            ValidatedProfilingConfig(CS_PROFILING_LATENCY_ALERT=0.0)
         assert "greater than or equal to 0.1" in str(exc_info.value)
 
 
@@ -239,23 +236,23 @@ class TestValidatedRetryConfig:
     def test_delay_constraint_validation(self):
         """Test that delay constraints are enforced"""
         # Valid configuration
-        ValidatedRetryConfig(initial_delay=1.0, max_delay=60.0)
+        ValidatedRetryConfig(CS_RETRY_DELAY=1.0, CS_MAX_RETRY_DELAY=60.0)
 
         # Invalid - max_delay <= initial_delay
         with pytest.raises(ValidationError) as exc_info:
-            ValidatedRetryConfig(initial_delay=30.0, max_delay=20.0)
+            ValidatedRetryConfig(CS_RETRY_DELAY=30.0, CS_MAX_RETRY_DELAY=20.0)
         assert "max_delay must be greater than initial_delay" in str(exc_info.value)
 
     def test_retry_count_validation(self):
         """Test retry count validation"""
         # Valid retry counts
-        ValidatedRetryConfig(max_retries=0)  # No retries
-        ValidatedRetryConfig(max_retries=10)  # Reasonable retries
-        ValidatedRetryConfig(max_retries=20)  # Maximum retries
+        ValidatedRetryConfig(CS_MAX_RETRIES=0)  # No retries
+        ValidatedRetryConfig(CS_MAX_RETRIES=10)  # Reasonable retries
+        ValidatedRetryConfig(CS_MAX_RETRIES=20)  # Maximum retries
 
         # Invalid retry count
         with pytest.raises(ValidationError) as exc_info:
-            ValidatedRetryConfig(max_retries=25)
+            ValidatedRetryConfig(CS_MAX_RETRIES=25)
         assert "less than or equal to 20" in str(exc_info.value)
 
 
@@ -266,16 +263,20 @@ class TestValidatedSecurityConfig:
         """Test secret key validation"""
         # Valid secret keys
         ValidatedSecurityConfig()  # None is allowed
-        ValidatedSecurityConfig(secret_key="a" * 32)  # Minimum length
-        ValidatedSecurityConfig(secret_key="A1B2C3D4" * 4)  # Valid characters
+        ValidatedSecurityConfig(CONTEXT_SWITCHER_SECRET_KEY="a" * 32)  # Minimum length
+        ValidatedSecurityConfig(
+            CONTEXT_SWITCHER_SECRET_KEY="A1B2C3D4" * 4
+        )  # Valid characters
 
         # Invalid secret keys
         with pytest.raises(ValidationError) as exc_info:
-            ValidatedSecurityConfig(secret_key="short")
+            ValidatedSecurityConfig(CONTEXT_SWITCHER_SECRET_KEY="short")
         assert "at least 32 characters" in str(exc_info.value)
 
         with pytest.raises(ValidationError) as exc_info:
-            ValidatedSecurityConfig(secret_key="invalid@characters!" * 3)
+            ValidatedSecurityConfig(
+                CONTEXT_SWITCHER_SECRET_KEY="invalid@characters!" * 3
+            )
         assert "invalid characters" in str(exc_info.value)
 
 
@@ -460,7 +461,7 @@ class TestEnvironmentVariableHandling:
             "CS_PROFILING_LATENCY_ALERT": "60.0",
             "CS_PROFILING_MEMORY_ALERT": "2000.0",
             # Security config
-            "CONTEXT_SWITCHER_SECRET_KEY": "test-secret-key-that-is-long-enough-for-validation",
+            "CONTEXT_SWITCHER_SECRET_KEY": "testSecretKeyThatIsLongEnoughForValidation12345",
         }
 
         with patch.dict(os.environ, test_env_vars, clear=True):
@@ -489,7 +490,7 @@ class TestEnvironmentVariableHandling:
 
             assert (
                 config.security.secret_key
-                == "test-secret-key-that-is-long-enough-for-validation"
+                == "testSecretKeyThatIsLongEnoughForValidation12345"
             )
 
     def test_boolean_environment_variable_parsing(self):
@@ -521,7 +522,7 @@ class TestErrorHandling:
         """Test that configuration errors provide clear, actionable messages"""
         # Test invalid port
         try:
-            ValidatedServerConfig(port=-1)
+            ValidatedServerConfig(CS_PORT=-1)
         except ValidationError as e:
             error_msg = str(e)
             assert "port" in error_msg.lower()
@@ -529,7 +530,7 @@ class TestErrorHandling:
 
         # Test invalid temperature
         try:
-            ValidatedModelConfig(default_temperature=3.0)
+            ValidatedModelConfig(CS_TEMPERATURE=3.0)
         except ValidationError as e:
             error_msg = str(e)
             assert "temperature" in error_msg.lower()
@@ -537,7 +538,7 @@ class TestErrorHandling:
 
         # Test invalid URL
         try:
-            ValidatedModelConfig(ollama_host="not-a-url")
+            ValidatedModelConfig(OLLAMA_HOST="not-a-url")
         except ValidationError as e:
             error_msg = str(e)
             assert "URL" in error_msg

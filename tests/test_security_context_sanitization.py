@@ -21,9 +21,7 @@ from context_switcher_mcp.security_context_sanitizer import (  # noqa: E402
 )
 
 # Skip all tests in this file due to API mismatches between test expectations and actual implementation
-pytestmark = pytest.mark.skip(
-    reason="Security context sanitization tests expect different API behavior than current implementation"
-)
+# Previously skipped due to API mismatches - now fixed
 
 
 class TestSecurityContextSanitizer:

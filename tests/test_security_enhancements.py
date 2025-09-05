@@ -13,9 +13,7 @@ from context_switcher_mcp.handlers.session_handler import (
 from context_switcher_mcp.models import ModelBackend  # noqa: E402
 
 # Skip all tests in this file due to API mismatches
-pytestmark = pytest.mark.skip(
-    reason="Security enhancements tests expect different API behavior than current implementation"
-)
+# Previously skipped due to API mismatches - now fixed
 
 
 class TestSecureSessionIDGeneration:

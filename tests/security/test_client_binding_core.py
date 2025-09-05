@@ -31,10 +31,7 @@ from context_switcher_mcp.security.security_event_tracker import (  # noqa: E402
     SecurityEventTracker,
 )
 
-# Skip all tests in this file due to API mismatches
-pytestmark = pytest.mark.skip(
-    reason="Client binding core tests expect different API behavior than current implementation"
-)
+# Tests are now enabled after fixing API mismatches
 
 
 class TestClientBindingManager:
@@ -233,6 +230,8 @@ class TestClientBindingManager:
 
     def test_rotate_secret_key(self):
         """Test secret key rotation"""
+        # Clear any existing previous keys for consistent test state
+        self.manager.key_manager.previous_keys = []
         original_key_info = self.manager.key_manager.get_current_key_info()
 
         new_key_hash = self.manager.rotate_secret_key("test_rotation")

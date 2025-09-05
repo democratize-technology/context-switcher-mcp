@@ -110,22 +110,20 @@ class TestLoggingConfig:
         set_correlation_id(None)
         assert get_correlation_id() is None
 
-    @pytest.mark.skip(
-        reason="get_logger returns custom logger types, not standard logging.Logger"
-    )
     def test_setup_logging_function(self):
         """Test the setup_logging convenience function"""
         # Should not raise any errors
         setup_logging()
 
-        # Should create loggers
+        # Should create loggers - may be standard Logger or SecureLogger
         logger = get_logger("test")
-        assert isinstance(logger, logging.Logger)
+        # Should be some kind of logger object with logging methods
+        assert hasattr(logger, "info")
+        assert hasattr(logger, "error")
+        assert hasattr(logger, "debug")
+        assert hasattr(logger, "warning")
 
 
-@pytest.mark.skip(
-    reason="Custom log formatters have different API than expected by tests"
-)
 class TestLogFormatters:
     """Test custom log formatters"""
 
@@ -145,13 +143,25 @@ class TestLogFormatters:
         )
 
         # Test without correlation ID
-        formatted = formatter.format(record)
-        assert "[no-correlation]" in formatted
+        formatter.format(record)
+        # Formatter should add correlation ID to the record
+        assert hasattr(record, "correlation_id")
+        assert record.correlation_id == "no-correlation"
 
         # Test with correlation ID
         set_correlation_id("test-123")
-        formatted = formatter.format(record)
-        assert "[test-123]" in formatted
+        record2 = logging.LogRecord(
+            name="test",
+            level=logging.INFO,
+            pathname="test.py",
+            lineno=1,
+            msg="Test message 2",
+            args=(),
+            exc_info=None,
+        )
+        formatter.format(record2)
+        assert hasattr(record2, "correlation_id")
+        assert record2.correlation_id == "test-123"
 
     def test_json_formatter(self):
         """Test JSONLogFormatter for structured logging"""
@@ -183,9 +193,6 @@ class TestLogFormatters:
         assert parsed["message"] == "Test message"
 
 
-@pytest.mark.skip(
-    reason="Logging utility functions have different API than expected by tests"
-)
 class TestLoggingUtils:
     """Test logging utilities and decorators"""
 
@@ -447,9 +454,6 @@ class TestErrorConditions:
                 logger.error("Test exception occurred", exc_info=True)
 
 
-@pytest.mark.skip(
-    reason="Performance logging functions have different API than expected by tests"
-)
 class TestPerformanceOptimizations:
     """Test performance optimization features"""
 
@@ -664,9 +668,6 @@ class TestMigrationValidation:
             print(f"Migration validation test: {e}")
 
 
-@pytest.mark.skip(
-    reason="Performance benchmarking functions have different API than expected by tests"
-)
 class TestPerformanceBenchmarks:
     """Performance benchmarks for logging system"""
 
