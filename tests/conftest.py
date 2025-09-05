@@ -3,7 +3,15 @@
 import asyncio
 import sys  # noqa: E402
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime
+
+try:
+    from datetime import UTC
+except ImportError:
+    # Python < 3.11 compatibility
+    from datetime import timezone
+
+    UTC = timezone.utc
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock
 
