@@ -67,6 +67,7 @@ class ContextSwitcherConfig(BaseSettings):
         extra="forbid",  # Reject unknown configuration keys
         validate_assignment=True,  # Validate on attribute assignment
         str_strip_whitespace=True,  # Clean up string inputs
+        env_nested_delimiter="__",  # Allow nested environment variables like CS_SERVER__PORT
     )
 
     # Configuration domains - each domain manages its own validation
@@ -96,11 +97,42 @@ class ContextSwitcherConfig(BaseSettings):
             file_data = self._load_config_file(config_file)
             kwargs["loaded_from"] = str(config_file)
 
-        # Merge file data with kwargs (kwargs take precedence)
-        merged_data = {**file_data, **kwargs}
+        # Process environment variables with nested support
+        env_data = self._load_environment_variables()
+
+        # Merge file data, environment data, and kwargs (kwargs take highest precedence)
+        merged_data = {**file_data, **env_data, **kwargs}
 
         try:
-            super().__init__(**merged_data)
+            # Extract domain-specific data from merged_data
+            domain_data = {}
+            main_data = {}
+
+            for key, value in merged_data.items():
+                if key in ["models", "session", "security", "server", "monitoring"]:
+                    # This is domain data, pass it as is
+                    domain_data[key] = value
+                else:
+                    # This is main config data
+                    main_data[key] = value
+
+            # Initialize with main data first
+            super().__init__(**main_data)
+
+            # Then update domain configs with any domain-specific data
+            for domain_name, domain_config in domain_data.items():
+                if hasattr(self, domain_name) and isinstance(domain_config, dict):
+                    # Get the current domain instance
+                    current_domain = getattr(self, domain_name)
+
+                    # Update domain config field by field to ensure proper validation
+                    updated_domain = self._update_domain_config(
+                        current_domain, domain_config
+                    )
+
+                    # Set the updated domain
+                    setattr(self, domain_name, updated_domain)
+
             logger.info("Configuration initialized successfully")
 
         except Exception as e:
@@ -304,6 +336,90 @@ class ContextSwitcherConfig(BaseSettings):
             raise ConfigurationError(
                 f"Failed to parse configuration file {config_path}: {e}"
             ) from e
+
+    def _update_domain_config(self, current_domain, updates: dict) -> Any:
+        """Update a domain configuration with proper field validation
+
+        This method updates domain configs field by field to ensure proper
+        validation and type conversion while avoiding BaseSettings env processing issues.
+
+        Args:
+            current_domain: Current domain configuration instance
+            updates: Dictionary of field updates
+
+        Returns:
+            Updated domain configuration instance
+        """
+        # Create a copy and update it field by field using setattr with validation
+        updated_domain = current_domain.model_copy(deep=True)
+
+        for field_name, new_value in updates.items():
+            if hasattr(updated_domain, field_name):
+                # Use setattr which will trigger Pydantic field validation
+                try:
+                    setattr(updated_domain, field_name, new_value)
+                except Exception as e:
+                    raise ConfigurationError(
+                        f"Failed to set {field_name}={new_value} in {type(current_domain).__name__}: {e}"
+                    ) from e
+            else:
+                # Field doesn't exist in this domain - log a warning but don't fail
+                logger.warning(
+                    f"Unknown field '{field_name}' for {type(current_domain).__name__}"
+                )
+
+        return updated_domain
+
+    def _load_environment_variables(self) -> dict[str, Any]:
+        """Load configuration from environment variables with nested support
+
+        Handles environment variables for domains that don't follow the standard pattern.
+        Most domain configs handle their own env vars via pydantic-settings.
+        This handles special cases and legacy variable names.
+
+        Returns:
+            Configuration data dictionary with nested structure
+        """
+        import os
+
+        env_data = {}
+
+        # Handle legacy/non-standard environment variable names that don't match
+        # the standard CS_ prefix pattern used by individual domain configs
+        legacy_mappings = {
+            # These are examples - the actual domain configs handle most env vars
+        }
+
+        for env_var, (domain, field) in legacy_mappings.items():
+            value = os.getenv(env_var)
+            if value is not None:
+                if domain not in env_data:
+                    env_data[domain] = {}
+
+                # Convert value to appropriate type
+                try:
+                    if (
+                        field.endswith("_port")
+                        or "max_tokens" in field
+                        or "ttl_hours" in field
+                    ):
+                        env_data[domain][field] = int(value)
+                    elif field.endswith("_temperature"):
+                        env_data[domain][field] = float(value)
+                    elif "enable_" in field:
+                        env_data[domain][field] = value.lower() in (
+                            "true",
+                            "1",
+                            "yes",
+                            "on",
+                        )
+                    else:
+                        env_data[domain][field] = value
+                except (ValueError, TypeError):
+                    # Keep as string if conversion fails
+                    env_data[domain][field] = value
+
+        return env_data
 
 
 def create_config(

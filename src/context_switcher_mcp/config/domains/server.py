@@ -33,39 +33,30 @@ class ServerConfig(BaseSettings):
     """
 
     model_config = SettingsConfigDict(
-        env_prefix="CS_SERVER_", case_sensitive=False, extra="forbid"
+        env_prefix="CS_", case_sensitive=False, extra="forbid", validate_assignment=True
     )
 
     # Network configuration
-    host: str = Field(
-        default="localhost", description="Server host address to bind to", env="CS_HOST"
-    )
+    host: str = Field(default="localhost", description="Server host address to bind to")
 
-    port: int = Field(
-        default=3023, ge=1024, le=65535, description="Server port number", env="CS_PORT"
-    )
+    port: int = Field(default=3023, ge=1024, le=65535, description="Server port number")
 
     # Logging configuration
     log_level: LogLevel = Field(
-        default=LogLevel.INFO, description="Server logging level", env="CS_LOG_LEVEL"
+        default=LogLevel.INFO, description="Server logging level"
     )
 
     log_format: str = Field(
         default="structured",
         description="Log format: 'structured', 'simple', or 'json'",
-        env="CS_LOG_FORMAT",
     )
 
     enable_access_logging: bool = Field(
-        default=True,
-        description="Enable HTTP access logging",
-        env="CS_ENABLE_ACCESS_LOGGING",
+        default=True, description="Enable HTTP access logging"
     )
 
     log_file_path: str | None = Field(
-        default=None,
-        description="Path to log file (None for console only)",
-        env="CS_LOG_FILE_PATH",
+        default=None, description="Path to log file (None for console only)"
     )
 
     max_log_file_size_mb: int = Field(
@@ -73,24 +64,15 @@ class ServerConfig(BaseSettings):
         ge=1,
         le=10000,
         description="Maximum log file size in MB before rotation",
-        env="CS_MAX_LOG_FILE_SIZE_MB",
     )
 
     log_file_backup_count: int = Field(
-        default=5,
-        ge=1,
-        le=100,
-        description="Number of rotated log files to keep",
-        env="CS_LOG_FILE_BACKUP_COUNT",
+        default=5, ge=1, le=100, description="Number of rotated log files to keep"
     )
 
     # Connection and performance settings
     max_concurrent_connections: int = Field(
-        default=100,
-        ge=1,
-        le=10000,
-        description="Maximum concurrent client connections",
-        env="CS_MAX_CONCURRENT_CONNECTIONS",
+        default=100, ge=1, le=10000, description="Maximum concurrent client connections"
     )
 
     connection_timeout_seconds: float = Field(
@@ -98,7 +80,6 @@ class ServerConfig(BaseSettings):
         ge=1.0,
         le=600.0,
         description="Client connection timeout in seconds",
-        env="CS_CONNECTION_TIMEOUT",
     )
 
     request_timeout_seconds: float = Field(
@@ -106,59 +87,40 @@ class ServerConfig(BaseSettings):
         ge=1.0,
         le=3600.0,
         description="Request processing timeout in seconds",
-        env="CS_REQUEST_TIMEOUT",
     )
 
     keepalive_timeout_seconds: float = Field(
-        default=30.0,
-        ge=1.0,
-        le=300.0,
-        description="HTTP keep-alive timeout in seconds",
-        env="CS_KEEPALIVE_TIMEOUT",
+        default=30.0, ge=1.0, le=300.0, description="HTTP keep-alive timeout in seconds"
     )
 
     # Development and debugging settings
     enable_debug_mode: bool = Field(
-        default=False,
-        description="Enable debug mode with additional logging",
-        env="CS_ENABLE_DEBUG_MODE",
+        default=False, description="Enable debug mode with additional logging"
     )
 
     enable_hot_reload: bool = Field(
-        default=False,
-        description="Enable hot reload for development",
-        env="CS_ENABLE_HOT_RELOAD",
+        default=False, description="Enable hot reload for development"
     )
 
     enable_cors: bool = Field(
-        default=False,
-        description="Enable CORS headers for web clients",
-        env="CS_ENABLE_CORS",
+        default=False, description="Enable CORS headers for web clients"
     )
 
     cors_allowed_origins: list[str] = Field(
-        default=[],
-        description="Allowed CORS origins (empty = all)",
-        env="CS_CORS_ALLOWED_ORIGINS",
+        default=[], description="Allowed CORS origins (empty = all)"
     )
 
     # Health and monitoring endpoints
     enable_health_endpoint: bool = Field(
-        default=True,
-        description="Enable /health endpoint",
-        env="CS_ENABLE_HEALTH_ENDPOINT",
+        default=True, description="Enable /health endpoint"
     )
 
     enable_metrics_endpoint: bool = Field(
-        default=True,
-        description="Enable /metrics endpoint",
-        env="CS_ENABLE_METRICS_ENDPOINT",
+        default=True, description="Enable /metrics endpoint"
     )
 
     enable_status_endpoint: bool = Field(
-        default=True,
-        description="Enable /status endpoint with system info",
-        env="CS_ENABLE_STATUS_ENDPOINT",
+        default=True, description="Enable /status endpoint with system info"
     )
 
     # Performance tuning
@@ -167,21 +129,14 @@ class ServerConfig(BaseSettings):
         ge=1,
         le=100,
         description="Number of worker threads for request processing",
-        env="CS_WORKER_THREADS",
     )
 
     max_request_size_mb: int = Field(
-        default=10,
-        ge=1,
-        le=1000,
-        description="Maximum request size in MB",
-        env="CS_MAX_REQUEST_SIZE_MB",
+        default=10, ge=1, le=1000, description="Maximum request size in MB"
     )
 
     enable_compression: bool = Field(
-        default=True,
-        description="Enable response compression",
-        env="CS_ENABLE_COMPRESSION",
+        default=True, description="Enable response compression"
     )
 
     compression_threshold_bytes: int = Field(
@@ -189,7 +144,6 @@ class ServerConfig(BaseSettings):
         ge=100,
         le=100000,
         description="Minimum response size for compression",
-        env="CS_COMPRESSION_THRESHOLD_BYTES",
     )
 
     @field_validator("host")

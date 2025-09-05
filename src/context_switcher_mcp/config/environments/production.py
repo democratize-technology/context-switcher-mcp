@@ -111,8 +111,7 @@ class ProductionConfig(BaseEnvironmentConfig):
     def get_security_config(self) -> dict[str, Any]:
         """Production security configuration (maximum security)"""
         return {
-            # Strong security requirements
-            "secret_key": None,  # Must be set via environment variable
+            # Strong security requirements (secret_key loaded from environment variable)
             "enable_client_binding": True,
             "client_binding_entropy_bytes": 64,  # Higher entropy
             "signature_iterations": 1000000,  # More iterations

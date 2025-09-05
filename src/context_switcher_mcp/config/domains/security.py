@@ -26,7 +26,8 @@ class SecurityConfig(BaseSettings):
     """
 
     model_config = SettingsConfigDict(
-        env_prefix="CS_SECURITY_",
+        env_prefix="CS_",
+        validate_assignment=True,
         case_sensitive=True,  # Security settings are case-sensitive
         extra="forbid",
     )
@@ -36,21 +37,17 @@ class SecurityConfig(BaseSettings):
         default=None,
         min_length=32,
         description="Master secret key for encryption (base64 encoded)",
-        env="CONTEXT_SWITCHER_SECRET_KEY",
+        alias="CONTEXT_SWITCHER_SECRET_KEY",
     )
 
     session_secret_key: str | None = Field(
-        default=None,
-        min_length=32,
-        description="Session-specific encryption key",
-        env="CS_SESSION_SECRET_KEY",
+        default=None, min_length=32, description="Session-specific encryption key"
     )
 
     # Client authentication and binding
     enable_client_binding: bool = Field(
         default=True,
         description="Enable client binding for session security",
-        env="CS_ENABLE_CLIENT_BINDING",
     )
 
     client_binding_entropy_bytes: int = Field(
@@ -58,13 +55,11 @@ class SecurityConfig(BaseSettings):
         ge=16,
         le=128,
         description="Entropy bytes for client binding signatures",
-        env="CS_CLIENT_BINDING_ENTROPY",
     )
 
     binding_signature_algorithm: str = Field(
         default="pbkdf2_hmac",
         description="Algorithm for client binding signatures",
-        env="CS_BINDING_SIGNATURE_ALGORITHM",
     )
 
     signature_iterations: int = Field(
@@ -72,14 +67,12 @@ class SecurityConfig(BaseSettings):
         ge=100000,
         le=2000000,
         description="PBKDF2 iterations for signature generation",
-        env="CS_SIGNATURE_ITERATIONS",
     )
 
     # Rate limiting and abuse prevention
     enable_rate_limiting: bool = Field(
         default=True,
         description="Enable rate limiting for API endpoints",
-        env="CS_ENABLE_RATE_LIMITING",
     )
 
     rate_limit_requests_per_minute: int = Field(
@@ -87,7 +80,7 @@ class SecurityConfig(BaseSettings):
         ge=1,
         le=10000,
         description="Maximum requests per minute per client",
-        env="CS_RATE_LIMIT_RPM",
+        alias="CS_RATE_LIMIT_RPM",
     )
 
     rate_limit_burst_size: int = Field(
@@ -95,7 +88,7 @@ class SecurityConfig(BaseSettings):
         ge=1,
         le=100,
         description="Burst request allowance above rate limit",
-        env="CS_RATE_LIMIT_BURST",
+        alias="CS_RATE_LIMIT_BURST",
     )
 
     rate_limit_window_seconds: int = Field(
@@ -103,7 +96,7 @@ class SecurityConfig(BaseSettings):
         ge=1,
         le=3600,
         description="Rate limiting window duration",
-        env="CS_RATE_LIMIT_WINDOW",
+        alias="CS_RATE_LIMIT_WINDOW",
     )
 
     # Input validation and sanitization
@@ -112,13 +105,12 @@ class SecurityConfig(BaseSettings):
         ge=1000,
         le=100000000,  # 100MB max
         description="Maximum input length for any field",
-        env="CS_MAX_INPUT_LENGTH",
+        alias="CS_MAX_INPUT_LENGTH",
     )
 
     enable_input_sanitization: bool = Field(
         default=True,
         description="Enable input sanitization and validation",
-        env="CS_ENABLE_INPUT_SANITIZATION",
     )
 
     blocked_patterns: list[str] = Field(
@@ -129,7 +121,6 @@ class SecurityConfig(BaseSettings):
             r"vbscript:",  # VBScript URLs
         ],
         description="Regex patterns to block in inputs",
-        env="CS_BLOCKED_PATTERNS",
     )
 
     # Access control
@@ -138,7 +129,6 @@ class SecurityConfig(BaseSettings):
         ge=1,
         le=20,
         description="Maximum validation failures before blocking",
-        env="CS_MAX_VALIDATION_FAILURES",
     )
 
     validation_failure_window_seconds: int = Field(
@@ -146,13 +136,11 @@ class SecurityConfig(BaseSettings):
         ge=60,
         le=3600,
         description="Window for counting validation failures",
-        env="CS_VALIDATION_FAILURE_WINDOW",
     )
 
     enable_suspicious_activity_detection: bool = Field(
         default=True,
         description="Enable detection of suspicious activity patterns",
-        env="CS_ENABLE_SUSPICIOUS_DETECTION",
     )
 
     suspicious_activity_threshold: int = Field(
@@ -160,26 +148,22 @@ class SecurityConfig(BaseSettings):
         ge=1,
         le=100,
         description="Threshold for flagging suspicious activity",
-        env="CS_SUSPICIOUS_ACTIVITY_THRESHOLD",
     )
 
     # Security monitoring
     enable_security_logging: bool = Field(
         default=True,
         description="Enable detailed security event logging",
-        env="CS_ENABLE_SECURITY_LOGGING",
     )
 
     security_log_level: str = Field(
         default="INFO",
         description="Logging level for security events",
-        env="CS_SECURITY_LOG_LEVEL",
     )
 
     enable_security_alerts: bool = Field(
         default=True,
         description="Enable security alerting for critical events",
-        env="CS_ENABLE_SECURITY_ALERTS",
     )
 
     # Session security
@@ -188,13 +172,11 @@ class SecurityConfig(BaseSettings):
         ge=5,
         le=1440,  # Max 24 hours
         description="Session timeout in minutes",
-        env="CS_SESSION_TIMEOUT_MINUTES",
     )
 
     enable_session_rotation: bool = Field(
         default=True,
         description="Enable automatic session key rotation",
-        env="CS_ENABLE_SESSION_ROTATION",
     )
 
     session_rotation_interval_hours: int = Field(
@@ -202,7 +184,6 @@ class SecurityConfig(BaseSettings):
         ge=1,
         le=168,  # Max 1 week
         description="Interval for session key rotation",
-        env="CS_SESSION_ROTATION_INTERVAL",
     )
 
     @field_validator("secret_key", "session_secret_key")

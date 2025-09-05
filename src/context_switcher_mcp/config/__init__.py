@@ -149,22 +149,27 @@ def get_config(
         else:
             raise ConfigurationError("No configuration system available")
 
+    # Environment-specific configurations are not cached to avoid conflicts
+    if environment:
+        try:
+            # Load environment-specific configuration (not cached)
+            env_config = get_environment_config(environment, config_file)
+            logger.info(f"Loaded {environment} environment configuration")
+            return env_config
+        except Exception as e:
+            raise ConfigurationError(f"Failed to initialize configuration: {e}") from e
+
+    # Only cache the default configuration
     if _global_config_instance is None or reload:
         try:
-            if environment:
-                # Load environment-specific configuration
-                _global_config_instance = get_environment_config(
-                    environment, config_file
+            # Load default configuration using the new unified system
+            if config_file:
+                _global_config_instance = ContextSwitcherConfig(
+                    config_file=config_file, **kwargs
                 )
-                logger.info(f"Loaded {environment} environment configuration")
             else:
-                # Load default configuration using the new unified system
-                unified_config = _new_get_config(**kwargs)
-                if config_file:
-                    unified_config = ContextSwitcherConfig(config_file=config_file)
-
-                _global_config_instance = LegacyConfigAdapter(unified_config)
-                logger.info("Loaded default configuration")
+                _global_config_instance = ContextSwitcherConfig(**kwargs)
+            logger.info("Loaded default configuration")
 
         except Exception as e:
             raise ConfigurationError(f"Failed to initialize configuration: {e}") from e
@@ -199,8 +204,7 @@ def reload_config() -> ContextSwitcherConfig:
             raise ConfigurationError("No configuration system available")
 
     # Use the new unified reload system
-    unified_config = _new_reload_config()
-    return LegacyConfigAdapter(unified_config)
+    return _new_reload_config()
 
 
 def validate_current_config() -> tuple[bool, list[str]]:

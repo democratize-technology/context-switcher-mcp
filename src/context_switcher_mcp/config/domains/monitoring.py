@@ -172,7 +172,7 @@ class MonitoringConfig(BaseSettings):
     """
 
     model_config = SettingsConfigDict(
-        env_prefix="CS_MONITORING_", case_sensitive=False, extra="forbid"
+        env_prefix="CS_", case_sensitive=False, extra="forbid", validate_assignment=True
     )
 
     # Sub-configurations
@@ -182,32 +182,28 @@ class MonitoringConfig(BaseSettings):
 
     # Global monitoring settings
     enable_monitoring: bool = Field(
-        default=True, description="Enable monitoring system", env="CS_ENABLE_MONITORING"
+        default=True, description="Enable monitoring system"
     )
 
     monitoring_storage_path: str | None = Field(
         default=None,
         description="Path for monitoring data storage",
-        env="CS_MONITORING_STORAGE_PATH",
     )
 
     enable_real_time_metrics: bool = Field(
         default=True,
         description="Enable real-time metrics streaming",
-        env="CS_ENABLE_REAL_TIME_METRICS",
     )
 
     metrics_export_format: str = Field(
         default="json",
         description="Format for metrics export: 'json', 'csv', 'prometheus'",
-        env="CS_METRICS_EXPORT_FORMAT",
     )
 
     # Dashboard and reporting
     enable_performance_dashboard: bool = Field(
         default=True,
         description="Enable performance dashboard",
-        env="CS_ENABLE_PERFORMANCE_DASHBOARD",
     )
 
     dashboard_update_interval_seconds: int = Field(
@@ -215,13 +211,11 @@ class MonitoringConfig(BaseSettings):
         ge=5,
         le=3600,
         description="Dashboard update interval in seconds",
-        env="CS_DASHBOARD_UPDATE_INTERVAL",
     )
 
     enable_automated_reports: bool = Field(
         default=False,
         description="Enable automated performance reports",
-        env="CS_ENABLE_AUTOMATED_REPORTS",
     )
 
     report_generation_interval_hours: int = Field(
@@ -229,7 +223,6 @@ class MonitoringConfig(BaseSettings):
         ge=1,
         le=168,
         description="Report generation interval in hours",
-        env="CS_REPORT_INTERVAL_HOURS",
     )
 
     @field_validator("metrics_export_format")

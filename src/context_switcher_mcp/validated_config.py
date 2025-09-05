@@ -60,7 +60,8 @@ class ValidatedModelConfig(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="CS_",
         case_sensitive=False,
-        extra="forbid",  # Reject unknown fields
+        extra="allow",  # Allow unknown fields for JSON compatibility
+        validate_assignment=True,
     )
 
     # Token limits with proper validation
@@ -69,7 +70,7 @@ class ValidatedModelConfig(BaseSettings):
         ge=1,
         le=200000,
         description="Default maximum tokens for model responses",
-        env="CS_MAX_TOKENS",
+        alias="CS_MAX_TOKENS",
     )
 
     # Temperature validation
@@ -78,7 +79,7 @@ class ValidatedModelConfig(BaseSettings):
         ge=0.0,
         le=2.0,
         description="Default temperature for model responses",
-        env="CS_TEMPERATURE",
+        alias="CS_TEMPERATURE",
     )
 
     # Character limits with validation
@@ -87,7 +88,7 @@ class ValidatedModelConfig(BaseSettings):
         ge=1000,
         le=1000000,
         description="Maximum characters for Claude Opus models",
-        env="CS_MAX_CHARS_OPUS",
+        alias="CS_MAX_CHARS_OPUS",
     )
 
     max_chars_haiku: int = Field(
@@ -95,14 +96,14 @@ class ValidatedModelConfig(BaseSettings):
         ge=1000,
         le=2000000,
         description="Maximum characters for Claude Haiku models",
-        env="CS_MAX_CHARS_HAIKU",
+        alias="CS_MAX_CHARS_HAIKU",
     )
 
     # Backend-specific model identifiers with pattern validation
     bedrock_model_id: str = Field(
         default="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
         description="AWS Bedrock model identifier",
-        env="BEDROCK_MODEL_ID",
+        alias="BEDROCK_MODEL_ID",
     )
 
     litellm_model: str = Field(
@@ -110,21 +111,21 @@ class ValidatedModelConfig(BaseSettings):
         min_length=1,
         max_length=100,
         description="LiteLLM model identifier",
-        env="LITELLM_MODEL",
+        alias="LITELLM_MODEL",
     )
 
     ollama_model: str = Field(
         default="llama3.2",
         pattern=r"^[a-zA-Z0-9\.\-_:]+$",
         description="Ollama model identifier",
-        env="OLLAMA_MODEL",
+        alias="OLLAMA_MODEL",
     )
 
     # Ollama host with URL validation
     ollama_host: HttpUrl = Field(
         default="http://localhost:11434",
         description="Ollama service URL",
-        env="OLLAMA_HOST",
+        alias="OLLAMA_HOST",
     )
 
     @field_validator("bedrock_model_id")
@@ -142,7 +143,7 @@ class ValidatedCircuitBreakerConfig(BaseSettings):
     """Validated circuit breaker configuration"""
 
     model_config = SettingsConfigDict(
-        env_prefix="CS_CIRCUIT_", case_sensitive=False, extra="forbid"
+        env_prefix="CS_CIRCUIT_", case_sensitive=False, extra="allow"
     )
 
     failure_threshold: int = Field(
@@ -150,7 +151,7 @@ class ValidatedCircuitBreakerConfig(BaseSettings):
         ge=1,
         le=100,
         description="Number of failures before opening circuit",
-        env="CS_CIRCUIT_FAILURE_THRESHOLD",
+        alias="CS_CIRCUIT_FAILURE_THRESHOLD",
     )
 
     timeout_seconds: int = Field(
@@ -158,7 +159,7 @@ class ValidatedCircuitBreakerConfig(BaseSettings):
         ge=10,
         le=3600,
         description="Timeout before attempting circuit reset (seconds)",
-        env="CS_CIRCUIT_TIMEOUT_SECONDS",
+        alias="CS_CIRCUIT_TIMEOUT_SECONDS",
     )
 
 
@@ -166,7 +167,7 @@ class ValidatedValidationConfig(BaseSettings):
     """Validated input validation configuration"""
 
     model_config = SettingsConfigDict(
-        env_prefix="CS_", case_sensitive=False, extra="forbid"
+        env_prefix="CS_", case_sensitive=False, extra="allow"
     )
 
     max_session_id_length: int = Field(
@@ -174,7 +175,7 @@ class ValidatedValidationConfig(BaseSettings):
         ge=10,
         le=1000,
         description="Maximum length for session IDs",
-        env="CS_MAX_SESSION_ID_LENGTH",
+        alias="CS_MAX_SESSION_ID_LENGTH",
     )
 
     max_topic_length: int = Field(
@@ -182,7 +183,7 @@ class ValidatedValidationConfig(BaseSettings):
         ge=10,
         le=100000,
         description="Maximum length for topic descriptions",
-        env="CS_MAX_TOPIC_LENGTH",
+        alias="CS_MAX_TOPIC_LENGTH",
     )
 
     max_perspective_name_length: int = Field(
@@ -190,7 +191,7 @@ class ValidatedValidationConfig(BaseSettings):
         ge=1,
         le=500,
         description="Maximum length for perspective names",
-        env="CS_MAX_PERSPECTIVE_NAME_LENGTH",
+        alias="CS_MAX_PERSPECTIVE_NAME_LENGTH",
     )
 
     max_custom_prompt_length: int = Field(
@@ -198,7 +199,7 @@ class ValidatedValidationConfig(BaseSettings):
         ge=100,
         le=1000000,
         description="Maximum length for custom prompts",
-        env="CS_MAX_CUSTOM_PROMPT_LENGTH",
+        alias="CS_MAX_CUSTOM_PROMPT_LENGTH",
     )
 
 
@@ -206,7 +207,7 @@ class ValidatedSessionConfig(BaseSettings):
     """Validated session management configuration"""
 
     model_config = SettingsConfigDict(
-        env_prefix="CS_SESSION_", case_sensitive=False, extra="forbid"
+        env_prefix="CS_SESSION_", case_sensitive=False, extra="allow"
     )
 
     default_ttl_hours: int = Field(
@@ -214,7 +215,7 @@ class ValidatedSessionConfig(BaseSettings):
         ge=1,
         le=168,  # 1 week max
         description="Default session TTL in hours",
-        env="CS_SESSION_TTL_HOURS",
+        alias="CS_SESSION_TTL_HOURS",
     )
 
     cleanup_interval_seconds: int = Field(
@@ -222,7 +223,7 @@ class ValidatedSessionConfig(BaseSettings):
         ge=60,
         le=3600,
         description="Session cleanup interval in seconds",
-        env="CS_CLEANUP_INTERVAL",
+        alias="CS_CLEANUP_INTERVAL",
     )
 
     max_active_sessions: int = Field(
@@ -230,7 +231,7 @@ class ValidatedSessionConfig(BaseSettings):
         ge=1,
         le=100000,
         description="Maximum number of active sessions",
-        env="CS_MAX_SESSIONS",
+        alias="CS_MAX_SESSIONS",
     )
 
 
@@ -238,7 +239,7 @@ class ValidatedMetricsConfig(BaseSettings):
     """Validated metrics collection configuration"""
 
     model_config = SettingsConfigDict(
-        env_prefix="CS_METRICS_", case_sensitive=False, extra="forbid"
+        env_prefix="CS_METRICS_", case_sensitive=False, extra="allow"
     )
 
     max_history_size: int = Field(
@@ -246,7 +247,7 @@ class ValidatedMetricsConfig(BaseSettings):
         ge=10,
         le=1000000,
         description="Maximum metrics history entries",
-        env="CS_METRICS_HISTORY_SIZE",
+        alias="CS_METRICS_HISTORY_SIZE",
     )
 
     retention_days: int = Field(
@@ -254,7 +255,7 @@ class ValidatedMetricsConfig(BaseSettings):
         ge=1,
         le=365,
         description="Metrics retention period in days",
-        env="CS_METRICS_RETENTION_DAYS",
+        alias="CS_METRICS_RETENTION_DAYS",
     )
 
 
@@ -270,7 +271,7 @@ class ValidatedRetryConfig(BaseSettings):
         ge=0,
         le=20,
         description="Maximum number of retry attempts",
-        env="CS_MAX_RETRIES",
+        alias="CS_MAX_RETRIES",
     )
 
     initial_delay: float = Field(
@@ -278,7 +279,7 @@ class ValidatedRetryConfig(BaseSettings):
         ge=0.1,
         le=60.0,
         description="Initial retry delay in seconds",
-        env="CS_RETRY_DELAY",
+        alias="CS_RETRY_DELAY",
     )
 
     backoff_factor: float = Field(
@@ -286,7 +287,7 @@ class ValidatedRetryConfig(BaseSettings):
         ge=1.0,
         le=10.0,
         description="Exponential backoff multiplier",
-        env="CS_BACKOFF_FACTOR",
+        alias="CS_BACKOFF_FACTOR",
     )
 
     max_delay: float = Field(
@@ -294,7 +295,7 @@ class ValidatedRetryConfig(BaseSettings):
         ge=1.0,
         le=600.0,
         description="Maximum retry delay in seconds",
-        env="CS_MAX_RETRY_DELAY",
+        alias="CS_MAX_RETRY_DELAY",
     )
 
     @model_validator(mode="after")
@@ -309,7 +310,7 @@ class ValidatedReasoningConfig(BaseSettings):
     """Validated configuration for Chain of Thought reasoning"""
 
     model_config = SettingsConfigDict(
-        env_prefix="CS_REASONING_", case_sensitive=False, extra="forbid"
+        env_prefix="CS_REASONING_", case_sensitive=False, extra="allow"
     )
 
     max_iterations: int = Field(
@@ -317,7 +318,7 @@ class ValidatedReasoningConfig(BaseSettings):
         ge=1,
         le=100,
         description="Maximum reasoning iterations",
-        env="CS_REASONING_MAX_ITERATIONS",
+        alias="CS_REASONING_MAX_ITERATIONS",
     )
 
     cot_timeout_seconds: float = Field(
@@ -325,7 +326,7 @@ class ValidatedReasoningConfig(BaseSettings):
         ge=1.0,
         le=300.0,
         description="Chain of thought timeout in seconds",
-        env="CS_COT_TIMEOUT",
+        alias="CS_COT_TIMEOUT",
     )
 
     summary_timeout_seconds: float = Field(
@@ -333,7 +334,7 @@ class ValidatedReasoningConfig(BaseSettings):
         ge=0.5,
         le=60.0,
         description="Summary generation timeout in seconds",
-        env="CS_SUMMARY_TIMEOUT",
+        alias="CS_SUMMARY_TIMEOUT",
     )
 
     default_temperature: float = Field(
@@ -341,7 +342,7 @@ class ValidatedReasoningConfig(BaseSettings):
         ge=0.0,
         le=2.0,
         description="Default temperature for reasoning",
-        env="CS_REASONING_TEMPERATURE",
+        alias="CS_REASONING_TEMPERATURE",
     )
 
 
@@ -349,19 +350,19 @@ class ValidatedProfilingConfig(BaseSettings):
     """Validated configuration for LLM profiling and monitoring"""
 
     model_config = SettingsConfigDict(
-        env_prefix="CS_PROFILING_", case_sensitive=False, extra="forbid"
+        env_prefix="CS_PROFILING_", case_sensitive=False, extra="allow"
     )
 
     enabled: bool = Field(
         default=True,
         description="Enable profiling collection",
-        env="CS_PROFILING_ENABLED",
+        alias="CS_PROFILING_ENABLED",
     )
 
     level: ProfilingLevel = Field(
         default=ProfilingLevel.STANDARD,
         description="Profiling detail level",
-        env="CS_PROFILING_LEVEL",
+        alias="CS_PROFILING_LEVEL",
     )
 
     sampling_rate: float = Field(
@@ -369,28 +370,28 @@ class ValidatedProfilingConfig(BaseSettings):
         ge=0.0,
         le=1.0,
         description="Profiling sampling rate (0.0-1.0)",
-        env="CS_PROFILING_SAMPLING_RATE",
+        alias="CS_PROFILING_SAMPLING_RATE",
     )
 
     # Feature flags with validation
     track_tokens: bool = Field(
-        default=True, description="Track token usage", env="CS_PROFILING_TRACK_TOKENS"
+        default=True, description="Track token usage", alias="CS_PROFILING_TRACK_TOKENS"
     )
 
     track_costs: bool = Field(
-        default=True, description="Track API costs", env="CS_PROFILING_TRACK_COSTS"
+        default=True, description="Track API costs", alias="CS_PROFILING_TRACK_COSTS"
     )
 
     track_memory: bool = Field(
         default=False,
         description="Track memory usage (expensive)",
-        env="CS_PROFILING_TRACK_MEMORY",
+        alias="CS_PROFILING_TRACK_MEMORY",
     )
 
     track_network_timing: bool = Field(
         default=True,
         description="Track network request timing",
-        env="CS_PROFILING_TRACK_NETWORK",
+        alias="CS_PROFILING_TRACK_NETWORK",
     )
 
     # Storage settings with limits
@@ -399,7 +400,7 @@ class ValidatedProfilingConfig(BaseSettings):
         ge=100,
         le=1000000,
         description="Maximum profiling history entries",
-        env="CS_PROFILING_MAX_HISTORY",
+        alias="CS_PROFILING_MAX_HISTORY",
     )
 
     # Alert thresholds with validation
@@ -408,7 +409,7 @@ class ValidatedProfilingConfig(BaseSettings):
         ge=0.01,
         le=10000.0,
         description="Daily cost alert threshold in USD",
-        env="CS_PROFILING_COST_ALERT",
+        alias="CS_PROFILING_COST_ALERT",
     )
 
     latency_alert_threshold_s: float = Field(
@@ -416,7 +417,7 @@ class ValidatedProfilingConfig(BaseSettings):
         ge=0.1,
         le=300.0,
         description="High latency alert threshold in seconds",
-        env="CS_PROFILING_LATENCY_ALERT",
+        alias="CS_PROFILING_LATENCY_ALERT",
     )
 
     memory_alert_threshold_mb: float = Field(
@@ -424,7 +425,7 @@ class ValidatedProfilingConfig(BaseSettings):
         ge=10.0,
         le=100000.0,
         description="High memory usage alert threshold in MB",
-        env="CS_PROFILING_MEMORY_ALERT",
+        alias="CS_PROFILING_MEMORY_ALERT",
     )
 
     # Sampling rules
@@ -448,56 +449,82 @@ class ValidatedProfilingConfig(BaseSettings):
         description="Always profile circuit breaker events",
     )
 
+    @field_validator("enabled", mode="before")
+    @classmethod
+    def parse_bool_enabled(cls, v: str | bool) -> bool:
+        """Parse boolean values from environment variables, treating empty string as False"""
+        if isinstance(v, bool):
+            return v
+        if isinstance(v, str):
+            if v == "":
+                return False
+            # Standard boolean parsing
+            v_lower = v.lower()
+            if v_lower in ("true", "1", "yes", "on"):
+                return True
+            elif v_lower in ("false", "0", "no", "off"):
+                return False
+            else:
+                raise ValueError(f"Invalid boolean value: {v}")
+        return bool(v)
+
 
 class ValidatedServerConfig(BaseSettings):
     """Validated MCP server configuration"""
 
     model_config = SettingsConfigDict(
-        env_prefix="CS_", case_sensitive=False, extra="forbid"
+        env_prefix="CS_", case_sensitive=False, extra="allow"
     )
 
     host: str = Field(
         default="localhost",
         pattern=r"^[a-zA-Z0-9\.\-]+$",
         description="Server host address",
-        env="CS_HOST",
+        alias="CS_HOST",
     )
 
     port: int = Field(
-        default=3023, ge=1024, le=65535, description="Server port number", env="CS_PORT"
+        default=3023,
+        ge=1024,
+        le=65535,
+        description="Server port number",
+        alias="CS_PORT",
     )
 
     log_level: LogLevel = Field(
-        default=LogLevel.INFO, description="Logging level", env="CS_LOG_LEVEL"
+        default=LogLevel.INFO, description="Logging level", alias="CS_LOG_LEVEL"
     )
 
     @field_validator("host")
     @classmethod
     def validate_host(cls, v: str) -> str:
         """Validate host address format"""
-        if v not in ["localhost", "0.0.0.0"] and not re.match(
-            r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", v
-        ):
-            # Allow simple hostnames but validate IP addresses
-            if re.match(r"^\d", v):  # Starts with digit, should be valid IP
-                parts = v.split(".")
-                if len(parts) != 4 or not all(
-                    0 <= int(part) <= 255 for part in parts if part.isdigit()
-                ):
-                    raise ValueError("Invalid IP address format")
+        # Allow special localhost values
+        if v in ["localhost", "0.0.0.0"]:
+            return v
+
+        # If it looks like an IP address, validate it properly
+        if re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", v):
+            parts = v.split(".")
+            if len(parts) != 4 or not all(
+                part.isdigit() and 0 <= int(part) <= 255 for part in parts
+            ):
+                raise ValueError("Invalid IP address")
+
+        # Otherwise allow hostnames that match the pattern
         return v
 
 
 class ValidatedSecurityConfig(BaseSettings):
     """Validated security configuration"""
 
-    model_config = SettingsConfigDict(case_sensitive=True, extra="forbid")
+    model_config = SettingsConfigDict(case_sensitive=True, extra="allow")
 
     secret_key: str | None = Field(
         default=None,
         min_length=32,
         description="Encryption secret key (sensitive)",
-        env="CONTEXT_SWITCHER_SECRET_KEY",
+        alias="CONTEXT_SWITCHER_SECRET_KEY",
     )
 
     @field_validator("secret_key")
@@ -517,7 +544,7 @@ class ValidatedContextSwitcherConfig(BaseSettings):
 
     model_config = SettingsConfigDict(
         case_sensitive=False,
-        extra="forbid",
+        extra="allow",
         # Support loading from files
         json_file="context_switcher_config.json",
         yaml_file="context_switcher_config.yaml",
@@ -676,7 +703,23 @@ def load_validated_config(
                 logger.warning(f"Config file not found: {config_path}")
 
         # Create validated configuration
-        config = ValidatedContextSwitcherConfig(**kwargs)
+        if kwargs and any(isinstance(v, dict) for v in kwargs.values()):
+            # Handle nested configuration (from JSON/YAML files)
+            # Create base configuration first
+            config = ValidatedContextSwitcherConfig()
+
+            # For each domain config in the JSON/YAML data, update the fields directly
+            for domain_name, domain_config in kwargs.items():
+                if hasattr(config, domain_name) and isinstance(domain_config, dict):
+                    current_domain = getattr(config, domain_name)
+
+                    # Update each field in the domain config directly
+                    for field_name, field_value in domain_config.items():
+                        if hasattr(current_domain, field_name):
+                            # Use setattr with validation
+                            setattr(current_domain, field_name, field_value)
+        else:
+            config = ValidatedContextSwitcherConfig(**kwargs)
 
         # Log successful validation
         logger.info("Configuration validation successful")

@@ -24,7 +24,7 @@ class SessionConfig(BaseSettings):
     """
 
     model_config = SettingsConfigDict(
-        env_prefix="CS_SESSION_", case_sensitive=False, extra="forbid"
+        env_prefix="CS_", case_sensitive=False, extra="forbid", validate_assignment=True
     )
 
     # Session lifecycle settings
@@ -33,7 +33,6 @@ class SessionConfig(BaseSettings):
         ge=1,
         le=168,  # Maximum 1 week
         description="Default session time-to-live in hours",
-        env="CS_SESSION_TTL_HOURS",
     )
 
     max_ttl_hours: int = Field(
@@ -41,7 +40,6 @@ class SessionConfig(BaseSettings):
         ge=1,
         le=720,  # Maximum 30 days
         description="Maximum allowed session TTL in hours",
-        env="CS_SESSION_MAX_TTL_HOURS",
     )
 
     cleanup_interval_seconds: int = Field(
@@ -49,7 +47,6 @@ class SessionConfig(BaseSettings):
         ge=60,
         le=3600,  # Maximum 1 hour
         description="Interval between session cleanup runs",
-        env="CS_CLEANUP_INTERVAL",
     )
 
     # Concurrent session limits
@@ -58,7 +55,6 @@ class SessionConfig(BaseSettings):
         ge=1,
         le=100000,
         description="Maximum number of active sessions",
-        env="CS_MAX_SESSIONS",
     )
 
     max_sessions_per_client: int = Field(
@@ -66,7 +62,6 @@ class SessionConfig(BaseSettings):
         ge=1,
         le=100,
         description="Maximum sessions per client identifier",
-        env="CS_MAX_SESSIONS_PER_CLIENT",
     )
 
     # Session operation settings
@@ -75,7 +70,6 @@ class SessionConfig(BaseSettings):
         ge=1.0,
         le=300.0,
         description="Timeout for individual session operations",
-        env="CS_SESSION_OPERATION_TIMEOUT",
     )
 
     perspective_analysis_timeout_seconds: float = Field(
@@ -83,7 +77,6 @@ class SessionConfig(BaseSettings):
         ge=5.0,
         le=600.0,
         description="Timeout for perspective analysis operations",
-        env="CS_PERSPECTIVE_ANALYSIS_TIMEOUT",
     )
 
     synthesis_timeout_seconds: float = Field(
@@ -91,7 +84,6 @@ class SessionConfig(BaseSettings):
         ge=5.0,
         le=300.0,
         description="Timeout for perspective synthesis operations",
-        env="CS_SYNTHESIS_TIMEOUT",
     )
 
     # Memory and resource management
@@ -100,7 +92,6 @@ class SessionConfig(BaseSettings):
         ge=1.0,
         le=1000.0,
         description="Maximum memory per session in MB",
-        env="CS_SESSION_MAX_MEMORY_MB",
     )
 
     max_session_history_entries: int = Field(
@@ -108,13 +99,11 @@ class SessionConfig(BaseSettings):
         ge=1,
         le=10000,
         description="Maximum history entries per session",
-        env="CS_SESSION_MAX_HISTORY",
     )
 
     enable_session_compression: bool = Field(
         default=True,
         description="Enable compression for session data",
-        env="CS_SESSION_ENABLE_COMPRESSION",
     )
 
     # Validation settings for session inputs
@@ -123,7 +112,6 @@ class SessionConfig(BaseSettings):
         ge=10,
         le=1000,
         description="Maximum length for session identifiers",
-        env="CS_MAX_SESSION_ID_LENGTH",
     )
 
     max_topic_length: int = Field(
@@ -131,7 +119,6 @@ class SessionConfig(BaseSettings):
         ge=10,
         le=100000,
         description="Maximum length for analysis topics",
-        env="CS_MAX_TOPIC_LENGTH",
     )
 
     max_perspective_name_length: int = Field(
@@ -139,7 +126,6 @@ class SessionConfig(BaseSettings):
         ge=1,
         le=500,
         description="Maximum length for perspective names",
-        env="CS_MAX_PERSPECTIVE_NAME_LENGTH",
     )
 
     max_custom_prompt_length: int = Field(
@@ -147,7 +133,6 @@ class SessionConfig(BaseSettings):
         ge=100,
         le=1000000,
         description="Maximum length for custom perspective prompts",
-        env="CS_MAX_CUSTOM_PROMPT_LENGTH",
     )
 
     # Concurrent operations
@@ -156,7 +141,6 @@ class SessionConfig(BaseSettings):
         ge=1,
         le=50,
         description="Maximum concurrent perspectives per session",
-        env="CS_MAX_CONCURRENT_PERSPECTIVES",
     )
 
     max_concurrent_sessions: int = Field(
@@ -164,20 +148,17 @@ class SessionConfig(BaseSettings):
         ge=1,
         le=1000,
         description="Maximum concurrent active session operations",
-        env="CS_MAX_CONCURRENT_SESSIONS",
     )
 
     # Session persistence settings
     enable_session_persistence: bool = Field(
         default=True,
         description="Enable session data persistence across restarts",
-        env="CS_SESSION_ENABLE_PERSISTENCE",
     )
 
     session_storage_path: str | None = Field(
         default=None,
         description="Path for session data storage (None for memory only)",
-        env="CS_SESSION_STORAGE_PATH",
     )
 
     @field_validator("max_ttl_hours")

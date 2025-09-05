@@ -28,7 +28,7 @@ class ModelConfig(BaseSettings):
     """
 
     model_config = SettingsConfigDict(
-        env_prefix="CS_MODEL_", case_sensitive=False, extra="forbid"
+        env_prefix="CS_", case_sensitive=False, extra="forbid", validate_assignment=True
     )
 
     # General model parameters with validation
@@ -37,7 +37,7 @@ class ModelConfig(BaseSettings):
         ge=1,
         le=200000,
         description="Default maximum tokens for model responses",
-        env="CS_MAX_TOKENS",
+        alias="CS_MAX_TOKENS",
     )
 
     default_temperature: float = Field(
@@ -45,7 +45,7 @@ class ModelConfig(BaseSettings):
         ge=0.0,
         le=2.0,
         description="Default temperature for response generation",
-        env="CS_TEMPERATURE",
+        alias="CS_TEMPERATURE",
     )
 
     # Character limits for different model classes
@@ -54,7 +54,7 @@ class ModelConfig(BaseSettings):
         ge=1000,
         le=1000000,
         description="Maximum characters for Claude Opus models",
-        env="CS_MAX_CHARS_OPUS",
+        alias="CS_MAX_CHARS_OPUS",
     )
 
     max_chars_haiku: int = Field(
@@ -62,7 +62,7 @@ class ModelConfig(BaseSettings):
         ge=1000,
         le=2000000,
         description="Maximum characters for Claude Haiku models",
-        env="CS_MAX_CHARS_HAIKU",
+        alias="CS_MAX_CHARS_HAIKU",
     )
 
     # AWS Bedrock configuration
@@ -70,14 +70,14 @@ class ModelConfig(BaseSettings):
         default="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
         pattern=r"^[a-z0-9\.\-:]+$",
         description="AWS Bedrock model identifier",
-        env="BEDROCK_MODEL_ID",
+        alias="BEDROCK_MODEL_ID",
     )
 
     bedrock_region: str = Field(
         default="us-east-1",
         pattern=r"^[a-z0-9\-]+$",
         description="AWS region for Bedrock access",
-        env="AWS_DEFAULT_REGION",
+        alias="AWS_DEFAULT_REGION",
     )
 
     bedrock_timeout_seconds: float = Field(
@@ -85,7 +85,7 @@ class ModelConfig(BaseSettings):
         ge=1.0,
         le=300.0,
         description="Timeout for Bedrock API calls",
-        env="CS_MODEL_BEDROCK_TIMEOUT",
+        alias="CS_MODEL_BEDROCK_TIMEOUT",
     )
 
     # LiteLLM configuration
@@ -94,7 +94,7 @@ class ModelConfig(BaseSettings):
         min_length=1,
         max_length=100,
         description="LiteLLM model identifier",
-        env="LITELLM_MODEL",
+        alias="LITELLM_MODEL",
     )
 
     litellm_timeout_seconds: float = Field(
@@ -102,7 +102,7 @@ class ModelConfig(BaseSettings):
         ge=1.0,
         le=300.0,
         description="Timeout for LiteLLM API calls",
-        env="CS_MODEL_LITELLM_TIMEOUT",
+        alias="CS_MODEL_LITELLM_TIMEOUT",
     )
 
     # Ollama configuration
@@ -110,13 +110,13 @@ class ModelConfig(BaseSettings):
         default="llama3.2",
         pattern=r"^[a-zA-Z0-9\.\-_:]+$",
         description="Ollama model identifier",
-        env="OLLAMA_MODEL",
+        alias="OLLAMA_MODEL",
     )
 
     ollama_host: HttpUrl = Field(
         default="http://localhost:11434",
         description="Ollama service endpoint URL",
-        env="OLLAMA_HOST",
+        alias="OLLAMA_HOST",
     )
 
     ollama_timeout_seconds: float = Field(
@@ -124,14 +124,14 @@ class ModelConfig(BaseSettings):
         ge=1.0,
         le=600.0,
         description="Timeout for Ollama API calls",
-        env="CS_MODEL_OLLAMA_TIMEOUT",
+        alias="CS_MODEL_OLLAMA_TIMEOUT",
     )
 
     # Backend selection and circuit breaker settings
     enabled_backends: list[str] = Field(
         default=["bedrock", "litellm", "ollama"],
         description="List of enabled model backends",
-        env="CS_MODEL_ENABLED_BACKENDS",
+        alias="CS_MODEL_ENABLED_BACKENDS",
     )
 
     circuit_breaker_failure_threshold: int = Field(
@@ -139,7 +139,7 @@ class ModelConfig(BaseSettings):
         ge=1,
         le=100,
         description="Failures before circuit breaker opens",
-        env="CS_MODEL_CIRCUIT_FAILURE_THRESHOLD",
+        alias="CS_MODEL_CIRCUIT_FAILURE_THRESHOLD",
     )
 
     circuit_breaker_timeout_seconds: int = Field(
@@ -147,7 +147,7 @@ class ModelConfig(BaseSettings):
         ge=10,
         le=3600,
         description="Circuit breaker timeout before retry attempts",
-        env="CS_MODEL_CIRCUIT_TIMEOUT",
+        alias="CS_MODEL_CIRCUIT_TIMEOUT",
     )
 
     # Retry configuration for model calls
@@ -156,7 +156,7 @@ class ModelConfig(BaseSettings):
         ge=0,
         le=10,
         description="Maximum retry attempts for failed model calls",
-        env="CS_MODEL_MAX_RETRIES",
+        alias="CS_MODEL_MAX_RETRIES",
     )
 
     retry_delay_seconds: float = Field(
@@ -164,7 +164,7 @@ class ModelConfig(BaseSettings):
         ge=0.1,
         le=30.0,
         description="Initial delay between retry attempts",
-        env="CS_MODEL_RETRY_DELAY",
+        alias="CS_MODEL_RETRY_DELAY",
     )
 
     retry_backoff_factor: float = Field(
@@ -172,7 +172,7 @@ class ModelConfig(BaseSettings):
         ge=1.0,
         le=5.0,
         description="Exponential backoff multiplier for retries",
-        env="CS_MODEL_RETRY_BACKOFF",
+        alias="CS_MODEL_RETRY_BACKOFF",
     )
 
     @field_validator("bedrock_model_id")
