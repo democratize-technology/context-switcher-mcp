@@ -27,7 +27,6 @@ from context_switcher_mcp.circuit_breaker_store import (
     CircuitBreakerStore,  # noqa: E402 # noqa: E402
 )
 from context_switcher_mcp.client_binding import (  # noqa: E402 # noqa: E402
-    ClientBindingManager,
     SecretKeyManager,
     _load_or_generate_secret_key,
     create_secure_session_with_binding,
@@ -513,7 +512,12 @@ class TestSessionTokenRotation:
 
     def test_validation_with_rotated_keys(self):
         """Test that sessions validate with rotated keys during grace period"""
-        manager = ClientBindingManager()
+        # Use the global manager instance (same one used by create_secure_session_with_binding)
+        from context_switcher_mcp.security.client_binding_core import (
+            get_client_binding_manager,
+        )
+
+        manager = get_client_binding_manager()
 
         # Create session with current key
         session = create_secure_session_with_binding(
@@ -526,7 +530,7 @@ class TestSessionTokenRotation:
         # Rotate the key
         manager.rotate_secret_key()
 
-        # Session should still validate with old key
+        # Session should still validate with old key during grace period
         assert manager._validate_binding_with_rotation(session.client_binding)
 
         # After validation, binding should be re-signed with new key

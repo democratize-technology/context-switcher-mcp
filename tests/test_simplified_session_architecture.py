@@ -6,7 +6,6 @@ while validating the simplified design's correctness and performance.
 
 import asyncio
 from datetime import datetime, timedelta, timezone
-from unittest.mock import patch
 
 import pytest
 from context_switcher_mcp.exceptions import (  # noqa: E402
@@ -342,23 +341,18 @@ class TestSimpleSessionManager:
 
     async def test_session_with_perspectives(self, manager):
         """Test session creation with initial perspectives"""
-        with patch(
-            "src.context_switcher_mcp.session_manager_new.get_perspective_system_prompt"
-        ) as mock_prompt:
-            mock_prompt.return_value = "Test system prompt"
+        session = await manager.create_session(
+            "test_session",
+            topic="test",
+            initial_perspectives=["technical", "business"],
+            model_backend="litellm",  # Use string instead of enum for now
+        )
 
-            session = await manager.create_session(
-                "test_session",
-                topic="test",
-                initial_perspectives=["technical", "business"],
-                model_backend=ModelBackend.LITELLM,
-            )
-
-            # Should have created threads for perspectives
-            all_threads = await session.get_all_threads()
-            assert len(all_threads) == 2
-            assert "technical" in all_threads
-            assert "business" in all_threads
+        # Should have created threads for perspectives
+        all_threads = await session.get_all_threads()
+        assert len(all_threads) == 2
+        assert "technical" in all_threads
+        assert "business" in all_threads
 
     async def test_capacity_management(self, manager):
         """Test session capacity limits"""
@@ -532,9 +526,31 @@ class TestPerformanceAndConcurrency:
         all_threads = await session.get_all_threads()
         assert len(all_threads) == 10  # Only unique names should exist
 
-        # Some operations in each batch should have succeeded
-        for results in results_list:
-            assert any(results), "Each batch should have some successful operations"
+        # Due to thread safety, only one batch should have succeeded entirely
+        # The others should have failed because thread names already exist
+        success_batches = [results for results in results_list if any(results)]
+        failed_batches = [results for results in results_list if not any(results)]
+
+        # Exactly one batch should have succeeded (all True)
+        # and two batches should have failed (all False)
+        assert (
+            len(success_batches) == 1
+        ), f"Expected exactly 1 successful batch, got {len(success_batches)}"
+        assert (
+            len(failed_batches) == 2
+        ), f"Expected exactly 2 failed batches, got {len(failed_batches)}"
+
+        # The successful batch should have all True values
+        successful_batch = success_batches[0]
+        assert all(successful_batch), "Successful batch should have all True values"
+        assert len(successful_batch) == 10, "Successful batch should have 10 operations"
+
+        # The failed batches should have all False values
+        for failed_batch in failed_batches:
+            assert all(
+                not result for result in failed_batch
+            ), "Failed batch should have all False values"
+            assert len(failed_batch) == 10, "Failed batch should have 10 operations"
 
 
 if __name__ == "__main__":

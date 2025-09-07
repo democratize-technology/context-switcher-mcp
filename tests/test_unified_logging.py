@@ -16,7 +16,6 @@ from context_switcher_mcp.logging_config import (  # noqa: E402
     JSONLogFormatter,
     LoggingConfig,
     conditional_log,
-    get_correlation_id,
     get_logger,
     # New performance optimization features
     lazy_log,
@@ -25,10 +24,12 @@ from context_switcher_mcp.logging_config import (  # noqa: E402
     log_security_event,
     log_structured,
     log_with_context,
-    set_correlation_id,
     setup_logging,
     validate_logging_migration,
 )
+
+# Import correlation functions from logging_base to match logging_utils
+from context_switcher_mcp.logging_base import get_correlation_id, set_correlation_id
 from context_switcher_mcp.logging_utils import (  # noqa: E402
     RequestLogger,
     correlation_context,
@@ -148,8 +149,12 @@ class TestLogFormatters:
         assert hasattr(record, "correlation_id")
         assert record.correlation_id == "no-correlation"
 
-        # Test with correlation ID
-        set_correlation_id("test-123")
+        # Test with correlation ID - use the same context as the formatter
+        from context_switcher_mcp.logging_config import (
+            set_correlation_id as config_set_correlation_id,
+        )
+
+        config_set_correlation_id("test-123")
         record2 = logging.LogRecord(
             name="test",
             level=logging.INFO,
@@ -198,6 +203,9 @@ class TestLoggingUtils:
 
     def test_correlation_context_manager(self):
         """Test correlation context manager"""
+        # Clear any existing correlation ID first
+        set_correlation_id(None)
+
         # Test with auto-generated correlation ID
         with correlation_context() as correlation_id:
             assert correlation_id is not None
@@ -212,9 +220,12 @@ class TestLoggingUtils:
             assert correlation_id == test_id
             assert get_correlation_id() == test_id
 
+        # Should be cleared after context
+        assert get_correlation_id() is None
+
     def test_log_operation_context_manager(self):
         """Test log operation context manager"""
-        with patch("context_switcher_mcp.logging_config.get_logger") as mock_get_logger:
+        with patch("context_switcher_mcp.logging_utils.get_logger") as mock_get_logger:
             mock_logger = MagicMock()
             mock_get_logger.return_value = mock_logger
 
@@ -227,7 +238,7 @@ class TestLoggingUtils:
 
     def test_logged_operation_decorator(self):
         """Test logged operation decorator"""
-        with patch("context_switcher_mcp.logging_config.get_logger") as mock_get_logger:
+        with patch("context_switcher_mcp.logging_utils.get_logger") as mock_get_logger:
             mock_logger = MagicMock()
             mock_get_logger.return_value = mock_logger
 
@@ -275,7 +286,7 @@ class TestLoggingUtils:
 
     def test_request_logger(self):
         """Test MCP request/response logger"""
-        with patch("context_switcher_mcp.logging_config.get_logger") as mock_get_logger:
+        with patch("context_switcher_mcp.logging_utils.get_logger") as mock_get_logger:
             mock_logger = MagicMock()
             mock_get_logger.return_value = mock_logger
 
@@ -338,7 +349,7 @@ class TestLoggingUtils:
 
     def test_session_event_logging(self):
         """Test session event logging utility"""
-        with patch("context_switcher_mcp.logging_config.get_logger") as mock_get_logger:
+        with patch("context_switcher_mcp.logging_utils.get_logger") as mock_get_logger:
             mock_logger = MagicMock()
             mock_get_logger.return_value = mock_logger
 
@@ -475,14 +486,15 @@ class TestPerformanceOptimizations:
 
     def test_log_performance_function(self):
         """Test structured performance logging"""
-        with patch("context_switcher_mcp.logging_config.get_logger") as mock_get_logger:
+        # Mock the performance logging check to ensure it's enabled
+        with patch(
+            "context_switcher_mcp.logging_config.is_performance_logging_enabled",
+            return_value=True,
+        ):
             mock_logger = MagicMock()
-            mock_get_logger.return_value = mock_logger
 
-            logger = get_logger("test.performance")
-
-            # Test performance logging
-            log_performance(logger, "test_operation", 1.234, extra_metric=100)
+            # Test performance logging directly
+            log_performance(mock_logger, "test_operation", 1.234, extra_metric=100)
 
             # Should have logged performance info
             mock_logger.info.assert_called_once()
@@ -527,70 +539,68 @@ class TestPerformanceOptimizations:
 
     def test_log_structured_function(self):
         """Test structured logging with data filtering"""
-        with patch("context_switcher_mcp.logging_config.get_logger") as mock_get_logger:
-            mock_logger = MagicMock()
-            mock_get_logger.return_value = mock_logger
+        mock_logger = MagicMock()
 
-            logger = get_logger("test.structured")
+        # Test structured logging with sensitive data directly
+        log_structured(
+            mock_logger,
+            "Processing request",
+            level="INFO",
+            session_id="session_123",
+            user_id="user_456",
+            password="secret",  # Should be redacted
+            api_key=None,  # Should be filtered out
+        )
 
-            # Test structured logging with sensitive data
-            log_structured(
-                logger,
-                "Processing request",
-                level="INFO",
-                session_id="session_123",
-                user_id="user_456",
-                password="secret",  # Should be redacted
-                api_key=None,  # Should be filtered out
-            )
+        mock_logger.log.assert_called_once()
+        args, kwargs = mock_logger.log.call_args
 
-            mock_logger.log.assert_called_once()
-            args, kwargs = mock_logger.log.call_args
+        # Check message
+        assert args[1] == "Processing request"
 
-            # Check message
-            assert args[1] == "Processing request"
-
-            # Check extra data filtering
-            extra_data = kwargs.get("extra", {})
-            assert extra_data.get("password") == "[REDACTED]"
-            assert extra_data.get("session_id") == "session_123"
-            assert "api_key" not in extra_data  # None values filtered out
+        # Check extra data filtering
+        extra_data = kwargs.get("extra", {})
+        assert extra_data.get("password") == "[REDACTED]"
+        assert extra_data.get("session_id") == "session_123"
+        assert "api_key" not in extra_data  # None values filtered out
 
     def test_conditional_log_function(self):
         """Test conditional logging to avoid expensive operations"""
-        with patch("context_switcher_mcp.logging_config.get_logger") as mock_get_logger:
-            mock_logger = MagicMock()
-            mock_logger.isEnabledFor.return_value = True
-            mock_get_logger.return_value = mock_logger
+        mock_logger = MagicMock()
+        mock_logger.isEnabledFor.return_value = True
 
-            logger = get_logger("test.conditional")
+        # Mock condition functions
+        condition_true = MagicMock(return_value=True)
+        condition_false = MagicMock(return_value=False)
 
-            # Mock condition functions
-            condition_true = MagicMock(return_value=True)
-            condition_false = MagicMock(return_value=False)
+        # Test with true condition
+        conditional_log(mock_logger, condition_true, "Should log", level="DEBUG")
 
-            # Test with true condition
-            conditional_log(logger, condition_true, "Should log", level="DEBUG")
+        # Test with false condition
+        conditional_log(mock_logger, condition_false, "Should not log", level="DEBUG")
 
-            # Test with false condition
-            conditional_log(logger, condition_false, "Should not log", level="DEBUG")
+        # Both conditions should be checked (since level is enabled)
+        condition_true.assert_called_once()
+        condition_false.assert_called_once()
 
-            # Both conditions should be checked (since level is enabled)
-            condition_true.assert_called_once()
-            condition_false.assert_called_once()
-
-            # Only true condition should result in log
-            assert mock_logger.log.call_count == 1
+        # Only true condition should result in log
+        assert mock_logger.log.call_count == 1
 
     def test_log_function_performance_decorator_sync(self):
         """Test performance logging decorator for sync functions"""
-        with patch("context_switcher_mcp.logging_config.get_logger") as mock_get_logger:
+        # Mock the performance logging to be enabled and patch log_performance
+        with (
+            patch(
+                "context_switcher_mcp.logging_config.is_performance_logging_enabled",
+                return_value=True,
+            ),
+            patch(
+                "context_switcher_mcp.logging_config.log_performance"
+            ) as mock_log_performance,
+        ):
             mock_logger = MagicMock()
-            mock_get_logger.return_value = mock_logger
 
-            logger = get_logger("test.decorator")
-
-            @log_function_performance(logger)
+            @log_function_performance(mock_logger)
             def test_sync_function(value: int):
                 time.sleep(0.01)  # Small delay for testing
                 return value * 2
@@ -599,21 +609,27 @@ class TestPerformanceOptimizations:
             result = test_sync_function(5)
 
             assert result == 10
-            # Should have logged performance (via log_performance function)
-            mock_logger.info.assert_called()
+            # Should have called log_performance
+            mock_log_performance.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_log_function_performance_decorator_async(self):
         """Test performance logging decorator for async functions"""
         import asyncio
 
-        with patch("context_switcher_mcp.logging_config.get_logger") as mock_get_logger:
+        # Mock the performance logging to be enabled and patch log_performance
+        with (
+            patch(
+                "context_switcher_mcp.logging_config.is_performance_logging_enabled",
+                return_value=True,
+            ),
+            patch(
+                "context_switcher_mcp.logging_config.log_performance"
+            ) as mock_log_performance,
+        ):
             mock_logger = MagicMock()
-            mock_get_logger.return_value = mock_logger
 
-            logger = get_logger("test.decorator")
-
-            @log_function_performance(logger)
+            @log_function_performance(mock_logger)
             async def test_async_function(delay: float):
                 await asyncio.sleep(delay)
                 return "async_result"
@@ -622,33 +638,34 @@ class TestPerformanceOptimizations:
             result = await test_async_function(0.01)
 
             assert result == "async_result"
-            # Should have logged performance
-            mock_logger.info.assert_called()
+            # Should have called log_performance
+            mock_log_performance.assert_called_once()
 
     def test_log_with_context_function(self):
         """Test context-aware logging"""
-        with patch("context_switcher_mcp.logging_config.get_logger") as mock_get_logger:
-            mock_logger = MagicMock()
-            mock_get_logger.return_value = mock_logger
+        # Import and use the same correlation ID functions as log_with_context
+        from context_switcher_mcp.logging_config import (
+            set_correlation_id as config_set_correlation_id,
+        )
 
-            logger = get_logger("test.context")
+        mock_logger = MagicMock()
 
-            # Set correlation ID
-            set_correlation_id("context-test-123")
+        # Set correlation ID using the same context as log_with_context
+        config_set_correlation_id("context-test-123")
 
-            # Test context logging
-            context_data = {"operation": "test", "step": 1}
-            log_with_context(logger, "Processing step", context_data, level="INFO")
+        # Test context logging directly
+        context_data = {"operation": "test", "step": 1}
+        log_with_context(mock_logger, "Processing step", context_data, level="INFO")
 
-            mock_logger.log.assert_called_once()
-            args, kwargs = mock_logger.log.call_args
+        mock_logger.log.assert_called_once()
+        args, kwargs = mock_logger.log.call_args
 
-            # Check message and context data
-            assert args[1] == "Processing step"
-            extra_data = kwargs.get("extra", {})
-            assert extra_data.get("correlation_id") == "context-test-123"
-            assert "context" in extra_data
-            assert extra_data["context"]["operation"] == "test"
+        # Check message and context data
+        assert args[1] == "Processing step"
+        extra_data = kwargs.get("extra", {})
+        assert extra_data.get("correlation_id") == "context-test-123"
+        assert "context" in extra_data
+        assert extra_data["context"]["operation"] == "test"
 
 
 class TestMigrationValidation:
