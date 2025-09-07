@@ -1,7 +1,7 @@
 """Chain of Thought integration for structured perspective reasoning"""
 
 import asyncio
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from .logging_base import get_logger
 
@@ -21,12 +21,8 @@ except ImportError:
     COT_AVAILABLE = False
 
 # Type checking imports to avoid NameError at runtime
-if TYPE_CHECKING:
-    from chain_of_thought import (
-        AsyncChainOfThoughtProcessor as AsyncChainOfThoughtProcessorType,
-    )
-else:
-    AsyncChainOfThoughtProcessorType = "AsyncChainOfThoughtProcessor"
+# Note: We use "AsyncChainOfThoughtProcessor" directly in string annotations
+# since the class is guaranteed to exist (either real or stub)
 
 from .config import get_config
 from .exceptions import OrchestrationError
@@ -78,7 +74,7 @@ class PerspectiveReasoningOrchestrator:
         self.summary_timeout = 60.0  # 1 minute for summary generation
         self.default_temperature = config.models.default_temperature
         self._cot_available = COT_AVAILABLE
-        self._processors: dict[str, "AsyncChainOfThoughtProcessorType"] = {}
+        self._processors: dict[str, "AsyncChainOfThoughtProcessor"] = {}
 
     @property
     def is_available(self) -> bool:
@@ -181,7 +177,7 @@ class PerspectiveReasoningOrchestrator:
 
     def _get_or_create_processor(
         self, session_id: str, thread_name: str
-    ) -> "AsyncChainOfThoughtProcessorType":
+    ) -> "AsyncChainOfThoughtProcessor":
         """Get existing processor or create new one for the perspective"""
         if not COT_AVAILABLE:
             raise ChainOfThoughtError("Chain of Thought is not available")
@@ -277,7 +273,7 @@ Use chain_of_thought_step to structure your reasoning, then provide your analysi
 
     async def _execute_cot_processing(
         self,
-        processor: "AsyncChainOfThoughtProcessorType",
+        processor: "AsyncChainOfThoughtProcessor",
         bedrock_client: Any,
         request: dict,
     ) -> dict:
@@ -302,7 +298,7 @@ Use chain_of_thought_step to structure your reasoning, then provide your analysi
         return final_text
 
     async def _get_reasoning_summary_with_timeout(
-        self, processor: "AsyncChainOfThoughtProcessorType"
+        self, processor: "AsyncChainOfThoughtProcessor"
     ) -> dict:
         """Get reasoning summary with timeout handling"""
         try:
