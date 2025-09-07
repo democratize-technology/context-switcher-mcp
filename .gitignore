@@ -33,3 +33,6 @@ htmlcov/
 venv/
 env/
 ENV/
+
+# Backup files from sanitization processes
+.backup/
