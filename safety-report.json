@@ -18,12 +18,12 @@ We highly encourage switching to the new `scan` command which is easier to use, 
         "scanned": [
             "/usr/local/Cellar/python@3.11/3.11.13/Frameworks/Python.framework/Versions/3.11/lib/python3.11",
             "/usr/local/lib/python3.11/site-packages/setuptools/_vendor",
-            "/Users/jeremy/Library/Python/3.11/lib/python/site-packages",
+            "$HOME/Library/Python/3.11/lib/python/site-packages",
             "/usr/local/Cellar/python@3.11/3.11.13/Frameworks/Python.framework/Versions/3.11/lib/python3.11/lib-dynload",
-            "/Users/jeremy/Development/hacks/thinkerz/mcp-orchestrator",
-            "/Users/jeremy/Development/jupyter-mcp-server",
+            "$DEV_ROOT/thinkerz/mcp-orchestrator",
+            "$DEV_ROOT/jupyter-mcp-server",
             "/usr/local/Cellar/python@3.11/3.11.13/Frameworks/Python.framework/Versions/3.11/lib/python311.zip",
-            "/Users/jeremy/Development/hacks/abstract-thinking-mcp/src",
+            "$DEV_ROOT/abstract-thinking-mcp/src",
             "/usr/local/lib/python3.11/site-packages",
             "/usr/local/Cellar/pybind11/2.11.1/libexec/lib/python3.11/site-packages",
             "/usr/local/bin"
@@ -33,11 +33,11 @@ We highly encourage switching to the new `scan` command which is easier to use, 
             "/usr/local/Cellar/python@3.11/3.11.13/Frameworks/Python.framework/Versions/3.11/lib/python311.zip",
             "/usr/local/Cellar/python@3.11/3.11.13/Frameworks/Python.framework/Versions/3.11/lib/python3.11",
             "/usr/local/Cellar/python@3.11/3.11.13/Frameworks/Python.framework/Versions/3.11/lib/python3.11/lib-dynload",
-            "/Users/jeremy/Library/Python/3.11/lib/python/site-packages",
+            "$HOME/Library/Python/3.11/lib/python/site-packages",
             "/usr/local/lib/python3.11/site-packages",
-            "/Users/jeremy/Development/hacks/abstract-thinking-mcp/src",
-            "/Users/jeremy/Development/jupyter-mcp-server",
-            "/Users/jeremy/Development/hacks/thinkerz/mcp-orchestrator",
+            "$DEV_ROOT/abstract-thinking-mcp/src",
+            "$DEV_ROOT/jupyter-mcp-server",
+            "$DEV_ROOT/thinkerz/mcp-orchestrator",
             "/usr/local/Cellar/pybind11/2.11.1/libexec/lib/python3.11/site-packages",
             "/usr/local/lib/python3.11/site-packages/setuptools/_vendor"
         ],
@@ -95,7 +95,7 @@ We highly encourage switching to the new `scan` command which is easier to use, 
                     "name": "cachetools",
                     "specifier": "==5.3.2",
                     "url": null,
-                    "found": "/Users/jeremy/Library/Python/3.11/lib/python/site-packages"
+                    "found": "$HOME/Library/Python/3.11/lib/python/site-packages"
                 }
             ]
         },
@@ -110,7 +110,7 @@ We highly encourage switching to the new `scan` command which is easier to use, 
                     "name": "certifi",
                     "specifier": "==2025.1.31",
                     "url": null,
-                    "found": "/Users/jeremy/Library/Python/3.11/lib/python/site-packages"
+                    "found": "$HOME/Library/Python/3.11/lib/python/site-packages"
                 }
             ]
         },
@@ -125,7 +125,7 @@ We highly encourage switching to the new `scan` command which is easier to use, 
                     "name": "chardet",
                     "specifier": "==5.2.0",
                     "url": null,
-                    "found": "/Users/jeremy/Library/Python/3.11/lib/python/site-packages"
+                    "found": "$HOME/Library/Python/3.11/lib/python/site-packages"
                 }
             ]
         },
@@ -140,7 +140,7 @@ We highly encourage switching to the new `scan` command which is easier to use, 
                     "name": "colorama",
                     "specifier": "==0.4.6",
                     "url": null,
-                    "found": "/Users/jeremy/Library/Python/3.11/lib/python/site-packages"
+                    "found": "$HOME/Library/Python/3.11/lib/python/site-packages"
                 }
             ]
         },
@@ -155,7 +155,7 @@ We highly encourage switching to the new `scan` command which is easier to use, 
                     "name": "distlib",
                     "specifier": "==0.3.7",
                     "url": null,
-                    "found": "/Users/jeremy/Library/Python/3.11/lib/python/site-packages"
+                    "found": "$HOME/Library/Python/3.11/lib/python/site-packages"
                 }
             ]
         },
@@ -170,7 +170,7 @@ We highly encourage switching to the new `scan` command which is easier to use, 
                     "name": "distro",
                     "specifier": "==1.9.0",
                     "url": null,
-                    "found": "/Users/jeremy/Library/Python/3.11/lib/python/site-packages"
+                    "found": "$HOME/Library/Python/3.11/lib/python/site-packages"
                 }
             ]
         },
@@ -185,7 +185,7 @@ We highly encourage switching to the new `scan` command which is easier to use, 
                     "name": "hvac",
                     "specifier": "==2.0.0",
                     "url": null,
-                    "found": "/Users/jeremy/Library/Python/3.11/lib/python/site-packages"
+                    "found": "$HOME/Library/Python/3.11/lib/python/site-packages"
                 }
             ]
         },
@@ -200,7 +200,7 @@ We highly encourage switching to the new `scan` command which is easier to use, 
                     "name": "jiter",
                     "specifier": "==0.9.0",
                     "url": null,
-                    "found": "/Users/jeremy/Library/Python/3.11/lib/python/site-packages"
+                    "found": "$HOME/Library/Python/3.11/lib/python/site-packages"
                 }
             ]
         },
@@ -215,7 +215,7 @@ We highly encourage switching to the new `scan` command which is easier to use, 
                     "name": "pyhcl",
                     "specifier": "==0.4.5",
                     "url": null,
-                    "found": "/Users/jeremy/Library/Python/3.11/lib/python/site-packages"
+                    "found": "$HOME/Library/Python/3.11/lib/python/site-packages"
                 }
             ]
         },
@@ -230,7 +230,7 @@ We highly encourage switching to the new `scan` command which is easier to use, 
                     "name": "pyproject-api",
                     "specifier": "==1.6.1",
                     "url": null,
-                    "found": "/Users/jeremy/Library/Python/3.11/lib/python/site-packages"
+                    "found": "$HOME/Library/Python/3.11/lib/python/site-packages"
                 }
             ]
         },
@@ -245,7 +245,7 @@ We highly encourage switching to the new `scan` command which is easier to use, 
                     "name": "tox",
                     "specifier": "==4.11.3",
                     "url": null,
-                    "found": "/Users/jeremy/Library/Python/3.11/lib/python/site-packages"
+                    "found": "$HOME/Library/Python/3.11/lib/python/site-packages"
                 }
             ]
         },
