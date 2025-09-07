@@ -643,9 +643,13 @@ if __name__ == "__main__":
             with open(args.output, "w") as f:
                 f.write(report)
             logger.info(f"Configuration validation report written to {args.output}")
-            print(f"Report written to {args.output}")  # Keep console output for CLI
+            print(
+                f"Report written to {args.output}", file=sys.stderr
+            )  # MCP protocol compliance: redirect to stderr
         else:
-            print(report)  # Keep console output for CLI
+            print(
+                report, file=sys.stderr
+            )  # MCP protocol compliance: redirect to stderr
 
     except Exception as e:
         logger.error(f"Configuration validation failed: {e}", exc_info=True)
