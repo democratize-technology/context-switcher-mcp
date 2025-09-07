@@ -2,14 +2,19 @@
 
 import asyncio
 import logging
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .session import Session
 
 from .config import get_config
 from .error_context import suppress_and_log
 from .error_logging import log_error_with_context
 from .exceptions import (
     SessionCleanupError,
+    SessionError,
 )
 from .logging_base import get_logger
 from .models import ContextSwitcherSession
@@ -50,6 +55,75 @@ class SessionManager:
         )
         self._lock = asyncio.Lock()
         self._cleanup_task: asyncio.Task | None = None
+
+    async def create_session(
+        self,
+        session_id: str,
+        topic: str | None = None,
+        initial_perspectives: list[str] | None = None,
+        model_backend: str | None = None,
+        **kwargs,
+    ) -> "Session":
+        """Create a new session and add it to the manager
+
+        Args:
+            session_id: Unique session identifier
+            topic: Optional topic for the session
+            initial_perspectives: Optional list of initial perspectives
+            model_backend: Optional model backend to use
+            **kwargs: Additional arguments passed to Session constructor
+
+        Returns:
+            The created Session object
+
+        Raises:
+            SessionError: If session creation fails
+        """
+        # Import Session here to avoid circular imports
+        from .session import Session
+
+        # Create the new unified session
+        session = Session(session_id=session_id, topic=topic, **kwargs)
+
+        # Add initial perspectives if requested
+        if initial_perspectives:
+            from .session_types import Thread, ModelBackend as MB
+
+            # Convert string backend to enum if provided
+            backend = (
+                getattr(MB, model_backend.upper()) if model_backend else MB.BEDROCK
+            )
+
+            for perspective in initial_perspectives:
+                thread = Thread(
+                    id=f"{perspective}_1",
+                    name=perspective,
+                    system_prompt=f"You are a {perspective} perspective analyzer.",
+                    model_backend=backend,
+                )
+                await session.add_thread(thread)
+
+        # Store session (convert to ContextSwitcherSession for storage)
+        # For now, create a compatible session object for storage
+        storage_session = ContextSwitcherSession(
+            session_id=session_id,
+            created_at=session._state.created_at,
+            topic=topic,
+            client_binding=session._state.client_binding,
+            access_count=session._state.metrics.access_count,
+            last_accessed=session._state.created_at,
+        )
+
+        # Store the original session object as well for retrieval
+        storage_session._unified_session = session
+
+        success = await self.add_session(storage_session)
+        if not success:
+            raise SessionError(
+                f"Session capacity exceeded - manager at capacity ({self.max_sessions})"
+            )
+
+        return session
 
     async def add_session(self, session: ContextSwitcherSession) -> bool:
         """Add a new session
@@ -95,7 +169,8 @@ class SessionManager:
                         await self._cleanup_session_resources(session_id)
                 return None
 
-            return session
+            # Return unified session if available, otherwise return storage session
+            return getattr(session, "_unified_session", session)
 
     async def remove_session(self, session_id: str) -> bool:
         """Remove a session (idempotent and race-condition safe)"""
@@ -123,7 +198,12 @@ class SessionManager:
 
     def _is_expired(self, session: ContextSwitcherSession) -> bool:
         """Check if a session has expired"""
-        age = datetime.now(timezone.utc) - session.created_at
+        # Check unified session state if available for accurate expiration timing
+        unified_session = getattr(session, "_unified_session", None)
+        if unified_session:
+            age = datetime.now(timezone.utc) - unified_session._state.created_at
+        else:
+            age = datetime.now(timezone.utc) - session.created_at
         return age > self.session_ttl
 
     async def _cleanup_expired_sessions(self):
@@ -327,6 +407,8 @@ class SessionManager:
             active_sessions = len(self.sessions)
             oldest_session = None
             newest_session = None
+            total_threads = 0
+            total_analyses = 0
 
             if self.sessions:
                 sessions_by_age = sorted(
@@ -334,6 +416,18 @@ class SessionManager:
                 )
                 oldest_session = sessions_by_age[0].created_at
                 newest_session = sessions_by_age[-1].created_at
+
+                # Count threads and analyses across all sessions
+                for session in self.sessions.values():
+                    # Count threads from unified session if available
+                    unified_session = getattr(session, "_unified_session", None)
+                    if unified_session:
+                        total_threads += len(unified_session._state.threads)
+                        total_analyses += len(unified_session._state.analyses)
+                    else:
+                        # Fallback to storage session
+                        total_threads += len(session.threads)
+                        total_analyses += len(session.analyses)
 
             return {
                 "active_sessions": active_sessions,
@@ -346,4 +440,63 @@ class SessionManager:
                 if newest_session
                 else None,
                 "capacity_used": f"{(active_sessions / self.max_sessions) * 100:.1f}%",
+                "capacity_used_percent": (active_sessions / self.max_sessions) * 100.0,
+                "total_threads": total_threads,
+                "total_analyses": total_analyses,
             }
+
+    async def get_most_recent_session(self) -> "Session | None":
+        """Get the most recently created session
+
+        Returns:
+            The most recent Session object or None if no sessions exist
+        """
+        async with self._lock:
+            if not self.sessions:
+                return None
+
+            # Find the most recent session by creation time
+            most_recent = max(self.sessions.values(), key=lambda s: s.created_at)
+
+            # Return unified session if available, otherwise return storage session
+            return getattr(most_recent, "_unified_session", most_recent)
+
+    @asynccontextmanager
+    async def session_context(
+        self, session_id: str, topic: str | None = None, **kwargs
+    ) -> "Session":
+        """Context manager for temporary sessions that are automatically cleaned up
+
+        Args:
+            session_id: Unique session identifier
+            topic: Optional topic for the session
+            **kwargs: Additional arguments passed to create_session
+
+        Yields:
+            The created Session object
+
+        The session is automatically removed when the context exits
+        """
+        session = await self.create_session(session_id, topic, **kwargs)
+        try:
+            yield session
+        finally:
+            # Ensure cleanup even if there are errors
+            await self.remove_session(session_id)
+
+    async def cleanup_expired_sessions(self) -> int:
+        """Public method to clean up expired sessions
+
+        Returns:
+            Number of sessions that were cleaned up
+        """
+        async with self._lock:
+            before_count = len(self.sessions)
+            await self._cleanup_expired_sessions()
+            after_count = len(self.sessions)
+            cleaned_up = before_count - after_count
+
+            if cleaned_up > 0:
+                logger.info(f"Manual cleanup: removed {cleaned_up} expired sessions")
+
+            return cleaned_up

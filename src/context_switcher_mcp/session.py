@@ -9,7 +9,6 @@ import hashlib
 import secrets
 import sys
 from collections.abc import Callable
-from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any
 
@@ -138,20 +137,26 @@ class Session:
 
         logger.debug(f"Created client binding for session {self.session_id}")
 
-    @asynccontextmanager
-    async def _atomic_operation(self, operation_name: str):
-        """Async context manager for atomic operations with built-in error handling"""
+    async def _atomic_operation(self, operation_name: str, operation: Callable) -> Any:
+        """Execute an operation atomically with proper return value propagation"""
         async with self._lock:
             start_time = datetime.now(timezone.utc)
             try:
                 logger.debug(
                     f"Starting atomic operation '{operation_name}' for session {self.session_id}"
                 )
-                yield
+
+                # Execute the operation and capture its return value
+                if asyncio.iscoroutinefunction(operation):
+                    result = await operation()
+                else:
+                    result = operation()
 
                 # Update version and metrics on successful operation
                 self._state.version += 1
                 self._state.metrics.record_access()
+
+                return result
 
             except Exception as e:
                 # Record error in metrics and re-raise with context
@@ -164,7 +169,14 @@ class Session:
                 logger.error(
                     f"Error in atomic operation '{operation_name}' for session {self.session_id}: {e}"
                 )
-                raise SessionError(f"Operation '{operation_name}' failed: {e}") from e
+
+                # Don't wrap SessionError subclasses - re-raise them as-is
+                if isinstance(e, SessionError):
+                    raise
+                else:
+                    raise SessionError(
+                        f"Operation '{operation_name}' failed: {e}"
+                    ) from e
 
             finally:
                 # Always record operation time
@@ -186,7 +198,8 @@ class Session:
         Raises:
             SessionSecurityError: If security validation fails
         """
-        async with self._atomic_operation("validate_security"):
+
+        def _validate_security_impl():
             # Always allow sessions without client binding (backward compatibility)
             if not self._state.client_binding:
                 if tool_name:
@@ -233,6 +246,10 @@ class Session:
 
             return True
 
+        return await self._atomic_operation(
+            "validate_security", _validate_security_impl
+        )
+
     def _update_tool_usage_pattern(self, tool_name: str) -> None:
         """Update tool usage pattern in client binding (internal, assumes lock held)"""
         if (
@@ -267,7 +284,8 @@ class Session:
         Returns:
             True if thread was added, False if already exists
         """
-        async with self._atomic_operation("add_thread"):
+
+        def _add_thread_impl():
             if thread.name in self._state.threads:
                 logger.warning(
                     f"Thread '{thread.name}' already exists in session {self.session_id}"
@@ -280,6 +298,8 @@ class Session:
             logger.info(f"Added thread '{thread.name}' to session {self.session_id}")
             return True
 
+        return await self._atomic_operation("add_thread", _add_thread_impl)
+
     async def get_thread(self, name: str) -> Thread | None:
         """Get a thread by name
 
@@ -289,13 +309,16 @@ class Session:
         Returns:
             Thread if found, None otherwise
         """
-        async with self._atomic_operation("get_thread"):
+
+        def _get_thread_impl():
             thread = self._state.threads.get(name)
             if thread:
                 logger.debug(
                     f"Retrieved thread '{name}' from session {self.session_id}"
                 )
             return thread
+
+        return await self._atomic_operation("get_thread", _get_thread_impl)
 
     async def remove_thread(self, name: str) -> bool:
         """Remove a thread by name
@@ -306,7 +329,8 @@ class Session:
         Returns:
             True if thread was removed, False if not found
         """
-        async with self._atomic_operation("remove_thread"):
+
+        def _remove_thread_impl():
             if name in self._state.threads:
                 del self._state.threads[name]
                 self._state.metrics.thread_count = len(self._state.threads)
@@ -314,14 +338,19 @@ class Session:
                 return True
             return False
 
+        return await self._atomic_operation("remove_thread", _remove_thread_impl)
+
     async def get_all_threads(self) -> dict[str, Thread]:
         """Get all threads in the session
 
         Returns:
             Dictionary of thread name -> Thread
         """
-        async with self._atomic_operation("get_all_threads"):
+
+        def _get_all_threads_impl():
             return self._state.threads.copy()
+
+        return await self._atomic_operation("get_all_threads", _get_all_threads_impl)
 
     async def record_analysis(
         self,
@@ -336,7 +365,8 @@ class Session:
             responses: Map of thread name -> response
             response_time: Time taken for analysis in seconds
         """
-        async with self._atomic_operation("record_analysis"):
+
+        def _record_analysis_impl():
             active_count = sum(1 for r in responses.values() if r != "[NO_RESPONSE]")
             abstained_count = len(responses) - active_count
 
@@ -356,14 +386,21 @@ class Session:
                 f"{active_count} active, {abstained_count} abstained responses"
             )
 
+        return await self._atomic_operation("record_analysis", _record_analysis_impl)
+
     async def get_last_analysis(self) -> AnalysisRecord | None:
         """Get the most recent analysis
 
         Returns:
             Latest AnalysisRecord if any exist, None otherwise
         """
-        async with self._atomic_operation("get_last_analysis"):
+
+        def _get_last_analysis_impl():
             return self._state.analyses[-1] if self._state.analyses else None
+
+        return await self._atomic_operation(
+            "get_last_analysis", _get_last_analysis_impl
+        )
 
     async def get_session_info(self) -> dict[str, Any]:
         """Get comprehensive session information
@@ -371,7 +408,8 @@ class Session:
         Returns:
             Dictionary containing complete session state and metrics
         """
-        async with self._atomic_operation("get_session_info"):
+
+        def _get_session_info_impl():
             security_info = None
             if self._state.client_binding:
                 security_info = {
@@ -401,6 +439,8 @@ class Session:
                     event.to_dict() for event in self._state.security_events[-5:]
                 ],
             }
+
+        return await self._atomic_operation("get_session_info", _get_session_info_impl)
 
     async def get_version_info(self) -> tuple[int, datetime]:
         """Get current version and last access time for concurrency control
@@ -440,7 +480,8 @@ class Session:
         Raises:
             SessionConcurrencyError: If version conflict detected
         """
-        async with self._atomic_operation("atomic_update"):
+
+        async def _atomic_update_impl():
             # Check for version conflict if expected version provided
             if expected_version is not None and self._state.version != expected_version:
                 raise SessionConcurrencyError(
@@ -456,6 +497,8 @@ class Session:
 
             # Version is automatically incremented by _atomic_operation
             return result
+
+        return await self._atomic_operation("atomic_update", _atomic_update_impl)
 
     def add_cleanup_callback(self, callback: Callable[[], None]) -> None:
         """Add a callback to be executed during session cleanup
