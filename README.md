@@ -3,11 +3,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-green.svg)](https://modelcontextprotocol.io/)
-[![Security Audit](https://img.shields.io/badge/security-audited-brightgreen.svg)](#security)
+[![Tests](https://img.shields.io/badge/tests-1298%2B-brightgreen.svg)](#development)
 
 A Model Context Protocol (MCP) server that enables multi-perspective analysis through parallel thread orchestration. Break free from single-perspective thinking by analyzing problems through multiple lenses simultaneously.
 
-> **🚀 Production Ready**: Comprehensive test suite (280+ tests), security audited, and battle-tested in real-world scenarios.
+> **🚀 Production Ready**: Comprehensive test suite (1298+ tests), dependency vulnerabilities resolved, and battle-tested in real-world scenarios.
 
 ## Overview
 
