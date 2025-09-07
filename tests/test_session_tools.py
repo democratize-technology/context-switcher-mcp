@@ -1,6 +1,6 @@
 """Comprehensive tests for session_tools module"""
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, Mock, patch
 from uuid import uuid4
 
@@ -9,10 +9,7 @@ from context_switcher_mcp.tools.session_tools import (
     register_session_tools,  # noqa: E402
 )
 
-# Skip all tests in this file due to API mismatches
-pytestmark = pytest.mark.skip(
-    reason="Session tools tests expect different API behavior than current implementation"
-)
+# Tests updated to match current API behavior
 
 
 class TestSessionToolsRegistration:
@@ -40,21 +37,21 @@ class TestListSessionsFunction:
         """Create mock active sessions data"""
         session_id_1 = str(uuid4())
         session_id_2 = str(uuid4())
-        base_time = datetime.now(UTC)
+        base_time = datetime.now(timezone.utc)
 
         session_1 = Mock()
         session_1.created_at = base_time
         session_1.threads = {"technical": Mock(), "business": Mock()}
         session_1.analyses = [
-            {"prompt": "test analysis 1"},
-            {"prompt": "test analysis 2"},
+            {"prompt": "test analysis 1", "active_count": 2},
+            {"prompt": "test analysis 2", "active_count": 2},
         ]
         session_1.topic = "API Design Decision"
 
         session_2 = Mock()
         session_2.created_at = base_time
         session_2.threads = {"risk": Mock()}
-        session_2.analyses = [{"prompt": "risk analysis"}]
+        session_2.analyses = [{"prompt": "risk analysis", "active_count": 1}]
         session_2.topic = "Security Review"
 
         return {session_id_1: session_1, session_id_2: session_2}
@@ -254,16 +251,17 @@ class TestCurrentSessionFunction:
     async def test_current_session_success(self):
         """Test successful current session retrieval"""
         session_id = str(uuid4())
-        base_time = datetime.now(UTC)
+        base_time = datetime.now(timezone.utc)
 
         mock_session = Mock()
         mock_session.created_at = base_time
         mock_session.threads = {"technical": Mock(), "business": Mock()}
         mock_session.analyses = [
+            {"prompt": "Short prompt", "active_count": 2},
             {
-                "prompt": "This is a very long prompt that should be truncated because it exceeds 100 characters and we want to show only first part"
+                "prompt": "This is a very long prompt that should be truncated because it exceeds 100 characters and we want to show only first part",
+                "active_count": 2,
             },
-            {"prompt": "Short prompt"},
         ]
         mock_session.topic = "Current Analysis Topic"
 
@@ -294,8 +292,8 @@ class TestCurrentSessionFunction:
             assert "session_id" in result
             assert "topic" in result
             assert "perspectives" in result
-            assert "analyses_count" in result
-            assert "created_at" in result
+            assert "analyses_run" in result
+            assert "created" in result
             assert "last_analysis" in result
 
             # Verify content
@@ -304,7 +302,7 @@ class TestCurrentSessionFunction:
             assert len(result["perspectives"]) == 2
             assert "technical" in result["perspectives"]
             assert "business" in result["perspectives"]
-            assert result["analyses_count"] == 2
+            assert result["analyses_run"] == 2
 
             # Verify last analysis is truncated
             last_analysis = result["last_analysis"]
@@ -341,7 +339,7 @@ class TestCurrentSessionFunction:
     @pytest.mark.asyncio
     async def test_current_session_multiple_sessions(self):
         """Test current session selects the most recent one"""
-        base_time = datetime.now(UTC)
+        base_time = datetime.now(timezone.utc)
 
         session_id_1 = str(uuid4())
         session_1 = Mock()
@@ -383,7 +381,7 @@ class TestCurrentSessionFunction:
             # Should select the newer session
             assert result["session_id"] == session_id_2
             assert result["topic"] == "Newer Session"
-            assert result["analyses_count"] == 0
+            assert result["analyses_run"] == 0
             assert result["last_analysis"] is None
 
 
@@ -421,9 +419,9 @@ class TestSessionToolsIntegration:
         """Test a typical session management workflow"""
         session_id = str(uuid4())
         mock_session = Mock()
-        mock_session.created_at = datetime.now(UTC)
+        mock_session.created_at = datetime.now(timezone.utc)
         mock_session.threads = {"technical": Mock()}
-        mock_session.analyses = [{"prompt": "test analysis"}]
+        mock_session.analyses = [{"prompt": "test analysis", "active_count": 1}]
         mock_session.topic = "Workflow Test"
 
         with patch("context_switcher_mcp.session_manager") as mock_sm:

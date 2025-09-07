@@ -8,7 +8,7 @@ import sys  # noqa: E402
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))  # noqa: E402
 
 import secrets  # noqa: E402
-from datetime import UTC, datetime, timedelta  # noqa: E402
+from datetime import datetime, timedelta, timezone  # noqa: E402
 
 import pytest  # noqa: E402
 from context_switcher_mcp.client_binding import (  # noqa: E402 # noqa: E402
@@ -28,7 +28,7 @@ class TestClientBinding:
 
     def test_client_binding_creation(self):
         """Test secure client binding creation"""
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         binding = ClientBinding(
             session_entropy=secrets.token_urlsafe(32),
             creation_timestamp=now,
@@ -51,7 +51,7 @@ class TestClientBinding:
         secret_key = "test_secret_key"
         binding = ClientBinding(
             session_entropy="test_entropy",
-            creation_timestamp=datetime.now(UTC),
+            creation_timestamp=datetime.now(timezone.utc),
             binding_signature="",
             access_pattern_hash="test_hash",
         )
@@ -73,7 +73,7 @@ class TestClientBinding:
         """Test suspicious behavior detection"""
         binding = ClientBinding(
             session_entropy="test",
-            creation_timestamp=datetime.now(UTC),
+            creation_timestamp=datetime.now(timezone.utc),
             binding_signature="test",
             access_pattern_hash="test",
         )
@@ -161,7 +161,7 @@ class TestClientBindingManager:
         # Create legacy session without binding
         session = ContextSwitcherSession(
             session_id="legacy_session",
-            created_at=datetime.now(UTC),
+            created_at=datetime.now(timezone.utc),
             topic="Legacy topic",
         )
 
@@ -186,7 +186,7 @@ class TestClientBindingManager:
 
         # Simulate rapid access
         session.access_count = 200
-        session.created_at = datetime.now(UTC) - timedelta(hours=1)
+        session.created_at = datetime.now(timezone.utc) - timedelta(hours=1)
 
         # Should be flagged as suspicious
         is_valid, error = await self.manager.validate_session_binding(
@@ -271,7 +271,7 @@ class TestSecurityLogging:
         """Test security event logging without client binding"""
         session = ContextSwitcherSession(
             session_id="legacy_session",
-            created_at=datetime.now(UTC),
+            created_at=datetime.now(timezone.utc),
             topic="Legacy topic",
         )
 

@@ -7,7 +7,7 @@ import sys  # noqa: E402
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))  # noqa: E402
 
 import asyncio  # noqa: E402
-from datetime import UTC, datetime, timedelta  # noqa: E402
+from datetime import datetime, timedelta, timezone  # noqa: E402
 
 import pytest  # noqa: E402
 from context_switcher_mcp.models import (
@@ -25,7 +25,7 @@ async def test_session_creation_and_access():
 
     session = ContextSwitcherSession(
         session_id="test-session-123",
-        created_at=datetime.now(UTC),
+        created_at=datetime.now(timezone.utc),
         topic="Test Session",
     )
 
@@ -44,7 +44,7 @@ async def test_session_expiration():
     # Create an expired session
     expired_session = ContextSwitcherSession(
         session_id="expired-session-123",
-        created_at=datetime.now(UTC) - timedelta(hours=2),  # Expired
+        created_at=datetime.now(timezone.utc) - timedelta(hours=2),  # Expired
         topic="Expired Session",
     )
 
@@ -64,7 +64,7 @@ async def test_concurrent_access_recording():
     """Test that concurrent access recording works"""
     session = ContextSwitcherSession(
         session_id="test-session",
-        created_at=datetime.now(UTC),
+        created_at=datetime.now(timezone.utc),
         topic="Concurrent Test",
     )
 
@@ -89,7 +89,7 @@ async def test_atomic_session_get():
 
     session = ContextSwitcherSession(
         session_id="atomic-test",
-        created_at=datetime.now(UTC),
+        created_at=datetime.now(timezone.utc),
         topic="Atomic Test",
     )
 
@@ -110,7 +110,7 @@ async def test_version_validation():
 
     session = ContextSwitcherSession(
         session_id="version-test",
-        created_at=datetime.now(UTC),
+        created_at=datetime.now(timezone.utc),
         topic="Version Test",
     )
 

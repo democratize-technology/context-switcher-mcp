@@ -3,15 +3,9 @@
 import asyncio
 import sys  # noqa: E402
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
-try:
-    from datetime import UTC
-except ImportError:
-    # Python < 3.11 compatibility
-    from datetime import timezone
-
-    UTC = timezone.utc
+# Use timezone.utc for Python 3.10+ compatibility
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock
 
@@ -50,7 +44,7 @@ def mock_session_manager():
     manager.create_session.return_value = Mock(
         session_id=str(uuid.uuid4()),
         status="active",
-        created_at=datetime.now(UTC),
+        created_at=datetime.now(timezone.utc),
     )
     return manager
 

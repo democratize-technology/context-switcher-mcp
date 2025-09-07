@@ -1,7 +1,7 @@
 """Comprehensive tests for session concurrency management"""
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -126,7 +126,7 @@ class TestSessionConcurrency:
         # Set some test values
         session_concurrency.access_count = 10
         session_concurrency.version = 15
-        test_time = datetime(2023, 6, 15, 12, 30, 45, tzinfo=UTC)
+        test_time = datetime(2023, 6, 15, 12, 30, 45, tzinfo=timezone.utc)
         session_concurrency.last_accessed = test_time
 
         stats = session_concurrency.get_access_stats()

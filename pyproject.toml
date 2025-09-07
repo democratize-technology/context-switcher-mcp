@@ -40,9 +40,3 @@ packages = ["src/context_switcher_mcp"]
 
 [tool.hatch.metadata]
 allow-direct-references = true
-
-[dependency-groups]
-dev = [
-    "pytest>=7.4.4",
-    "pytest-asyncio>=0.23.8",
-]

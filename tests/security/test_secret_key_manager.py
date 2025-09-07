@@ -6,7 +6,7 @@ import os
 import shutil
 import sys  # noqa: E402
 import tempfile
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))  # noqa: E402
@@ -239,7 +239,7 @@ class TestLoadOrGenerateSecretKey:
         data = {
             "current_key": test_key,
             "previous_keys": [],
-            "created_at": datetime.now(UTC).isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
             "rotation_count": 0,
         }
 
@@ -279,7 +279,7 @@ class TestLoadOrGenerateSecretKey:
         test_data = {
             "current_key": "test_key",
             "previous_keys": ["old_key"],
-            "created_at": datetime.now(UTC).isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
         }
 
         _save_key_data_atomically(test_data, config_dir, secret_file)

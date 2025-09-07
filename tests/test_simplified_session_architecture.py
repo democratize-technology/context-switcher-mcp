@@ -5,7 +5,7 @@ while validating the simplified design's correctness and performance.
 """
 
 import asyncio
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import pytest
@@ -71,7 +71,7 @@ class TestSessionTypes:
         # Create client binding
         binding = ClientBinding(
             session_entropy="test_entropy",
-            creation_timestamp=datetime.now(UTC),
+            creation_timestamp=datetime.now(timezone.utc),
             binding_signature="",
             access_pattern_hash="test_hash",
         )
@@ -102,7 +102,7 @@ class TestSessionTypes:
 
         analysis = AnalysisRecord(
             prompt="test prompt",
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             responses={"technical": "test response"},
             active_count=1,
             abstained_count=0,
@@ -110,7 +110,7 @@ class TestSessionTypes:
 
         state = SessionState(
             session_id="test_session",
-            created_at=datetime.now(UTC),
+            created_at=datetime.now(timezone.utc),
             topic="test topic",
             threads={"technical": thread},
             analyses=[analysis],
@@ -313,7 +313,7 @@ class TestUnifiedSession:
         assert not session.is_expired(ttl_hours=1.0)
 
         # Manually set creation time to past
-        session._state.created_at = datetime.now(UTC) - timedelta(hours=2)
+        session._state.created_at = datetime.now(timezone.utc) - timedelta(hours=2)
         assert session.is_expired(ttl_hours=1.0)
 
 
@@ -376,7 +376,7 @@ class TestSimpleSessionManager:
         session = await manager.create_session("test_session")
 
         # Manually expire the session
-        session._state.created_at = datetime.now(UTC) - timedelta(hours=2)
+        session._state.created_at = datetime.now(timezone.utc) - timedelta(hours=2)
 
         # Should return None for expired session and clean it up
         retrieved = await manager.get_session("test_session")

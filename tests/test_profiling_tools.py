@@ -1,6 +1,6 @@
 """Comprehensive tests for profiling_tools module"""
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, Mock, patch
 from uuid import uuid4
 
@@ -390,7 +390,7 @@ class TestSessionProfilingFunction:
     def mock_session_metrics(self):
         """Create mock session profiling metrics"""
         session_id = str(uuid4())
-        base_time = datetime.now(UTC)
+        base_time = datetime.now(timezone.utc)
 
         return [
             Mock(
@@ -421,7 +421,7 @@ class TestSessionProfilingFunction:
     async def test_session_profiling_success(self):
         """Test successful session profiling data retrieval"""
         session_id = str(uuid4())
-        base_time = datetime.now(UTC)
+        base_time = datetime.now(timezone.utc)
 
         # Create mock session metrics with the same session_id
         mock_session_metrics = [
