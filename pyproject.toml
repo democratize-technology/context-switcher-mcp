@@ -20,9 +20,9 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.3.1,<8.0.0",
-    "pytest-asyncio>=0.21.0,<1.0.0",
-    "pytest-cov>=4.1.0,<5.0.0",
+    "pytest>=7.3.1,<9.0.0",
+    "pytest-asyncio>=0.21.0,<2.0.0",
+    "pytest-cov>=4.1.0,<7.0.0",
     "ruff>=0.0.272,<1.0.0",
     "mypy>=1.5.0,<2.0.0",
     "pre-commit>=3.3.0,<4.0.0",
