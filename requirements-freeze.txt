@@ -113,7 +113,7 @@ jsonschema-path==0.3.4
 jsonschema-specifications==2025.4.1
 jupyter_client==8.6.3
 jupyter_core==5.8.1
-jupyter_kernel_client==0.7.1
+jupyter_kernel_client==0.8.0
 jupyter_mcp_server==0.4.0
 jupyter_nbmodel_client==0.13.0
 jupyter-ydoc==3.0.5
