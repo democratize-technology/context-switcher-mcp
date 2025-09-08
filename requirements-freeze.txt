@@ -26,7 +26,7 @@ beautifulsoup4==4.13.4
 bidict==0.23.1
 black==23.12.1
 boolean.py==5.0
-boto3==1.39.4
+boto3==1.40.25
 botocore==1.39.4
 botocore-stubs==1.38.46
 bottle==0.13.2
@@ -120,7 +120,7 @@ jupyter-ydoc==3.0.5
 keyring==25.6.0
 lazy-object-proxy==1.11.0
 license-expression==30.4.4
-litellm==1.74.1
+litellm==1.76.3
 lru-dict==1.2.0
 lxml==6.0.0
 mando==0.7.1
@@ -146,7 +146,7 @@ nh3==0.3.0
 nltk==3.9.1
 nodeenv==1.8.0
 numpy==1.26.0
-openai==1.95.0
+openai==1.106.1
 openapi-core==0.19.5
 openapi-pydantic==0.5.1
 openapi-schema-validator==0.6.3
