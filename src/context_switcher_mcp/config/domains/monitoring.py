@@ -200,19 +200,6 @@ class MonitoringConfig(BaseSettings):
         description="Format for metrics export: 'json', 'csv', 'prometheus'",
     )
 
-    # Dashboard and reporting
-    enable_performance_dashboard: bool = Field(
-        default=True,
-        description="Enable performance dashboard",
-    )
-
-    dashboard_update_interval_seconds: int = Field(
-        default=30,
-        ge=5,
-        le=3600,
-        description="Dashboard update interval in seconds",
-    )
-
     enable_automated_reports: bool = Field(
         default=False,
         description="Enable automated performance reports",
@@ -353,16 +340,3 @@ class MonitoringConfig(BaseSettings):
         import random
 
         return random.random() < self.profiling.sampling_rate
-
-    def get_dashboard_config(self) -> dict[str, Any]:
-        """Get dashboard configuration
-
-        Returns:
-            Dictionary with dashboard parameters
-        """
-        return {
-            "enabled": self.enable_performance_dashboard,
-            "update_interval_seconds": self.dashboard_update_interval_seconds,
-            "real_time_metrics": self.enable_real_time_metrics,
-            "export_format": self.metrics_export_format,
-        }

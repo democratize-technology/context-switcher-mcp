@@ -7,49 +7,12 @@ from pydantic import BaseModel, Field
 
 from ..llm_profiler import get_global_profiler
 from ..logging_config import get_logger
-from ..performance_dashboard import get_performance_dashboard
 from ..validation import validate_session_id
 
 logger = get_logger(__name__)
 
 
 # Request models for profiling tools
-class PerformanceDashboardRequest(BaseModel):
-    hours_back: int = Field(
-        default=24, description="Number of hours to look back for data (1-168)"
-    )
-    include_cache_stats: bool = Field(
-        default=True, description="Include cache performance statistics"
-    )
-
-
-class CostAnalysisRequest(BaseModel):
-    hours_back: int = Field(
-        default=24, description="Number of hours to analyze (1-168)"
-    )
-
-
-class PerformanceMetricsRequest(BaseModel):
-    hours_back: int = Field(
-        default=24, description="Number of hours to analyze (1-168)"
-    )
-
-
-class OptimizationRequest(BaseModel):
-    hours_back: int = Field(
-        default=24, description="Number of hours to analyze for recommendations (1-168)"
-    )
-
-
-class DetailedReportRequest(BaseModel):
-    hours_back: int = Field(
-        default=24, description="Number of hours to include in report (1-168)"
-    )
-    format: str = Field(
-        default="json", description="Report format (currently only 'json')"
-    )
-
-
 class SessionProfilingRequest(BaseModel):
     session_id: str = Field(description="Session ID to analyze")
 
@@ -79,159 +42,6 @@ async def get_llm_profiling_status() -> dict[str, Any]:
     except Exception as e:
         logger.error(f"Error getting profiling status: {e}")
         return {"error": "Failed to get profiling status", "message": str(e)}
-
-
-async def get_performance_dashboard_data(
-    hours_back: int = 24, include_cache_stats: bool = True
-) -> dict[str, Any]:
-    """Get comprehensive performance dashboard data
-
-    Args:
-        hours_back: Number of hours to look back for data (default: 24)
-        include_cache_stats: Whether to include cache performance statistics
-
-    Returns:
-        Dict containing comprehensive dashboard data
-    """
-    try:
-        # Validate hours_back parameter
-        if hours_back <= 0 or hours_back > 168:  # Max 1 week
-            return {
-                "error": "Invalid timeframe",
-                "message": "hours_back must be between 1 and 168 (1 week)",
-            }
-
-        dashboard = get_performance_dashboard()
-        return await dashboard.get_comprehensive_dashboard(
-            hours_back, include_cache_stats
-        )
-
-    except Exception as e:
-        logger.error(f"Error getting dashboard data: {e}")
-        return {"error": "Failed to get dashboard data", "message": str(e)}
-
-
-async def get_cost_analysis(hours_back: int = 24) -> dict[str, Any]:
-    """Get detailed cost analysis and breakdown
-
-    Args:
-        hours_back: Number of hours to analyze (default: 24)
-
-    Returns:
-        Dict containing detailed cost analysis
-    """
-    try:
-        if hours_back <= 0 or hours_back > 168:
-            return {
-                "error": "Invalid timeframe",
-                "message": "hours_back must be between 1 and 168 (1 week)",
-            }
-
-        dashboard = get_performance_dashboard()
-        full_dashboard = await dashboard.get_comprehensive_dashboard(hours_back, False)
-
-        return {
-            "timeframe_hours": hours_back,
-            "cost_analysis": full_dashboard.get("cost_analysis", {}),
-            "backend_comparison": full_dashboard.get("backend_comparison", {}),
-            "trends": full_dashboard.get("trends", {}),
-        }
-
-    except Exception as e:
-        logger.error(f"Error getting cost analysis: {e}")
-        return {"error": "Failed to get cost analysis", "message": str(e)}
-
-
-async def get_performance_metrics(hours_back: int = 24) -> dict[str, Any]:
-    """Get performance metrics and latency analysis
-
-    Args:
-        hours_back: Number of hours to analyze (default: 24)
-
-    Returns:
-        Dict containing performance metrics and analysis
-    """
-    try:
-        if hours_back <= 0 or hours_back > 168:
-            return {
-                "error": "Invalid timeframe",
-                "message": "hours_back must be between 1 and 168 (1 week)",
-            }
-
-        dashboard = get_performance_dashboard()
-        full_dashboard = await dashboard.get_comprehensive_dashboard(hours_back, False)
-
-        return {
-            "timeframe_hours": hours_back,
-            "performance": full_dashboard.get("performance", {}),
-            "efficiency": full_dashboard.get("efficiency", {}),
-            "alerts": full_dashboard.get("alerts", {}),
-            "backend_comparison": full_dashboard.get("backend_comparison", {}),
-        }
-
-    except Exception as e:
-        logger.error(f"Error getting performance metrics: {e}")
-        return {"error": "Failed to get performance metrics", "message": str(e)}
-
-
-async def get_optimization_recommendations(hours_back: int = 24) -> dict[str, Any]:
-    """Get AI-powered optimization recommendations
-
-    Args:
-        hours_back: Number of hours to analyze for recommendations (default: 24)
-
-    Returns:
-        Dict containing optimization recommendations and insights
-    """
-    try:
-        if hours_back <= 0 or hours_back > 168:
-            return {
-                "error": "Invalid timeframe",
-                "message": "hours_back must be between 1 and 168 (1 week)",
-            }
-
-        dashboard = get_performance_dashboard()
-        return await dashboard.get_optimization_recommendations(hours_back)
-
-    except Exception as e:
-        logger.error(f"Error getting optimization recommendations: {e}")
-        return {
-            "error": "Failed to get optimization recommendations",
-            "message": str(e),
-        }
-
-
-async def get_detailed_performance_report(
-    hours_back: int = 24, format: str = "json"
-) -> dict[str, Any]:
-    """Export comprehensive performance report
-
-    Args:
-        hours_back: Number of hours to include in report (default: 24)
-        format: Report format (currently only "json" supported)
-
-    Returns:
-        Dict containing detailed performance report
-    """
-    try:
-        if hours_back <= 0 or hours_back > 168:
-            return {
-                "error": "Invalid timeframe",
-                "message": "hours_back must be between 1 and 168 (1 week)",
-            }
-
-        if format not in ["json"]:
-            return {
-                "error": "Invalid format",
-                "message": "Currently only 'json' format is supported",
-            }
-
-        dashboard = get_performance_dashboard()
-        return await dashboard.export_detailed_report(hours_back, format)
-
-    except Exception as e:
-        logger.error(f"Error generating performance report: {e}")
-        return {"error": "Failed to generate performance report", "message": str(e)}
 
 
 async def get_session_profiling_data(session_id: str) -> dict[str, Any]:
@@ -371,10 +181,6 @@ async def reset_profiling_data() -> dict[str, Any]:
         profiler._total_calls = 0
         profiler._profiled_calls = 0
 
-        # Clear dashboard cache
-        dashboard = get_performance_dashboard()
-        dashboard._cache.clear()
-
         return {
             "status": "success",
             "message": "All profiling data has been reset",
@@ -452,55 +258,6 @@ def register_profiling_tools(mcp: FastMCP) -> None:
     async def get_profiling_status() -> dict[str, Any]:
         """Get profiling status and configuration"""
         return await get_llm_profiling_status()
-
-    @mcp.tool(
-        description="Get comprehensive performance dashboard with cost analysis, "
-        "latency metrics, efficiency insights, and backend comparison - "
-        "your mission control for LLM operations"
-    )
-    async def get_performance_dashboard(
-        request: PerformanceDashboardRequest,
-    ) -> dict[str, Any]:
-        """Get comprehensive performance dashboard data"""
-        return await get_performance_dashboard_data(
-            request.hours_back, request.include_cache_stats
-        )
-
-    @mcp.tool(
-        description="Deep dive into cost breakdown by backend, model, and session - "
-        "identify expensive operations and track daily burn rates for budget control"
-    )
-    async def get_cost_analysis_data(request: CostAnalysisRequest) -> dict[str, Any]:
-        """Get detailed cost analysis and breakdown"""
-        return await get_cost_analysis(request.hours_back)
-
-    @mcp.tool(
-        description="Analyze performance metrics including latency percentiles, "
-        "throughput, error rates, and backend efficiency comparison"
-    )
-    async def get_performance_analysis(
-        request: PerformanceMetricsRequest,
-    ) -> dict[str, Any]:
-        """Get performance metrics and latency analysis"""
-        return await get_performance_metrics(request.hours_back)
-
-    @mcp.tool(
-        description="Get AI-powered optimization recommendations based on usage patterns - "
-        "discover cost savings, performance improvements, and efficiency gains"
-    )
-    async def get_optimization_insights(request: OptimizationRequest) -> dict[str, Any]:
-        """Get optimization recommendations and insights"""
-        return await get_optimization_recommendations(request.hours_back)
-
-    @mcp.tool(
-        description="Export comprehensive performance report with executive summary, "
-        "detailed analysis, recommendations, and action items for stakeholders"
-    )
-    async def export_performance_report(
-        request: DetailedReportRequest,
-    ) -> dict[str, Any]:
-        """Export detailed performance report"""
-        return await get_detailed_performance_report(request.hours_back, request.format)
 
     @mcp.tool(
         description="Analyze profiling data for a specific session - "

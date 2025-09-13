@@ -196,9 +196,6 @@ class ProductionConfig(BaseEnvironmentConfig):
                 "enable_error_alerts": True,
                 "enable_security_alerts": True,
             },
-            # Dashboard and reporting (minimal)
-            "enable_performance_dashboard": False,  # Disable for security
-            "dashboard_update_interval_seconds": 300,
             "enable_automated_reports": True,
             "report_generation_interval_hours": 24,  # Daily reports
         }

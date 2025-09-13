@@ -184,9 +184,6 @@ class StagingConfig(BaseEnvironmentConfig):
                 "enable_error_alerts": True,
                 "enable_security_alerts": True,
             },
-            # Dashboard and reporting
-            "enable_performance_dashboard": True,
-            "dashboard_update_interval_seconds": 30,
             "enable_automated_reports": True,
             "report_generation_interval_hours": 12,  # Twice daily
         }

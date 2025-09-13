@@ -180,9 +180,6 @@ class DevelopmentConfig(BaseEnvironmentConfig):
                 "enable_error_alerts": False,
                 "enable_security_alerts": False,
             },
-            # Dashboard and reporting
-            "enable_performance_dashboard": True,
-            "dashboard_update_interval_seconds": 10,  # Fast updates
             "enable_automated_reports": False,
         }
 
