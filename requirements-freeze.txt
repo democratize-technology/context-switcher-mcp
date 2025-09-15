@@ -155,7 +155,7 @@ orderly-set==5.4.1
 orjson==3.9.9
 packageurl-python==0.17.3
 packaging==24.2
-paho-mqtt==1.6.1
+paho-mqtt==2.1.0
 pandas==2.2.3
 parse==1.20.2
 pathable==0.4.4
