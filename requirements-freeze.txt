@@ -304,7 +304,7 @@ urllib3==2.5.0
 uvicorn==0.30.6
 uvloop==0.21.0
 virtualenv==20.33.1
-voluptuous==0.13.1
+voluptuous==0.15.2
 voluptuous-serialize==2.6.0
 wcwidth==0.2.13
 websocket-client==1.8.0
