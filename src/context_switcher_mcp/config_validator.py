@@ -62,23 +62,17 @@ class ConfigurationValidator:
         # 3. Validate cross-parameter constraints
         constraint_result = self._validate_constraints()
         results["detailed_results"]["constraints"] = constraint_result
-        results["validation_summary"]["constraint_issues"] = len(
-            constraint_result["issues"]
-        )
+        results["validation_summary"]["constraint_issues"] = len(constraint_result["issues"])
 
         # 4. Validate external dependencies
         deps_result = self._validate_dependencies()
         results["detailed_results"]["dependencies"] = deps_result
-        results["validation_summary"]["dependency_warnings"] = len(
-            deps_result["warnings"]
-        )
+        results["validation_summary"]["dependency_warnings"] = len(deps_result["warnings"])
 
         # 5. Security validation
         security_result = self._validate_security()
         results["detailed_results"]["security"] = security_result
-        results["validation_summary"]["security_issues"] = len(
-            security_result["issues"]
-        )
+        results["validation_summary"]["security_issues"] = len(security_result["issues"])
 
         # 6. Production readiness assessment
         prod_result = self._assess_production_readiness()
@@ -86,9 +80,7 @@ class ConfigurationValidator:
         results["validation_summary"]["production_ready"] = prod_result["ready"]
 
         # Generate overall assessment
-        results["validation_summary"][
-            "overall_success"
-        ] = self._calculate_overall_success(results)
+        results["validation_summary"]["overall_success"] = self._calculate_overall_success(results)
         results["recommendations"] = self._generate_recommendations(results)
 
         self.validation_results = results
@@ -108,9 +100,7 @@ class ConfigurationValidator:
         start_time = time.time()
 
         try:
-            load_validated_config(
-                config_file=self.config_file, validate_dependencies=False
-            )
+            load_validated_config(config_file=self.config_file, validate_dependencies=False)
             result["success"] = True
             result["config_type"] = "validated"
             logger.info("Configuration loaded successfully using validated system")
@@ -126,9 +116,7 @@ class ConfigurationValidator:
                 result["config_type"] = "legacy_fallback"
                 logger.info("Fell back to legacy configuration system")
             except Exception as legacy_error:
-                result[
-                    "error"
-                ] = f"Both validated and legacy failed. Validated: {e}. Legacy: {legacy_error}"
+                result["error"] = f"Both validated and legacy failed. Validated: {e}. Legacy: {legacy_error}"
                 result["config_type"] = "failed"
 
         except Exception as e:
@@ -143,9 +131,7 @@ class ConfigurationValidator:
         result = {"issues": [], "warnings": [], "parameter_count": 0}
 
         try:
-            config = load_validated_config(
-                config_file=self.config_file, validate_dependencies=False
-            )
+            config = load_validated_config(config_file=self.config_file, validate_dependencies=False)
 
             # Count total parameters
             config_dict = config.model_dump()
@@ -170,44 +156,30 @@ class ConfigurationValidator:
         result = {"issues": [], "warnings": []}
 
         try:
-            config = load_validated_config(
-                config_file=self.config_file, validate_dependencies=False
-            )
+            config = load_validated_config(config_file=self.config_file, validate_dependencies=False)
 
             # Validate retry configuration logic
             if config.retry.max_delay <= config.retry.initial_delay:
-                result["issues"].append(
-                    "Retry max_delay must be greater than initial_delay"
-                )
+                result["issues"].append("Retry max_delay must be greater than initial_delay")
 
             # Validate profiling configuration
             if config.profiling.enabled and config.profiling.sampling_rate == 0.0:
-                result["warnings"].append(
-                    "Profiling enabled but sampling rate is 0.0 - no data will be collected"
-                )
+                result["warnings"].append("Profiling enabled but sampling rate is 0.0 - no data will be collected")
 
             # Validate server configuration
             if config.server.host == "0.0.0.0" and config.server.log_level == "DEBUG":
-                result["warnings"].append(
-                    "Server bound to all interfaces with DEBUG logging - potential security risk"
-                )
+                result["warnings"].append("Server bound to all interfaces with DEBUG logging - potential security risk")
 
             # Validate session limits
             if config.session.max_active_sessions < 10:
-                result["warnings"].append(
-                    "Very low max_active_sessions limit may cause session conflicts"
-                )
+                result["warnings"].append("Very low max_active_sessions limit may cause session conflicts")
 
             # Validate model token limits
             if config.model.default_max_tokens > config.model.max_chars_opus // 4:
-                result["warnings"].append(
-                    "Default max tokens may exceed character limits for some models"
-                )
+                result["warnings"].append("Default max tokens may exceed character limits for some models")
 
         except ConfigurationError:
-            result["issues"].append(
-                "Could not load configuration for constraint validation"
-            )
+            result["issues"].append("Could not load configuration for constraint validation")
 
         return result
 
@@ -238,13 +210,9 @@ class ConfigurationValidator:
             else:
                 result["services"][env_var] = "missing"
                 if env_var == "CONTEXT_SWITCHER_SECRET_KEY":
-                    result["warnings"].append(
-                        f"{description} not set - security features limited"
-                    )
+                    result["warnings"].append(f"{description} not set - security features limited")
                 else:
-                    result["warnings"].append(
-                        f"{description} not set - {env_var} backend may not work"
-                    )
+                    result["warnings"].append(f"{description} not set - {env_var} backend may not work")
 
         return result
 
@@ -253,47 +221,33 @@ class ConfigurationValidator:
         result = {"issues": [], "warnings": [], "security_score": 100}
 
         try:
-            config = load_validated_config(
-                config_file=self.config_file, validate_dependencies=False
-            )
+            config = load_validated_config(config_file=self.config_file, validate_dependencies=False)
 
             # Check secret key configuration
             if not config.security.secret_key:
-                result["issues"].append(
-                    "No secret key configured - encryption features disabled"
-                )
+                result["issues"].append("No secret key configured - encryption features disabled")
                 result["security_score"] -= 30
             elif len(config.security.secret_key) < 32:
-                result["issues"].append(
-                    "Secret key too short - minimum 32 characters required"
-                )
+                result["issues"].append("Secret key too short - minimum 32 characters required")
                 result["security_score"] -= 20
 
             # Check server binding
             if config.server.host == "0.0.0.0":
-                result["warnings"].append(
-                    "Server bound to all interfaces - ensure firewall protection"
-                )
+                result["warnings"].append("Server bound to all interfaces - ensure firewall protection")
                 result["security_score"] -= 10
 
             # Check logging level
             if config.server.log_level == "DEBUG":
-                result["warnings"].append(
-                    "DEBUG logging enabled - may expose sensitive information"
-                )
+                result["warnings"].append("DEBUG logging enabled - may expose sensitive information")
                 result["security_score"] -= 5
 
             # Check profiling configuration
             if config.profiling.track_costs and config.profiling.level == "detailed":
-                result["warnings"].append(
-                    "Detailed cost tracking enabled - monitor for sensitive data leakage"
-                )
+                result["warnings"].append("Detailed cost tracking enabled - monitor for sensitive data leakage")
                 result["security_score"] -= 5
 
         except ConfigurationError:
-            result["issues"].append(
-                "Could not load configuration for security validation"
-            )
+            result["issues"].append("Could not load configuration for security validation")
             result["security_score"] = 0
 
         return result
@@ -303,9 +257,7 @@ class ConfigurationValidator:
         result = {"ready": False, "issues": [], "recommendations": []}
 
         try:
-            config = load_validated_config(
-                config_file=self.config_file, validate_dependencies=False
-            )
+            config = load_validated_config(config_file=self.config_file, validate_dependencies=False)
 
             # Use built-in production readiness check
             result["ready"] = config.is_production_ready
@@ -317,31 +269,19 @@ class ConfigurationValidator:
                     result["recommendations"].append("Set log_level to INFO or WARNING")
 
                 if not config.security.secret_key:
-                    result["issues"].append(
-                        "Secret key required for production security"
-                    )
-                    result["recommendations"].append(
-                        "Set CONTEXT_SWITCHER_SECRET_KEY environment variable"
-                    )
+                    result["issues"].append("Secret key required for production security")
+                    result["recommendations"].append("Set CONTEXT_SWITCHER_SECRET_KEY environment variable")
 
                 if config.profiling.level == "detailed":
-                    result["issues"].append(
-                        "Detailed profiling may impact production performance"
-                    )
-                    result["recommendations"].append(
-                        "Use 'basic' or 'standard' profiling level"
-                    )
+                    result["issues"].append("Detailed profiling may impact production performance")
+                    result["recommendations"].append("Use 'basic' or 'standard' profiling level")
 
                 if config.session.cleanup_interval_seconds > 3600:
                     result["issues"].append("Cleanup interval too long for production")
-                    result["recommendations"].append(
-                        "Set cleanup interval to <= 1 hour"
-                    )
+                    result["recommendations"].append("Set cleanup interval to <= 1 hour")
 
         except ConfigurationError:
-            result["issues"].append(
-                "Could not assess production readiness due to configuration errors"
-            )
+            result["issues"].append("Could not assess production readiness due to configuration errors")
 
         return result
 
@@ -371,14 +311,10 @@ class ConfigurationValidator:
             recommendations.append("Review production readiness recommendations")
 
         if results["validation_summary"]["dependency_warnings"] > 0:
-            recommendations.append(
-                "Consider installing optional dependencies for full functionality"
-            )
+            recommendations.append("Consider installing optional dependencies for full functionality")
 
         # Add specific recommendations from production assessment
-        prod_recs = (
-            results["detailed_results"].get("production", {}).get("recommendations", [])
-        )
+        prod_recs = results["detailed_results"].get("production", {}).get("recommendations", [])
         recommendations.extend(prod_recs)
 
         return recommendations
@@ -612,9 +548,7 @@ if __name__ == "__main__":
     """Command-line interface for configuration validation"""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Validate Context Switcher MCP configuration"
-    )
+    parser = argparse.ArgumentParser(description="Validate Context Switcher MCP configuration")
     parser.add_argument("--config", help="Path to configuration file to validate")
     parser.add_argument(
         "--format",
@@ -643,15 +577,13 @@ if __name__ == "__main__":
             with open(args.output, "w") as f:
                 f.write(report)
             logger.info(f"Configuration validation report written to {args.output}")
-            print(
+            logger.error(
                 f"Report written to {args.output}", file=sys.stderr
             )  # MCP protocol compliance: redirect to stderr
         else:
-            print(
-                report, file=sys.stderr
-            )  # MCP protocol compliance: redirect to stderr
+            logger.error(report, file=sys.stderr)  # MCP protocol compliance: redirect to stderr
 
     except Exception as e:
         logger.error(f"Configuration validation failed: {e}", exc_info=True)
-        print(f"Validation failed: {e}", file=sys.stderr)
+        logger.error(f"Validation failed: {e}")
         sys.exit(1)

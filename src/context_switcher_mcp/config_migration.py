@@ -4,8 +4,8 @@ This module provides utilities for migrating configuration files between version
 and checking migration readiness.
 """
 
-import sys
-from typing import Dict, Any
+from typing import Any, Dict
+
 from .logging_base import get_logger
 
 logger = get_logger(__name__)
@@ -46,13 +46,11 @@ def generate_migration_report() -> str:
     except Exception as e:
         error_msg = f"Failed to generate migration report: {e}"
         logger.error(error_msg, exc_info=True)
-        print(f"Migration report generation failed: {e}", file=sys.stderr)
+        logger.error(f"Migration report generation failed: {e}")
         return f"ERROR: {error_msg}"
 
 
-def check_migration_compatibility(
-    source_version: str, target_version: str
-) -> Dict[str, Any]:
+def check_migration_compatibility(source_version: str, target_version: str) -> Dict[str, Any]:
     """Check compatibility between configuration versions
 
     Args:
@@ -63,9 +61,7 @@ def check_migration_compatibility(
         Compatibility analysis results
     """
     # Stub implementation - always return compatible
-    logger.info(
-        f"Checking migration compatibility: {source_version} -> {target_version}"
-    )
+    logger.info(f"Checking migration compatibility: {source_version} -> {target_version}")
 
     return {
         "compatible": True,

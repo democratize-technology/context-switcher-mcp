@@ -97,8 +97,7 @@ class SecurityEventTracker:
                 if session.client_binding.last_validated
                 else None,
                 "creation_age_seconds": (
-                    datetime.now(timezone.utc)
-                    - session.client_binding.creation_timestamp
+                    datetime.now(timezone.utc) - session.client_binding.creation_timestamp
                 ).total_seconds(),
             }
         else:
@@ -108,13 +107,9 @@ class SecurityEventTracker:
         if session:
             event_record["session_context"] = {
                 "access_count": session.access_count,
-                "session_age_seconds": (
-                    datetime.now(timezone.utc) - session.created_at
-                ).total_seconds(),
+                "session_age_seconds": (datetime.now(timezone.utc) - session.created_at).total_seconds(),
                 "security_events_count": len(session.security_events),
-                "analyses_count": len(session.analyses)
-                if hasattr(session, "analyses")
-                else 0,
+                "analyses_count": len(session.analyses) if hasattr(session, "analyses") else 0,
             }
 
         # Record in session if available
@@ -184,9 +179,7 @@ class SecurityEventTracker:
                 console_message,
                 extra={"security_alert": True, "event_record": event_record},
             )
-            print(
-                console_message, file=sys.stderr
-            )  # Keep console output for critical security alerts
+            logger.error(console_message, file=sys.stderr)  # Keep console output for critical security alerts
 
     def log_binding_validation_failure(
         self,
@@ -248,9 +241,7 @@ class SecurityEventTracker:
             severity=logging.ERROR,
         )
 
-    def log_key_rotation_event(
-        self, key_info: dict[str, Any], reason: str = "scheduled"
-    ) -> None:
+    def log_key_rotation_event(self, key_info: dict[str, Any], reason: str = "scheduled") -> None:
         """Log secret key rotation event.
 
         Args:
@@ -296,9 +287,7 @@ class SecurityEventTracker:
 
         return "unclassified_suspicious"
 
-    def get_event_summary(
-        self, session_id: str | None = None, hours: int = 24
-    ) -> dict[str, Any]:
+    def get_event_summary(self, session_id: str | None = None, hours: int = 24) -> dict[str, Any]:
         """Get summary of security events for monitoring.
 
         Args:
@@ -363,9 +352,7 @@ def log_binding_validation_failure(
         failure_count: Current number of validation failures
         session: Optional session object for context
     """
-    security_event_tracker.log_binding_validation_failure(
-        session_id, tool_name, failure_count, session
-    )
+    security_event_tracker.log_binding_validation_failure(session_id, tool_name, failure_count, session)
 
 
 def log_suspicious_access_pattern(
@@ -382,6 +369,4 @@ def log_suspicious_access_pattern(
         access_metrics: Metrics that triggered the suspicious detection
         session: Optional session object for context
     """
-    security_event_tracker.log_suspicious_access_pattern(
-        session_id, tool_name, access_metrics, session
-    )
+    security_event_tracker.log_suspicious_access_pattern(session_id, tool_name, access_metrics, session)

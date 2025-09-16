@@ -7,7 +7,6 @@ functionality without external dependencies on separate lock, security, or data 
 import asyncio
 import hashlib
 import secrets
-import sys
 from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import Any
@@ -56,13 +55,13 @@ except ImportError:
             pass
 
         def info(self, msg):
-            print(f"INFO: {msg}", file=sys.stderr)
+            logger.error(f"INFO: {msg}")
 
         def warning(self, msg):
-            print(f"WARNING: {msg}", file=sys.stderr)
+            logger.error(f"WARNING: {msg}")
 
         def error(self, msg):
-            print(f"ERROR: {msg}", file=sys.stderr)
+            logger.error(f"ERROR: {msg}")
 
     def get_logger(name):
         return MockLogger()
@@ -111,9 +110,7 @@ class Session:
         if create_client_binding:
             self._create_client_binding()
 
-        logger.info(
-            f"Created session {session_id} with built-in security and concurrency"
-        )
+        logger.info(f"Created session {session_id} with built-in security and concurrency")
 
     def _create_client_binding(self) -> None:
         """Create a secure client binding for this session"""
@@ -142,9 +139,7 @@ class Session:
         async with self._lock:
             start_time = datetime.now(timezone.utc)
             try:
-                logger.debug(
-                    f"Starting atomic operation '{operation_name}' for session {self.session_id}"
-                )
+                logger.debug(f"Starting atomic operation '{operation_name}' for session {self.session_id}")
 
                 # Execute the operation and capture its return value
                 if asyncio.iscoroutinefunction(operation):
@@ -166,25 +161,19 @@ class Session:
                     {"error": str(e), "operation": operation_name},
                 )
 
-                logger.error(
-                    f"Error in atomic operation '{operation_name}' for session {self.session_id}: {e}"
-                )
+                logger.error(f"Error in atomic operation '{operation_name}' for session {self.session_id}: {e}")
 
                 # Don't wrap SessionError subclasses - re-raise them as-is
                 if isinstance(e, SessionError):
                     raise
                 else:
-                    raise SessionError(
-                        f"Operation '{operation_name}' failed: {e}"
-                    ) from e
+                    raise SessionError(f"Operation '{operation_name}' failed: {e}") from e
 
             finally:
                 # Always record operation time
                 end_time = datetime.now(timezone.utc)
                 operation_time = (end_time - start_time).total_seconds()
-                logger.debug(
-                    f"Completed operation '{operation_name}' in {operation_time:.3f}s"
-                )
+                logger.debug(f"Completed operation '{operation_name}' in {operation_time:.3f}s")
 
     async def validate_security(self, tool_name: str | None = None) -> bool:
         """Validate session security and record access patterns
@@ -203,9 +192,7 @@ class Session:
             # Always allow sessions without client binding (backward compatibility)
             if not self._state.client_binding:
                 if tool_name:
-                    logger.debug(
-                        f"Session {self.session_id} accessed tool: {tool_name} (no binding)"
-                    )
+                    logger.debug(f"Session {self.session_id} accessed tool: {tool_name} (no binding)")
                 return True
 
             # Validate client binding
@@ -223,16 +210,12 @@ class Session:
 
                 # Check if session is now suspicious
                 if self._state.client_binding.is_suspicious():
-                    self._record_security_event(
-                        "session_flagged_suspicious", {"reason": "excessive_failures"}
-                    )
+                    self._record_security_event("session_flagged_suspicious", {"reason": "excessive_failures"})
                     raise SessionSecurityError(
                         f"Session {self.session_id} flagged as suspicious due to excessive validation failures"
                     )
 
-                raise SessionSecurityError(
-                    f"Client binding validation failed for session {self.session_id}"
-                )
+                raise SessionSecurityError(f"Client binding validation failed for session {self.session_id}")
 
             # Update binding metadata on successful validation
             self._state.client_binding.last_validated = datetime.now(timezone.utc)
@@ -240,29 +223,20 @@ class Session:
             # Record tool usage pattern
             if tool_name:
                 self._update_tool_usage_pattern(tool_name)
-                logger.debug(
-                    f"Session {self.session_id} validated access to tool: {tool_name}"
-                )
+                logger.debug(f"Session {self.session_id} validated access to tool: {tool_name}")
 
             return True
 
-        return await self._atomic_operation(
-            "validate_security", _validate_security_impl
-        )
+        return await self._atomic_operation("validate_security", _validate_security_impl)
 
     def _update_tool_usage_pattern(self, tool_name: str) -> None:
         """Update tool usage pattern in client binding (internal, assumes lock held)"""
-        if (
-            self._state.client_binding
-            and len(self._state.client_binding.tool_usage_sequence) < 10
-        ):
+        if self._state.client_binding and len(self._state.client_binding.tool_usage_sequence) < 10:
             self._state.client_binding.tool_usage_sequence.append(tool_name)
 
     def _record_security_event(self, event_type: str, details: dict[str, Any]) -> None:
         """Record a security event (internal, assumes lock held)"""
-        event = SecurityEvent(
-            event_type=event_type, timestamp=datetime.now(timezone.utc), details=details
-        )
+        event = SecurityEvent(event_type=event_type, timestamp=datetime.now(timezone.utc), details=details)
 
         self._state.security_events.append(event)
         self._state.metrics.record_security_event()
@@ -271,9 +245,7 @@ class Session:
         if self._state.client_binding:
             self._state.client_binding.add_security_flag(event_type)
 
-        logger.info(
-            f"Security event '{event_type}' recorded for session {self.session_id}"
-        )
+        logger.info(f"Security event '{event_type}' recorded for session {self.session_id}")
 
     async def add_thread(self, thread: Thread) -> bool:
         """Add a perspective thread to the session
@@ -287,9 +259,7 @@ class Session:
 
         def _add_thread_impl():
             if thread.name in self._state.threads:
-                logger.warning(
-                    f"Thread '{thread.name}' already exists in session {self.session_id}"
-                )
+                logger.warning(f"Thread '{thread.name}' already exists in session {self.session_id}")
                 return False
 
             self._state.threads[thread.name] = thread
@@ -313,9 +283,7 @@ class Session:
         def _get_thread_impl():
             thread = self._state.threads.get(name)
             if thread:
-                logger.debug(
-                    f"Retrieved thread '{name}' from session {self.session_id}"
-                )
+                logger.debug(f"Retrieved thread '{name}' from session {self.session_id}")
             return thread
 
         return await self._atomic_operation("get_thread", _get_thread_impl)
@@ -398,9 +366,7 @@ class Session:
         def _get_last_analysis_impl():
             return self._state.analyses[-1] if self._state.analyses else None
 
-        return await self._atomic_operation(
-            "get_last_analysis", _get_last_analysis_impl
-        )
+        return await self._atomic_operation("get_last_analysis", _get_last_analysis_impl)
 
     async def get_session_info(self) -> dict[str, Any]:
         """Get comprehensive session information
@@ -415,13 +381,9 @@ class Session:
                 security_info = {
                     "validation_failures": self._state.client_binding.validation_failures,
                     "last_validated": self._state.client_binding.last_validated.isoformat(),
-                    "security_flags_count": len(
-                        self._state.client_binding.security_flags
-                    ),
+                    "security_flags_count": len(self._state.client_binding.security_flags),
                     "is_suspicious": self._state.client_binding.is_suspicious(),
-                    "tool_usage_count": len(
-                        self._state.client_binding.tool_usage_sequence
-                    ),
+                    "tool_usage_count": len(self._state.client_binding.tool_usage_sequence),
                 }
 
             return {
@@ -435,9 +397,7 @@ class Session:
                 "security_event_count": len(self._state.security_events),
                 "client_binding": security_info,
                 "metrics": self._state.metrics.to_dict(),
-                "recent_security_events": [
-                    event.to_dict() for event in self._state.security_events[-5:]
-                ],
+                "recent_security_events": [event.to_dict() for event in self._state.security_events[-5:]],
             }
 
         return await self._atomic_operation("get_session_info", _get_session_info_impl)
@@ -524,10 +484,8 @@ class Session:
                 try:
                     callback()
                 except Exception as e:
-                    cleanup_errors.append(f"Callback cleanup failed: {str(e)}")
-                    logger.warning(
-                        f"Cleanup callback failed for session {self.session_id}: {e}"
-                    )
+                    cleanup_errors.append(f"Callback cleanup failed: {e!s}")
+                    logger.warning(f"Cleanup callback failed for session {self.session_id}: {e}")
 
             # Clean up rate limiter resources if available
             try:
@@ -538,10 +496,8 @@ class Session:
             except ImportError:
                 pass  # Rate limiter not available
             except Exception as e:
-                cleanup_errors.append(f"Rate limiter cleanup failed: {str(e)}")
-                logger.warning(
-                    f"Rate limiter cleanup failed for session {self.session_id}: {e}"
-                )
+                cleanup_errors.append(f"Rate limiter cleanup failed: {e!s}")
+                logger.warning(f"Rate limiter cleanup failed for session {self.session_id}: {e}")
 
             # Clear session state
             try:
@@ -552,16 +508,12 @@ class Session:
                     # Keep only recent events to prevent memory leaks
                     self._state.security_events = self._state.security_events[-50:]
             except Exception as e:
-                cleanup_errors.append(f"State cleanup failed: {str(e)}")
-                logger.warning(
-                    f"State cleanup failed for session {self.session_id}: {e}"
-                )
+                cleanup_errors.append(f"State cleanup failed: {e!s}")
+                logger.warning(f"State cleanup failed for session {self.session_id}: {e}")
 
             # Log cleanup completion
             if cleanup_errors:
-                logger.warning(
-                    f"Session {self.session_id} cleanup completed with {len(cleanup_errors)} errors"
-                )
+                logger.warning(f"Session {self.session_id} cleanup completed with {len(cleanup_errors)} errors")
                 # Don't raise exception - cleanup should be best-effort
             else:
                 logger.info(f"Session {self.session_id} cleanup completed successfully")
