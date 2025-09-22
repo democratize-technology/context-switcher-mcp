@@ -171,7 +171,7 @@ pipdeptree==2.11.0
 platformdirs==4.4.0
 platformio==6.1.16
 pluggy==1.6.0
-portalocker==2.10.1
+portalocker==3.2.0
 pre-commit==3.8.0
 propcache==0.3.2
 protobuf==6.31.1
