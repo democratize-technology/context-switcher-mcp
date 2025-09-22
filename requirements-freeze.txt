@@ -230,7 +230,7 @@ regex==2024.11.6
 requests==2.32.4
 requests-mock==1.11.0
 requests-toolbelt==1.0.0
-respx==0.20.2
+respx==0.22.0
 rfc3339-validator==0.1.4
 rfc3986==2.0.0
 rich==14.1.0
