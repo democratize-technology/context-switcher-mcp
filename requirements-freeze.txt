@@ -244,7 +244,7 @@ ruff==0.11.13
 s3transfer==0.13.0
 safety==3.6.0
 safety-schemas==0.0.14
-scikit-learn==1.6.1
+scikit-learn==1.7.2
 scipy==1.16.1
 semantic-version==2.10.0
 setuptools==80.9.0
