@@ -221,7 +221,7 @@ python-socketio==5.11.4
 pytz==2024.2
 PyYAML==6.0.2
 pyzmq==27.0.0
-qdrant-client==1.14.2
+qdrant-client==1.15.1
 radon==6.0.1
 readme_renderer==44.0
 recurring-ical-events==3.8.0
