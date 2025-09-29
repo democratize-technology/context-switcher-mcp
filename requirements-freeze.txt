@@ -151,7 +151,7 @@ openapi-core==0.19.5
 openapi-pydantic==0.5.1
 openapi-schema-validator==0.6.3
 openapi-spec-validator==0.7.2
-orderly-set==5.4.1
+orderly-set==5.5.0
 orjson==3.9.9
 packageurl-python==0.17.3
 packaging==24.2
