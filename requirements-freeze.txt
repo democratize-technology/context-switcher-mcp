@@ -125,7 +125,7 @@ lru-dict==1.2.0
 lxml==6.0.0
 mando==0.7.1
 markdown-it-py==4.0.0
-MarkupSafe==3.0.2
+MarkupSafe==3.0.3
 marshmallow==3.26.1
 mccabe==0.7.0
 mcp==1.12.4
