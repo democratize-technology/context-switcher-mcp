@@ -179,7 +179,7 @@ psutil==5.9.8
 py-serializable==2.1.0
 pybind11==2.11.1
 pycodestyle==2.14.0
-pycparser==2.21
+pycparser==2.23
 pycrdt==0.12.21
 pydantic==2.11.7
 pydantic_core==2.33.2
