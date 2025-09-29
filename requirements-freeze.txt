@@ -243,7 +243,7 @@ rubber-duck-mcp==0.1.0
 ruff==0.11.13
 s3transfer==0.13.0
 safety==3.6.0
-safety-schemas==0.0.14
+safety-schemas==0.0.16
 scikit-learn==1.6.1
 scipy==1.16.1
 semantic-version==2.10.0
