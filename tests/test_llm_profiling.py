@@ -2,12 +2,11 @@
 
 import asyncio
 import time
-from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from context_switcher_mcp.backend_interface import ModelCallConfig  # noqa: E402
-from context_switcher_mcp.llm_profiler import (  # noqa: E402
+from context_switcher_mcp.backend_interface import ModelCallConfig
+from context_switcher_mcp.llm_profiler import (
     CostCalculator,
     LLMCallMetrics,
     LLMProfiler,
@@ -16,12 +15,8 @@ from context_switcher_mcp.llm_profiler import (  # noqa: E402
     ProfilingLevel,
     get_global_profiler,
 )
-from context_switcher_mcp.models import ModelBackend, Thread  # noqa: E402
-# NOTE: performance_dashboard module was removed - tests refactored to not require it
-# from context_switcher_mcp.performance_dashboard import (
-#     PerformanceDashboard,  # noqa: E402
-# )
-from context_switcher_mcp.profiling_wrapper import (  # noqa: E402
+from context_switcher_mcp.models import ModelBackend, Thread
+from context_switcher_mcp.profiling_wrapper import (
     EnhancedProfilingWrapper,
     ProfilingBackendWrapper,
     create_profiling_wrapper,
@@ -206,9 +201,7 @@ class TestLLMProfiler:
         config = ProfilingConfig(sampling_rate=1.0)  # Always sample
         profiler = LLMProfiler(config)
 
-        async with profiler.profile_call(
-            "session-1", "thread-1", "bedrock", "claude-3-haiku"
-        ) as metrics:
+        async with profiler.profile_call("session-1", "thread-1", "bedrock", "claude-3-haiku") as metrics:
             assert metrics is not None
             assert metrics.session_id == "session-1"
             assert metrics.thread_name == "thread-1"
@@ -229,9 +222,7 @@ class TestLLMProfiler:
         profiler = LLMProfiler(config)
 
         try:
-            async with profiler.profile_call(
-                "session-1", "thread-1", "bedrock", "claude-3-haiku"
-            ) as metrics:
+            async with profiler.profile_call("session-1", "thread-1", "bedrock", "claude-3-haiku") as metrics:
                 raise ValueError("Test error")
         except ValueError:
             pass
@@ -327,9 +318,7 @@ class TestLLMProfiler:
 
     def test_configuration_status(self):
         """Test configuration status reporting"""
-        config = ProfilingConfig(
-            sampling_rate=0.3, track_memory=True, cost_alert_threshold_usd=50.0
-        )
+        config = ProfilingConfig(sampling_rate=0.3, track_memory=True, cost_alert_threshold_usd=50.0)
         profiler = LLMProfiler(config)
 
         status = profiler.get_configuration_status()
@@ -398,18 +387,12 @@ class TestProfilingWrapper:
         thread.add_message("user", "Test message")
 
         # Call with profiling
-        with patch(
-            "src.context_switcher_mcp.llm_profiler.get_global_profiler"
-        ) as mock_get_profiler:
+        with patch("src.context_switcher_mcp.llm_profiler.get_global_profiler") as mock_get_profiler:
             mock_profiler = Mock()
             mock_profiler.config.enabled = True
             mock_profiler.profile_call = AsyncMock()
-            mock_profiler.profile_call.return_value.__aenter__ = AsyncMock(
-                return_value=Mock()
-            )
-            mock_profiler.profile_call.return_value.__aexit__ = AsyncMock(
-                return_value=None
-            )
+            mock_profiler.profile_call.return_value.__aenter__ = AsyncMock(return_value=Mock())
+            mock_profiler.profile_call.return_value.__aexit__ = AsyncMock(return_value=None)
             mock_get_profiler.return_value = mock_profiler
 
             response = await wrapper.call_model(thread)
@@ -435,145 +418,8 @@ class TestProfilingWrapper:
 
         # Test longer text should have more tokens
         short_tokens = wrapper._estimate_tokens("Short")
-        long_tokens = wrapper._estimate_tokens(
-            "This is a much longer text that should have more tokens"
-        )
+        long_tokens = wrapper._estimate_tokens("This is a much longer text that should have more tokens")
         assert long_tokens > short_tokens
-
-
-@pytest.mark.asyncio
-# NOTE: PerformanceDashboard tests disabled - module was removed
-# TODO: Implement replacement dashboard or remove tests entirely
-@pytest.mark.skip(reason="PerformanceDashboard module removed")
-class TestPerformanceDashboard:
-    """Test performance dashboard functionality"""
-
-    async def test_dashboard_initialization(self):
-        """Test dashboard initialization"""
-        dashboard = PerformanceDashboard()
-
-        assert dashboard.profiler is not None
-        assert dashboard._cache == {}
-        assert dashboard._cache_ttl == 60.0
-
-    async def test_empty_dashboard(self):
-        """Test dashboard with no data"""
-        dashboard = PerformanceDashboard()
-
-        # Mock empty profiler
-        with patch.object(dashboard, "_get_metrics_for_timeframe", return_value=[]):
-            result = await dashboard.get_comprehensive_dashboard()
-
-            assert result["status"] == "no_data"
-            assert "No profiling data available" in result["message"]
-
-    async def test_cost_breakdown_calculation(self):
-        """Test cost breakdown calculation"""
-        dashboard = PerformanceDashboard()
-
-        # Create test metrics
-        test_metrics = []
-        for i in range(5):
-            metrics = LLMCallMetrics(
-                call_id=f"call-{i}",
-                session_id="session-1",
-                thread_name=f"thread-{i}",
-                backend="bedrock" if i % 2 == 0 else "litellm",
-                model_name="claude-3-haiku",
-                estimated_cost_usd=0.01 * (i + 1),
-                timestamp=datetime.now(timezone.utc) - timedelta(hours=i),
-            )
-            test_metrics.append(metrics)
-
-        cost_breakdown = await dashboard._compute_cost_breakdown(test_metrics)
-
-        assert cost_breakdown.total_cost_usd == pytest.approx(
-            0.15, rel=1e-3
-        )  # 0.01+0.02+0.03+0.04+0.05
-        assert "bedrock" in cost_breakdown.cost_by_backend
-        assert "litellm" in cost_breakdown.cost_by_backend
-        assert cost_breakdown.most_expensive_call is not None
-
-    async def test_performance_analysis_calculation(self):
-        """Test performance analysis calculation"""
-        dashboard = PerformanceDashboard()
-
-        # Create test metrics with various latencies
-        test_metrics = []
-        latencies = [1.0, 2.0, 3.0, 5.0, 10.0]
-
-        for i, latency in enumerate(latencies):
-            start_time = time.time()
-            metrics = LLMCallMetrics(
-                call_id=f"call-{i}",
-                session_id="session-1",
-                thread_name=f"thread-{i}",
-                backend="bedrock",
-                model_name="claude-3-haiku",
-                start_time=start_time,
-                success=True,
-                timestamp=datetime.now(timezone.utc) - timedelta(minutes=i),
-            )
-            metrics.end_time = start_time + latency
-            test_metrics.append(metrics)
-
-        performance = await dashboard._compute_performance_analysis(test_metrics)
-
-        assert performance.total_calls == 5
-        assert performance.success_rate == 100.0
-        assert performance.avg_latency == pytest.approx(
-            4.2, rel=1e-1
-        )  # Mean of latencies
-        assert performance.median_latency == pytest.approx(3.0, rel=1e-3)
-        assert len(performance.slowest_calls) <= 5
-
-    async def test_optimization_recommendations(self):
-        """Test optimization recommendations generation"""
-        dashboard = PerformanceDashboard()
-
-        # Create metrics with issues that should trigger recommendations
-        test_metrics = []
-
-        # Add expensive calls
-        for i in range(3):
-            metrics = LLMCallMetrics(
-                call_id=f"expensive-{i}",
-                session_id="session-1",
-                thread_name="expensive-thread",
-                backend="bedrock",
-                model_name="claude-3-opus",
-                estimated_cost_usd=0.5,  # Expensive
-                timestamp=datetime.now(timezone.utc) - timedelta(hours=i),
-            )
-            test_metrics.append(metrics)
-
-        # Add slow calls
-        for i in range(2):
-            start_time = time.time()
-            metrics = LLMCallMetrics(
-                call_id=f"slow-{i}",
-                session_id="session-1",
-                thread_name="slow-thread",
-                backend="bedrock",
-                model_name="claude-3-haiku",
-                start_time=start_time,
-                timestamp=datetime.now(timezone.utc) - timedelta(hours=i),
-            )
-            metrics.end_time = start_time + 15.0  # Slow call
-            test_metrics.append(metrics)
-
-        with patch.object(
-            dashboard, "_get_metrics_for_timeframe", return_value=test_metrics
-        ):
-            recommendations = await dashboard.get_optimization_recommendations()
-
-            assert "recommendations" in recommendations
-            recommendations_list = recommendations["recommendations"]
-
-            # Should have cost and performance recommendations
-            categories = [r["category"] for r in recommendations_list]
-            assert "Cost Optimization" in categories
-            assert "Performance" in categories
 
 
 @pytest.mark.asyncio
@@ -616,11 +462,9 @@ class TestProfilingIntegration:
 
         config = ProfilingConfig(sampling_rate=1.0, track_costs=True)
         profiler = LLMProfiler(config)
-        # dashboard = PerformanceDashboard()  # Removed - module no longer exists
 
         # Verify components are initialized
         assert profiler.config.sampling_rate == 1.0
-        # assert dashboard.profiler is not None  # Removed
 
         # Test basic integration
         status = profiler.get_configuration_status()

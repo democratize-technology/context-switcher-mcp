@@ -5,8 +5,7 @@ user-reported AttributeError and typing.Any instantiation issues.
 
 User-reported failing functions:
 1. start_context_analysis - Error: 'ContextSwitcherConfig' object has no attribute 'validation'
-2. get_performance_metrics - Error: Cannot instantiate typing.Any
-3. get_profiling_status - Error: 'ContextSwitcherConfig' object has no attribute 'profiling'
+2. get_profiling_status - Error: 'ContextSwitcherConfig' object has no attribute 'profiling'
 
 Key fixes tested:
 - Added validation property to ContextSwitcherConfig that returns self.session
@@ -16,8 +15,8 @@ Key fixes tested:
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from context_switcher_mcp.config import get_config  # noqa: E402
-from context_switcher_mcp.config.migration import LegacyConfigAdapter  # noqa: E402
+from context_switcher_mcp.config import get_config
+from context_switcher_mcp.config.migration import LegacyConfigAdapter
 
 
 class TestConfigValidationProperty:
@@ -47,14 +46,10 @@ class TestConfigValidationProperty:
         ]
 
         for attr in expected_attrs:
-            assert hasattr(
-                validation_config, attr
-            ), f"config.validation should have {attr} attribute"
+            assert hasattr(validation_config, attr), f"config.validation should have {attr} attribute"
             # Verify these return reasonable integer values
             value = getattr(validation_config, attr)
-            assert isinstance(
-                value, int
-            ), f"config.validation.{attr} should be an integer"
+            assert isinstance(value, int), f"config.validation.{attr} should be an integer"
             assert value > 0, f"config.validation.{attr} should be positive"
 
     def test_config_validation_max_topic_length_usage(self):
@@ -109,9 +104,7 @@ class TestConfigProfilingProperty:
         ]
 
         for attr in expected_attrs:
-            assert hasattr(
-                profiling_config, attr
-            ), f"config.profiling should have {attr} attribute"
+            assert hasattr(profiling_config, attr), f"config.profiling should have {attr} attribute"
 
     def test_config_profiling_attribute_types(self):
         """Test that config.profiling attributes have expected types"""
@@ -189,14 +182,10 @@ class TestValidationFileUsage:
             mock_sm.get_session = AsyncMock(return_value=mock_session)
 
             # Mock client binding validation
-            with patch(
-                "context_switcher_mcp.validation.validate_session_access"
-            ) as mock_validate:
+            with patch("context_switcher_mcp.validation.validate_session_access") as mock_validate:
                 mock_validate.return_value = (True, "")
 
-                is_valid, error_msg = await validate_session_id(
-                    valid_session_id, "test_operation"
-                )
+                is_valid, error_msg = await validate_session_id(valid_session_id, "test_operation")
 
                 # Should successfully access config.validation.max_session_id_length
                 assert isinstance(is_valid, bool)
@@ -275,21 +264,6 @@ class TestProfilingToolsUsage:
         # Should return valid status or error dict
         assert "enabled" in result or "error" in result
 
-    @pytest.mark.skip(reason="get_performance_dashboard_data removed - API refactored")
-    @pytest.mark.asyncio
-    async def test_get_performance_dashboard_data_no_typing_any_error(self):
-        """Test that get_performance_dashboard_data() works without typing errors"""
-        from context_switcher_mcp.tools.profiling_tools import (
-            get_performance_dashboard_data,
-        )
-
-        # This should not raise "Cannot instantiate typing.Any" error
-        result = await get_performance_dashboard_data()
-
-        assert isinstance(result, dict)
-        # Should return valid data or error dict
-        assert any(key in result for key in ["dashboard", "error", "message"])
-
 
 class TestStartContextAnalysisIntegration:
     """Test start_context_analysis tool integration without config.validation errors"""
@@ -323,23 +297,6 @@ class TestStartContextAnalysisIntegration:
         assert hasattr(ValidationHandler, "validate_session_creation_request")
 
 
-class TestGetPerformanceMetricsIntegration:
-    """Test get_performance_metrics tool integration without typing.Any errors"""
-
-    @pytest.mark.skip(reason="get_performance_metrics removed - API refactored")
-    @pytest.mark.asyncio
-    async def test_get_performance_metrics_no_instantiation_error(self):
-        """Test that get_performance_metrics works without 'Cannot instantiate typing.Any' error"""
-        from context_switcher_mcp.tools.profiling_tools import get_performance_metrics
-
-        # This was failing with "Cannot instantiate typing.Any" error
-        result = await get_performance_metrics(hours_back=24)
-
-        assert isinstance(result, dict)
-        # Should return performance data or error dict
-        assert any(key in result for key in ["performance", "error", "timeframe_hours"])
-
-
 class TestLegacyConfigAdapter:
     """Test that LegacyConfigAdapter provides the required properties"""
 
@@ -365,10 +322,9 @@ class TestLegacyConfigAdapter:
 class TestIntegrationAllFailingFunctions:
     """Integration test exercising all three originally failing functions"""
 
-    @pytest.mark.skip(reason="get_performance_metrics removed - API refactored")
     @pytest.mark.asyncio
     async def test_all_failing_functions_integration(self):
-        """Test all three originally failing functions work together"""
+        """Test both originally failing functions work together"""
 
         # 1. Test start_context_analysis validation path (uses config.validation)
         from context_switcher_mcp.handlers.validation_handler import ValidationHandler
@@ -377,24 +333,16 @@ class TestIntegrationAllFailingFunctions:
             topic="Integration test topic", initial_perspectives=["technical"]
         )
 
-        assert isinstance(
-            is_valid, bool
-        ), "start_context_analysis validation should work"
+        assert isinstance(is_valid, bool), "start_context_analysis validation should work"
 
-        # 2. Test get_performance_metrics (was failing with typing.Any instantiation)
-        from context_switcher_mcp.tools.profiling_tools import get_performance_metrics
-
-        result = await get_performance_metrics(hours_back=1)
-        assert isinstance(result, dict), "get_performance_metrics should return dict"
-
-        # 3. Test get_profiling_status (uses config.profiling)
+        # 2. Test get_profiling_status (uses config.profiling)
         from context_switcher_mcp.tools.profiling_tools import get_llm_profiling_status
 
         status = await get_llm_profiling_status()
         assert isinstance(status, dict), "get_profiling_status should return dict"
 
-        # All three should complete without the original AttributeError or typing.Any errors
-        assert True, "All three originally failing functions completed successfully"
+        # Both should complete without the original AttributeError errors
+        assert True, "Both originally failing functions completed successfully"
 
 
 class TestErrorScenariosFixed:
@@ -421,23 +369,6 @@ class TestErrorScenariosFixed:
             assert profiling_config is not None
         except AttributeError as e:
             pytest.fail(f"config.profiling should exist: {e}")
-
-    @pytest.mark.skip(reason="get_performance_metrics removed - API refactored")
-    @pytest.mark.asyncio
-    async def test_no_typing_any_instantiation_error(self):
-        """Test that 'Cannot instantiate typing.Any' error is fixed"""
-        from context_switcher_mcp.tools.profiling_tools import get_performance_metrics
-
-        # This should not raise "Cannot instantiate typing.Any" error
-        try:
-            result = await get_performance_metrics()
-            assert isinstance(result, dict)
-        except TypeError as e:
-            if "Cannot instantiate typing.Any" in str(e):
-                pytest.fail(f"typing.Any instantiation error should be fixed: {e}")
-            else:
-                # Re-raise other TypeErrors
-                raise
 
 
 if __name__ == "__main__":
