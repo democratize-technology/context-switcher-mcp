@@ -179,7 +179,8 @@ class SecurityEventTracker:
                 console_message,
                 extra={"security_alert": True, "event_record": event_record},
             )
-            logger.error(console_message, file=sys.stderr)  # Keep console output for critical security alerts
+            logger.error(console_message)  # Keep console output for critical security alerts
+            # Note: logger.error() doesn't accept file parameter - that's for print()
 
     def log_binding_validation_failure(
         self,

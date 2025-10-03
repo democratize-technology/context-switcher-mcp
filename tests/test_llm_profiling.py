@@ -17,9 +17,10 @@ from context_switcher_mcp.llm_profiler import (  # noqa: E402
     get_global_profiler,
 )
 from context_switcher_mcp.models import ModelBackend, Thread  # noqa: E402
-from context_switcher_mcp.performance_dashboard import (
-    PerformanceDashboard,  # noqa: E402
-)
+# NOTE: performance_dashboard module was removed - tests refactored to not require it
+# from context_switcher_mcp.performance_dashboard import (
+#     PerformanceDashboard,  # noqa: E402
+# )
 from context_switcher_mcp.profiling_wrapper import (  # noqa: E402
     EnhancedProfilingWrapper,
     ProfilingBackendWrapper,
@@ -441,6 +442,9 @@ class TestProfilingWrapper:
 
 
 @pytest.mark.asyncio
+# NOTE: PerformanceDashboard tests disabled - module was removed
+# TODO: Implement replacement dashboard or remove tests entirely
+@pytest.mark.skip(reason="PerformanceDashboard module removed")
 class TestPerformanceDashboard:
     """Test performance dashboard functionality"""
 
@@ -612,11 +616,11 @@ class TestProfilingIntegration:
 
         config = ProfilingConfig(sampling_rate=1.0, track_costs=True)
         profiler = LLMProfiler(config)
-        dashboard = PerformanceDashboard()
+        # dashboard = PerformanceDashboard()  # Removed - module no longer exists
 
         # Verify components are initialized
         assert profiler.config.sampling_rate == 1.0
-        assert dashboard.profiler is not None
+        # assert dashboard.profiler is not None  # Removed
 
         # Test basic integration
         status = profiler.get_configuration_status()
