@@ -36,3 +36,4 @@ ENV/
 
 # Backup files from sanitization processes
 .backup/
+code_reviews.db
