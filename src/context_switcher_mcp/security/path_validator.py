@@ -15,8 +15,9 @@ class PathValidator:
 
     # Dangerous path patterns that could indicate path traversal attacks
     DANGEROUS_PATH_PATTERNS = [
-        r"\.\./",  # Directory traversal
+        r"\.\./",  # Directory traversal (Unix)
         r"\.\.\.",  # Extended traversal
+        r"\.\.[/\\]",  # Directory traversal (Unix and Windows)
         r"~/",  # Home directory access
         r"/etc/",  # System files
         r"/proc/",  # Process files
@@ -25,6 +26,8 @@ class PathValidator:
         r"/root/",  # Root directory
         r"/var/log/",  # Log files
         r"\\\\",  # Windows UNC paths
+        r"^[A-Za-z]:\\",  # Windows drive letters (C:\, D:\, etc.)
+        r"[Ww]indows[/\\]",  # Windows system directory
         r"file://",  # File protocol
         r'[<>"|*?]',  # Windows invalid chars
     ]

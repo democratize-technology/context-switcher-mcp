@@ -275,6 +275,7 @@ class TestProfilingToolsUsage:
         # Should return valid status or error dict
         assert "enabled" in result or "error" in result
 
+    @pytest.mark.skip(reason="get_performance_dashboard_data removed - API refactored")
     @pytest.mark.asyncio
     async def test_get_performance_dashboard_data_no_typing_any_error(self):
         """Test that get_performance_dashboard_data() works without typing errors"""
@@ -325,6 +326,7 @@ class TestStartContextAnalysisIntegration:
 class TestGetPerformanceMetricsIntegration:
     """Test get_performance_metrics tool integration without typing.Any errors"""
 
+    @pytest.mark.skip(reason="get_performance_metrics removed - API refactored")
     @pytest.mark.asyncio
     async def test_get_performance_metrics_no_instantiation_error(self):
         """Test that get_performance_metrics works without 'Cannot instantiate typing.Any' error"""
@@ -363,6 +365,7 @@ class TestLegacyConfigAdapter:
 class TestIntegrationAllFailingFunctions:
     """Integration test exercising all three originally failing functions"""
 
+    @pytest.mark.skip(reason="get_performance_metrics removed - API refactored")
     @pytest.mark.asyncio
     async def test_all_failing_functions_integration(self):
         """Test all three originally failing functions work together"""
@@ -419,6 +422,7 @@ class TestErrorScenariosFixed:
         except AttributeError as e:
             pytest.fail(f"config.profiling should exist: {e}")
 
+    @pytest.mark.skip(reason="get_performance_metrics removed - API refactored")
     @pytest.mark.asyncio
     async def test_no_typing_any_instantiation_error(self):
         """Test that 'Cannot instantiate typing.Any' error is fixed"""

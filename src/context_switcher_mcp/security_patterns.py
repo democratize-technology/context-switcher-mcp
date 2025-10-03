@@ -31,12 +31,12 @@ SECURITY_PATTERNS = [
 ADVANCED_PROMPT_INJECTION_PATTERNS = [
     # Role manipulation
     r"you\s+are\s+now\s+(a|an)?\s*different\s+(ai|assistant|bot|system)",
-    r"forget\s+(your|all|previous)\s+(instructions|training|guidelines)",
+    r"(ignore|forget)\s+(your|all|previous)\s+(instructions|training|guidelines)",
     r"override\s+(your|all|previous)\s+(instructions|training|guidelines)",
     r"switch\s+to\s+(unrestricted|developer|debug|admin)\s+mode",
     r"activate\s+(developer|debug|admin|unrestricted)\s+mode",
     # System prompt extraction
-    r"show\s+me\s+your\s+(system|initial)\s+prompt",
+    r"(show|tell)\s+me\s+your\s+(system|initial)\s+prompt",
     r"what\s+(are|were)\s+your\s+(initial|system)\s+(instructions|prompts?)",
     r"repeat\s+your\s+(system|initial)\s+(instructions|prompts?)",
     # Jailbreaking attempts
@@ -71,6 +71,8 @@ ADVANCED_PROMPT_INJECTION_PATTERNS = [
     r"\{\{.*?\}\}",
     r"\$\{.*?\}",
     r"<%.*?%>",
+    # HTML comment injection
+    r"<!--.*?(ignore|bypass|override|forget).*?-->",
 ]
 
 # Allowed model ID patterns

@@ -236,13 +236,7 @@ class EnhancedInputValidator:
         sanitizations = []
         sanitized = content
 
-        # HTML escape dangerous characters
-        original_sanitized = sanitized
-        sanitized = html.escape(sanitized, quote=True)
-        if sanitized != original_sanitized:
-            sanitizations.append("HTML escaped dangerous characters")
-
-        # Remove or escape common attack vectors
+        # Remove or escape common attack vectors FIRST (before HTML escaping)
         attack_patterns = [
             (r"<script[^>]*>.*?</script>", "[SCRIPT_REMOVED]"),
             (r"javascript:", "[JAVASCRIPT_REMOVED]"),
@@ -258,6 +252,12 @@ class EnhancedInputValidator:
             )
             if sanitized != original_sanitized:
                 sanitizations.append(f"Removed attack pattern: {pattern}")
+
+        # HTML escape dangerous characters AFTER removing attack patterns
+        original_sanitized = sanitized
+        sanitized = html.escape(sanitized, quote=True)
+        if sanitized != original_sanitized:
+            sanitizations.append("HTML escaped dangerous characters")
 
         return sanitized, sanitizations
 
@@ -277,6 +277,50 @@ class EnhancedInputValidator:
             parsed = urlparse(url)
             params = parse_qs(parsed.query)
 
+            # Check the raw query string for suspicious patterns before parsing
+            # This catches encoding bypasses that break URL parsing (like &lt; being seen as & separator)
+            if parsed.query:
+                # Decode HTML entities in the raw query string
+                try:
+                    import html as html_module
+                    decoded_query = html_module.unescape(parsed.query)
+                except Exception:
+                    decoded_query = parsed.query
+
+                # Check for suspicious patterns in the decoded query
+                suspicious_in_query = [
+                    "<script",
+                    "javascript:",
+                    "data:",
+                    "onload=",
+                    "onerror=",
+                    "eval(",
+                    "alert(",
+                ]
+
+                query_lower = decoded_query.lower()
+                for pattern in suspicious_in_query:
+                    if pattern in query_lower:
+                        return (
+                            False,
+                            f"Suspicious pattern in URL query string: {pattern}",
+                            {},
+                        )
+
+                # Check for encoding bypass attempts (hex, unicode escapes)
+                if re.search(r"\\x[0-9a-fA-F]{2}", decoded_query):
+                    return (
+                        False,
+                        "Hex encoding bypass detected in URL query string",
+                        {},
+                    )
+                if re.search(r"\\u[0-9a-fA-F]{4}", decoded_query):
+                    return (
+                        False,
+                        "Unicode encoding bypass detected in URL query string",
+                        {},
+                    )
+
             sanitized_params = {}
 
             for key, values in params.items():
@@ -293,8 +337,15 @@ class EnhancedInputValidator:
                     # URL decode
                     decoded_value = unquote(value)
 
+                    # Also decode HTML entities to catch encoding bypasses
+                    try:
+                        import html as html_module
+                        fully_decoded = html_module.unescape(decoded_value)
+                    except Exception:
+                        fully_decoded = decoded_value
+
                     # Check length
-                    if len(decoded_value) > 1000:
+                    if len(fully_decoded) > 1000:
                         return False, f"Parameter value too long: {key}", {}
 
                     # Check for injection patterns
@@ -309,7 +360,7 @@ class EnhancedInputValidator:
                         "document.",
                     ]
 
-                    value_lower = decoded_value.lower()
+                    value_lower = fully_decoded.lower()
                     for pattern in injection_patterns:
                         if pattern in value_lower:
                             return (
@@ -378,6 +429,11 @@ class ConfigurationInputValidator:
             r"cat\s+/proc",
             r"wget\s+",
             r"curl\s+.*\|\s*sh",
+            r"DROP\s+TABLE",  # SQL injection
+            r"DELETE\s+FROM",  # SQL injection
+            r"INSERT\s+INTO",  # SQL injection
+            r";\s*--",  # SQL comment/injection
+            r"\$\(.*\)",  # Command substitution
         ]
 
         for pattern in suspicious_patterns:

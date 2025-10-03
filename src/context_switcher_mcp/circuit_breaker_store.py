@@ -75,8 +75,15 @@ class CircuitBreakerStore:
 
     def _validate_symlink_security(self, path: Path):
         """Validate symlink security"""
-        if path.is_symlink():
-            raise ValueError(f"Symlinks are not allowed for security reasons: {path}")
+        try:
+            if path.is_symlink():
+                raise ValueError(f"Symlinks are not allowed for security reasons: {path}")
+        except PermissionError:
+            # If we can't check the path due to permissions, reject it as suspicious
+            # Use the same error message as the allowed directory check for consistency
+            raise ValueError(
+                f"Storage path must be within allowed directories: cannot access {path} for security validation"
+            )
 
     def _validate_allowed_directory(self, path: Path):
         """Validate path is within allowed base directories"""
