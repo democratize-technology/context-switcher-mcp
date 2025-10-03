@@ -6,14 +6,19 @@ and monitoring capabilities for the client binding security system.
 """
 
 import logging
-import sys
 from datetime import datetime, timezone
 from typing import Any
 
-from ..logging_base import get_logger
-from ..models import ContextSwitcherSession
+from context_switcher_mcp.logging_base import get_logger
+from context_switcher_mcp.models import ContextSwitcherSession
 
 logger = get_logger(__name__)
+
+# Security thresholds as constants
+CRITICAL_FAILURE_THRESHOLD = 3
+HIGH_FREQUENCY_ACCESS_THRESHOLD = 100
+ELEVATED_ACCESS_RATE_THRESHOLD = 50
+LOW_UNIQUE_PROMPTS_THRESHOLD = 3
 
 
 class SecurityEventTracker:
@@ -174,13 +179,11 @@ class SecurityEventTracker:
             if event_record.get("binding_context", {}).get("is_suspicious"):
                 console_message += " [SUSPICIOUS SESSION]"
 
-            # Log to main logger for observability and to console for immediate visibility
+            # Log to main logger for observability and console visibility (logger already outputs to stderr)
             logger.critical(
                 console_message,
                 extra={"security_alert": True, "event_record": event_record},
             )
-            logger.error(console_message)  # Keep console output for critical security alerts
-            # Note: logger.error() doesn't accept file parameter - that's for print()
 
     def log_binding_validation_failure(
         self,
@@ -200,10 +203,10 @@ class SecurityEventTracker:
         details = {
             "tool_name": tool_name,
             "failure_count": failure_count,
-            "is_critical": failure_count >= 3,  # Configurable threshold
+            "is_critical": failure_count >= CRITICAL_FAILURE_THRESHOLD,
         }
 
-        severity = logging.ERROR if failure_count >= 3 else logging.WARNING
+        severity = logging.ERROR if failure_count >= CRITICAL_FAILURE_THRESHOLD else logging.WARNING
 
         self.log_security_event(
             "binding_validation_failed",
@@ -273,14 +276,14 @@ class SecurityEventTracker:
         """
         if "access_rate" in access_metrics:
             rate = access_metrics["access_rate"]
-            if rate > 100:
+            if rate > HIGH_FREQUENCY_ACCESS_THRESHOLD:
                 return "high_frequency_access"
-            elif rate > 50:
+            if rate > ELEVATED_ACCESS_RATE_THRESHOLD:
                 return "elevated_access_rate"
 
         if "unique_prompts" in access_metrics:
             unique_count = access_metrics["unique_prompts"]
-            if unique_count < 3:
+            if unique_count < LOW_UNIQUE_PROMPTS_THRESHOLD:
                 return "repeated_prompts_automation"
 
         if "rapid_tool_switching" in access_metrics:
