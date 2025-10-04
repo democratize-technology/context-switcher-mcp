@@ -28,15 +28,42 @@ Key components:
 
 ## Development Commands
 
+### Transport Modes
+
+The server supports two transport modes:
+
+**Stdio Transport (default - for Claude Desktop):**
+```bash
+# Direct execution
+python -m context_switcher_mcp
+
+# Via convenience script
+./run.sh
+```
+
+**HTTP Transport (for network access):**
+```bash
+# Enable HTTP transport with environment variables
+export MCP_TRANSPORT=http
+export MCP_HTTP_HOST=127.0.0.1  # Optional, defaults to 127.0.0.1
+export MCP_HTTP_PORT=8082       # Optional, defaults to 8082
+python -m context_switcher_mcp
+
+# Or inline:
+MCP_TRANSPORT=http MCP_HTTP_PORT=8082 python -m context_switcher_mcp
+```
+
+HTTP transport is useful for:
+- Integration with web-based MCP clients
+- Load balancing and horizontal scaling
+- Network-based debugging with tools like curl/httpie
+- Multi-client access to the same server instance
+
+### Development Tasks
+
 ```bash
 # Install for development (includes pre-commit hooks)
 pip install -e ".[dev]"
-
-# Run the server
-python -m context_switcher_mcp
-
-# Alternative: Use the convenience script (uses uv to create venv automatically)
-./run.sh
 
 # Run all tests
 pytest tests/

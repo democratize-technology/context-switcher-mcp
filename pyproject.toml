@@ -32,6 +32,7 @@ dependencies = [
     "idna>=3.10",
     "pip-licenses>=5.0.0",
     "chain-of-thought-tool==0.1.1",
+    "uvicorn>=0.30.0,<1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -56,7 +57,7 @@ dev = [
 ]
 
 [project.scripts]
-context-switcher = "context_switcher_mcp:main"
+context-switcher = "context_switcher_mcp.__main__:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/context_switcher_mcp"]

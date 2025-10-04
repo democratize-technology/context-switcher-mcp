@@ -9,7 +9,7 @@ from typing import Any
 # Basic imports that don't require MCP/Pydantic
 from .logging_base import get_logger, setup_logging
 
-__all__ = ["main", "create_server"]
+__all__ = ["create_server"]
 
 # Setup unified logging configuration
 setup_logging()
@@ -22,9 +22,14 @@ session_manager = None
 orchestrator = None
 
 
-def create_server():
-    """Create and configure the MCP server with all dependencies"""
-    global mcp, config, session_manager, orchestrator
+def create_server(host: str = "127.0.0.1", port: int = 8082):
+    """Create and configure the MCP server with all dependencies
+
+    Args:
+        host: Host to bind to for HTTP transport (default: 127.0.0.1 - localhost only)
+        port: Port to bind to for HTTP transport (default: 8082 - standard MCP HTTP port)
+    """
+    global mcp, config, session_manager, orchestrator  # noqa: PLW0603
 
     try:
         # Import MCP and other dependencies only when actually creating server
@@ -43,8 +48,8 @@ def create_server():
         from .tools.profiling_tools import register_profiling_tools
         from .tools.session_tools import register_session_tools
 
-        # Initialize server components
-        mcp = FastMCP("context-switcher")
+        # Initialize server components with HTTP settings
+        mcp = FastMCP("context-switcher", host=host, port=port)
         config = get_config()
         session_manager = SessionManager(
             max_sessions=config.session.max_active_sessions,
@@ -62,14 +67,13 @@ def create_server():
             )
             template: str | None = Field(
                 default=None,
-                description="Pre-configured perspective template: architecture_decision, feature_evaluation, debugging_analysis, api_design, security_review",
+                description=(
+                    "Pre-configured perspective template: architecture_decision, "
+                    "feature_evaluation, debugging_analysis, api_design, security_review"
+                ),
             )
-            model_backend: ModelBackend = Field(
-                default=ModelBackend.BEDROCK, description="LLM backend to use"
-            )
-            model_name: str | None = Field(
-                default=None, description="Specific model to use"
-            )
+            model_backend: ModelBackend = Field(default=ModelBackend.BEDROCK, description="LLM backend to use")
+            model_name: str | None = Field(default=None, description="Specific model to use")
 
         # Tool registration
         register_session_tools(mcp)
@@ -93,9 +97,7 @@ def create_server():
             (
                 is_valid,
                 error_response,
-            ) = ValidationHandler.validate_session_creation_request(
-                request.topic, request.initial_perspectives
-            )
+            ) = ValidationHandler.validate_session_creation_request(request.topic, request.initial_perspectives)
             if not is_valid:
                 return error_response
             return await SessionHandler.create_session(
@@ -118,9 +120,3 @@ def create_server():
     except Exception as e:
         logger.error(f"Failed to create server: {e}")
         raise
-
-
-def main() -> None:
-    """Main entry point for the MCP server"""
-    server = create_server()
-    server.run()
