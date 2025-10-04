@@ -36,9 +36,7 @@ class StructuredErrorLogger:
         self.logger = logger or get_logger(__name__)
         self.include_stack_trace = include_stack_trace
         self.include_performance_metrics = include_performance_metrics
-        self.correlation_id_generator = correlation_id_generator or (
-            lambda: str(uuid.uuid4())[:8]
-        )
+        self.correlation_id_generator = correlation_id_generator or (lambda: str(uuid.uuid4())[:8])
 
         # Performance tracking
         self.error_metrics = {
@@ -203,9 +201,7 @@ class StructuredErrorLogger:
             "duration": duration,
             "threshold": performance_threshold,
             "threshold_exceeded_by": duration - performance_threshold,
-            "performance_ratio": duration / performance_threshold
-            if performance_threshold > 0
-            else float("inf"),
+            "performance_ratio": duration / performance_threshold if performance_threshold > 0 else float("inf"),
         }
 
         if performance_context:
@@ -323,9 +319,7 @@ class StructuredErrorLogger:
         self.error_metrics["total_errors"] += 1
 
         error_type = classification["error_type"]
-        self.error_metrics["errors_by_type"][error_type] = (
-            self.error_metrics["errors_by_type"].get(error_type, 0) + 1
-        )
+        self.error_metrics["errors_by_type"][error_type] = self.error_metrics["errors_by_type"].get(error_type, 0) + 1
 
         severity = str(classification["severity"])
         self.error_metrics["errors_by_severity"][severity] = (
@@ -384,6 +378,14 @@ class StructuredErrorLogger:
     def log(self, level, msg, *args, **kwargs):
         """Delegate generic logging to underlying logger."""
         return self.logger.log(level, msg, *args, **kwargs)
+
+    def setLevel(self, level):
+        """Delegate setLevel to underlying logger."""
+        return self.logger.setLevel(level)
+
+    def getEffectiveLevel(self):
+        """Delegate getEffectiveLevel to underlying logger."""
+        return self.logger.getEffectiveLevel()
 
 
 # Global structured logger instance
@@ -474,9 +476,7 @@ class ErrorContextFilter(logging.Filter):
                     record.structured_error = {
                         "error_type": type(error).__name__,
                         "error_message": sanitize_error_message(str(error)),
-                        "severity": classification.get(
-                            "severity", ErrorSeverity.MEDIUM
-                        ).value,
+                        "severity": classification.get("severity", ErrorSeverity.MEDIUM).value,
                         "category": classification.get("category", "unknown").value
                         if hasattr(classification.get("category", "unknown"), "value")
                         else str(classification.get("category", "unknown")),

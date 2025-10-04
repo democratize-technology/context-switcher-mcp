@@ -117,7 +117,12 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S101", "S105", "S106", "S110", "S311", "PLR2004", "E722", "F821", "PTH118", "PTH120", "PTH123"]
+"tests/*" = ["S101", "S105", "S106", "S110", "S311", "PLR2004", "E722", "F821", "PTH118", "PTH120", "PTH123", "SIM105"]
+# Security validation files have complex validation logic - ignoring complexity rules for now
+"src/context_switcher_mcp/security/enhanced_validators.py" = ["PLR0911", "PLR0912", "PLR2004", "SIM102"]
+"src/context_switcher_mcp/security/path_validator.py" = ["PLR0911", "PLR0912", "S104", "PTH123"]
+# Error logging delegates to standard logger methods - preserve standard naming
+"src/context_switcher_mcp/error_logging.py" = ["N802", "PLW0603", "RET505", "RUF013", "SIM102"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 15

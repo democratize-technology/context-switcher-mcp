@@ -4,12 +4,12 @@ import asyncio
 from unittest.mock import Mock
 
 import pytest
-from context_switcher_mcp.exceptions import (  # noqa: E402
+from context_switcher_mcp.exceptions import (
     OrchestrationError,
     SessionNotFoundError,
     ValidationError,
 )
-from context_switcher_mcp.tools.analysis_tools import (  # noqa: E402
+from context_switcher_mcp.tools.analysis_tools import (
     AnalyzeFromPerspectivesRequest,
     AnalyzeFromPerspectivesStreamRequest,
     SynthesizePerspectivesRequest,
@@ -111,24 +111,18 @@ class TestAnalysisRequestModels:
 
     def test_synthesize_request_valid(self):
         """Test valid SynthesizePerspectivesRequest"""
-        request = SynthesizePerspectivesRequest(
-            session_id="12345678-1234-1234-1234-123456789012"
-        )
+        request = SynthesizePerspectivesRequest(session_id="12345678-1234-1234-1234-123456789012")
         assert request.session_id == "12345678-1234-1234-1234-123456789012"
 
     def test_request_validation_edge_cases(self):
         """Test request validation with edge cases"""
         # Empty prompt should be valid (might be allowed)
-        request = AnalyzeFromPerspectivesRequest(
-            session_id="12345678-1234-1234-1234-123456789012", prompt=""
-        )
+        request = AnalyzeFromPerspectivesRequest(session_id="12345678-1234-1234-1234-123456789012", prompt="")
         assert request.prompt == ""
 
         # Very long prompt should be handled
         long_prompt = "A" * 10000
-        request = AnalyzeFromPerspectivesRequest(
-            session_id="12345678-1234-1234-1234-123456789012", prompt=long_prompt
-        )
+        request = AnalyzeFromPerspectivesRequest(session_id="12345678-1234-1234-1234-123456789012", prompt=long_prompt)
         assert len(request.prompt) == 10000
 
 
@@ -290,8 +284,8 @@ class TestAsyncPatterns:
         try:
             await asyncio.wait_for(slow_function(), timeout=0.1)
             pytest.fail("Should have timed out")
-        except TimeoutError:
-            # Expected timeout
+        except asyncio.TimeoutError:
+            # Expected timeout - use asyncio.TimeoutError for Python 3.10 compatibility
             pass
 
     async def test_concurrent_async_operations(self):
